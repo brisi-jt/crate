@@ -130,6 +130,53 @@ export const graphResponseSchema = z.object({
   _links: halLinksSchema,
 });
 
+// ------------------------------------------- track map (GET /v1/map/tracks)
+
+/**
+ * One enriched track projected onto the 2D sound field. `features` and
+ * `playlist_ids` are optional: the API doesn't ship them yet, so the web
+ * derives color and membership client-side (lib/field) — when the payload
+ * grows them, the render path picks them up without a schema change.
+ */
+export const mapPointSchema = z.object({
+  track_id: z.number(),
+  name: z.string(),
+  artist: z.string(),
+  x: z.number(),
+  y: z.number(),
+  /** Density cluster label; -1 = noise (no cluster). */
+  cluster: z.number(),
+  /** Per-track library percentiles — drives exact acoustic color when present. */
+  features: centroidSchema.nullable().optional(),
+  /** Owning playlists — replaces the client-side membership join when present. */
+  playlist_ids: z.array(z.number()).optional(),
+});
+
+export const trackMapResponseSchema = z.object({
+  points: z.array(mapPointSchema),
+  cluster_count: z.number(),
+  noise_count: z.number(),
+  /** Adjusted Rand index vs playlist grouping; null until computable. */
+  ari: z.number().nullable(),
+  split_suggestions: z.array(
+    z.object({
+      playlist_id: z.number(),
+      name: z.string(),
+      clusters: z.array(z.object({ cluster: z.number(), share: z.number() })),
+    }),
+  ),
+  merge_suggestions: z.array(
+    z.object({
+      cluster: z.number(),
+      playlist_ids: z.array(z.number()),
+      playlist_names: z.array(z.string()),
+    }),
+  ),
+  /** Layout fingerprint — identical library state reproduces it exactly. */
+  layout_hash: z.string().nullable(),
+  _links: halLinksSchema,
+});
+
 // ------------------------------------- playlist analytics (Phase 4 contract)
 
 export const playlistAnalyticsSchema = z.object({
@@ -363,6 +410,8 @@ export type AcousticCentroidPayload = z.infer<typeof centroidSchema>;
 export type GraphNode = z.infer<typeof graphNodeSchema>;
 export type GraphEdge = z.infer<typeof graphEdgeSchema>;
 export type GraphResponse = z.infer<typeof graphResponseSchema>;
+export type MapPoint = z.infer<typeof mapPointSchema>;
+export type TrackMapResponse = z.infer<typeof trackMapResponseSchema>;
 export type PlaylistAnalytics = z.infer<typeof playlistAnalyticsSchema>;
 export type LibraryStats = z.infer<typeof libraryStatsSchema>;
 export type MutationResult = z.infer<typeof mutationResultSchema>;

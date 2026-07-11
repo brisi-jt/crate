@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { DeckEmptyState } from "@/components/deck/deck-empty-state";
+import { FingerprintBars } from "@/components/deck/fingerprint-bars";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUndoJournal } from "@/hooks/api/use-journal";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/hooks/api/use-suggestions";
 import type { Suggestion } from "@/lib/api/schemas";
 import { acousticColor, oklchString } from "@/lib/color/acoustic";
+import { deckPhase } from "@/lib/deck/empty-state";
 import { ghostFill, ghostOffset } from "@/lib/deck/ghost";
 import { currentId } from "@/lib/deck/machine";
 import { playbackMode, SpotifyPlayback } from "@/lib/playback/spotify-sdk";
@@ -99,6 +101,13 @@ export function ListeningDeck({
     const id = currentId({ queue, index, playing });
     return id === null ? null : (byId.get(id) ?? null);
   }, [queue, index, playing, byId]);
+
+  const phase = deckPhase({
+    pending: suggestions.isPending,
+    failed: suggestions.isError,
+    itemCount: items.length,
+    hasCurrent: current !== null,
+  });
 
   const candidateSwatch = useMemo(
     () =>
@@ -312,28 +321,31 @@ export function ListeningDeck({
         </button>
       </div>
 
-      {suggestions.isPending ? (
+      {phase === "loading" ? (
         <div className="flex flex-col gap-sm">
           <Skeleton className="h-[56px] w-full bg-surface-2" />
           <Skeleton className="h-[72px] w-full bg-surface-2" />
         </div>
-      ) : current === null ? (
-        <div className="flex flex-col items-center gap-sm py-lg">
-          <p className="text-sm text-text-secondary">
-            {items.length === 0
-              ? "No suggestions queued for this playlist yet."
-              : "Queue reviewed — every candidate has a verdict."}
-          </p>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={run.isPending}
-            onClick={() => run.mutate()}
-            className="micro-caps border-border-subtle text-text-secondary"
+      ) : phase === "error" ? (
+        <div className="flex flex-col items-center gap-xs py-lg">
+          <span className="micro-caps text-danger">QUEUE UNAVAILABLE</span>
+          <button
+            type="button"
+            onClick={() => suggestions.refetch()}
+            className="micro-caps cursor-pointer text-text-secondary underline hover:text-text-primary"
           >
-            {run.isPending ? "Running discovery…" : "Run discovery"}
-          </Button>
+            RETRY
+          </button>
         </div>
+      ) : phase === "unsurveyed" || phase === "reviewed" || current === null ? (
+        <DeckEmptyState
+          kind={phase === "unsurveyed" ? "unsurveyed" : "reviewed"}
+          playlistName={playlistName}
+          running={run.isPending}
+          result={run.data ?? null}
+          failed={run.isError}
+          onRun={() => run.mutate()}
+        />
       ) : (
         <>
           <div className="flex items-start gap-md">
@@ -367,40 +379,16 @@ export function ListeningDeck({
             </div>
           </div>
 
-          <div className="flex flex-col gap-xs">
-            {DECK_FEATURES.map(({ key, label }) => {
+          <FingerprintBars
+            rows={DECK_FEATURES.flatMap(({ key, label }) => {
               const point = current.fingerprint.find((p) => p.feature === key);
-              if (!point) return null;
-              return (
-                <div
-                  key={key}
-                  className="grid grid-cols-[110px_1fr_42px] items-center gap-sm"
-                >
-                  <span className="micro-caps text-text-muted">{label}</span>
-                  <div className="relative h-[6px] rounded-xs bg-surface-2">
-                    <div
-                      className="h-[6px] rounded-xs"
-                      style={{
-                        width: `${Math.round(point.candidate * 100)}%`,
-                        background: candidateSwatch ?? "var(--text-secondary)",
-                      }}
-                    />
-                    {/* Playlist-profile tick — where the target sits on this axis */}
-                    <div
-                      className="absolute top-[-3px] h-[12px] w-[2px]"
-                      style={{
-                        left: `${Math.round(point.playlist * 100)}%`,
-                        background: playlistSwatch ?? "var(--text-secondary)",
-                      }}
-                    />
-                  </div>
-                  <span className="data-readout text-right text-micro text-text-secondary">
-                    P{Math.round(point.candidate * 100)}
-                  </span>
-                </div>
-              );
+              return point
+                ? [{ key, label, value: point.candidate, tick: point.playlist }]
+                : [];
             })}
-          </div>
+            valueColor={candidateSwatch}
+            tickColor={playlistSwatch}
+          />
 
           <div className="flex items-center gap-md text-sm text-text-muted">
             {current.preview_url || sdkEligible ? (

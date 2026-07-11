@@ -6,6 +6,12 @@ export const queryKeys = {
   playlists: ["playlists"] as const,
   playlistTracks: (playlistId: number, offset: number) =>
     ["playlists", playlistId, "tracks", { offset }] as const,
+  /** Full track-id roster for one playlist (track-field membership join). */
+  playlistTrackIds: (playlistId: number) =>
+    ["playlists", playlistId, "track-ids"] as const,
+  trackMap: ["track-map"] as const,
+  /** Scope-keyed track map; invalidate with the bare `trackMap` prefix. */
+  trackMapScoped: (ownedOnly: boolean) => ["track-map", { ownedOnly }] as const,
   playlistAnalytics: (playlistId: number) =>
     ["playlists", playlistId, "analytics"] as const,
   suggestions: (playlistId: number) =>

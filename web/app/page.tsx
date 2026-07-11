@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/chrome/command-palette";
+import { MapModeSwitch } from "@/components/chrome/map-mode-switch";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
 import { ListeningDeck } from "@/components/deck/listening-deck";
@@ -21,6 +22,7 @@ import { LibraryStatsPanelContent } from "@/components/panels/library-stats-pane
 import { OpsLogPanelContent } from "@/components/panels/ops-log-panel";
 import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
 import { RightDock } from "@/components/panels/right-dock";
+import { TrackCardPanelContent } from "@/components/panels/track-card-panel";
 import {
   ConnectBeacon,
   FirstSyncBeacon,
@@ -41,6 +43,10 @@ const GraphCanvas = dynamic(() => import("@/components/graph/graph-canvas"), {
   ssr: false,
 });
 
+const TrackField = dynamic(() => import("@/components/field/track-field"), {
+  ssr: false,
+});
+
 export default function MapPage() {
   const graph = useGraph();
   const status = useSyncStatus();
@@ -50,6 +56,9 @@ export default function MapPage() {
   const rightPanel = useUiStore((s) => s.rightPanel);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const openPlaylist = useUiStore((s) => s.openPlaylist);
+  const openTrack = useUiStore((s) => s.openTrack);
+  const mapMode = useUiStore((s) => s.mapMode);
+  const setMapMode = useUiStore((s) => s.setMapMode);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const popLayer = useUiStore((s) => s.popLayer);
@@ -134,7 +143,23 @@ export default function MapPage() {
     <main className="fixed inset-0 overflow-hidden bg-canvas">
       {/* The map region — everything else docks over it */}
       <div className="absolute inset-x-0 top-0 bottom-[56px]">
-        {graph.data ? (
+        {graph.data && mapMode === "tracks" ? (
+          <TrackField
+            graph={graph.data}
+            selectedTrackId={
+              rightPanel?.kind === "track" ? rightPanel.trackId : null
+            }
+            onSelectTrack={(trackId) => {
+              if (trackId === null) {
+                if (rightPanel?.kind === "track") closeRightPanel();
+              } else {
+                openTrack(trackId);
+              }
+            }}
+            rightInset={rightInset}
+            reducedMotion={reducedMotion}
+          />
+        ) : graph.data ? (
           <GraphCanvas
             graph={graph.data}
             selectedId={selectedPlaylistId}
@@ -176,8 +201,9 @@ export default function MapPage() {
         )}
 
         {/* Chrome woven onto the canvas margin — no bar, no card */}
-        <div className="pointer-events-none absolute top-md left-lg z-10">
+        <div className="pointer-events-none absolute top-md left-lg z-10 flex items-center gap-md">
           <SyncReadout graph={graph.data ?? null} />
+          {graph.data && <MapModeSwitch />}
         </div>
         <button
           type="button"
@@ -229,6 +255,22 @@ export default function MapPage() {
         onClose={closeRightPanel}
       >
         {rightPanel?.kind === "ops-log" && <OpsLogPanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "track"}
+        title="Track"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "track" && (
+          <TrackCardPanelContent
+            trackId={rightPanel.trackId}
+            onShowInGraph={(playlistId) => {
+              setMapMode("playlists");
+              openPlaylist(playlistId);
+            }}
+          />
+        )}
       </RightDock>
 
       {contextMenu && (

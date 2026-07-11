@@ -13,6 +13,7 @@ import {
   oklchString,
   selectionRing,
 } from "@/lib/color/acoustic";
+import { type CanvasTokens, readCanvasTokens } from "@/lib/graph/canvas-tokens";
 import { edgeWidth, nodeRadius } from "@/lib/graph/geometry";
 import { GraphHoverCard } from "./hover-card";
 
@@ -44,31 +45,6 @@ type MapLink = LinkObject<MapNodeData, MapLinkData>;
 const LABEL_THRESHOLD_PX = 8;
 const LABEL_FADE_MS = 150;
 const HOVER_CARD_DELAY_MS = 220;
-
-/** Design-token colors the canvas painter needs, resolved from CSS once. */
-interface CanvasTokens {
-  textPrimary: string;
-  textSecondary: string;
-  textMuted: string;
-  borderSubtle: string;
-  borderStrong: string;
-  fontText: string;
-  canvas: string;
-}
-
-function readCanvasTokens(): CanvasTokens {
-  const style = getComputedStyle(document.documentElement);
-  const v = (name: string) => style.getPropertyValue(name).trim();
-  return {
-    textPrimary: v("--text-primary"),
-    textSecondary: v("--text-secondary"),
-    textMuted: v("--text-muted"),
-    borderSubtle: v("--border-subtle"),
-    borderStrong: v("--border-strong"),
-    fontText: v("--font-b612") || "sans-serif",
-    canvas: v("--canvas") || "oklch(0.13 0.015 265)",
-  };
-}
 
 /** The auditioning candidate, rendered as a ghost near its target playlist. */
 export interface GhostRender {

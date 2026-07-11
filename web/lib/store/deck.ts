@@ -40,6 +40,8 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
 /**
  * Open the deck over the dimmed map: the right panel retracts (the deck is
  * the focus), the target playlist stays selected so its ring and label hold.
+ * The map snaps to the playlist graph — the ghost node and dim state anchor
+ * to the target playlist's node, which only exists there.
  */
 export function openListeningDeck(playlistId: number) {
   useDeckStore.getState().open(playlistId);
@@ -47,5 +49,6 @@ export function openListeningDeck(playlistId: number) {
     rightPanel: null,
     paletteOpen: false,
     selectedPlaylistId: playlistId,
+    mapMode: "playlists",
   });
 }

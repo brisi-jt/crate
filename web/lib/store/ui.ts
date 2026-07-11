@@ -11,7 +11,11 @@ export type RightPanel =
   | { kind: "playlist"; playlistId: number }
   | { kind: "stats" }
   | { kind: "bulk-ops"; sourceId?: number }
-  | { kind: "ops-log" };
+  | { kind: "ops-log" }
+  | { kind: "track"; trackId: number };
+
+/** The canvas renders one of two maps: the playlist graph or the track field. */
+export type MapMode = "playlists" | "tracks";
 
 /** A track picked in the playlist panel — target of graph context-menu adds. */
 export interface SelectedTrack {
@@ -28,11 +32,18 @@ interface UiState {
    * over, and the map is designed around the curated set.
    */
   includeFollowed: boolean;
+  /** Which map fills the room: playlist graph (force) or track field (scatter). */
+  mapMode: MapMode;
+  /** Track-field HDBSCAN hulls on/off. */
+  clusterOverlay: boolean;
   /** Node selected on the map (drives the selection ring + playlist panel). */
   selectedPlaylistId: number | null;
   /** Tracks marked in the playlist panel, for "add selection to…" actions. */
   selectedTracks: SelectedTrack[];
   openPlaylist: (playlistId: number) => void;
+  openTrack: (trackId: number) => void;
+  setMapMode: (mode: MapMode) => void;
+  setClusterOverlay: (on: boolean) => void;
   openStats: () => void;
   openBulkOps: (sourceId?: number) => void;
   openOpsLog: () => void;
@@ -48,8 +59,17 @@ export const useUiStore = create<UiState>((set, get) => ({
   rightPanel: null,
   paletteOpen: false,
   includeFollowed: false,
+  mapMode: "playlists",
+  clusterOverlay: false,
   selectedPlaylistId: null,
   selectedTracks: [],
+
+  openTrack: (trackId) =>
+    set({ rightPanel: { kind: "track", trackId }, paletteOpen: false }),
+
+  setMapMode: (mode) => set({ mapMode: mode }),
+
+  setClusterOverlay: (on) => set({ clusterOverlay: on }),
 
   openPlaylist: (playlistId) =>
     set({
