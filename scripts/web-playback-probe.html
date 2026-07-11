@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--
+  Phase 0 probe: does the Spotify Web Playback SDK work on a dev-mode app?
+
+  Usage:
+    1. Get an access token with the "streaming" scope. Easiest path: run
+       `SPOTIFY_CLIENT_ID=... uv run scripts/phase0_smoke.py` and copy the
+       token it prints, or grab one from the OAuth flow directly.
+    2. Open this file in a browser. Chrome/Firefox both work; the SDK needs
+       EME (encrypted media), so Safari can be flaky.
+    3. Paste the token, click Connect. Watch the status log.
+    4. If the device registers, it appears as "crate probe" in Spotify
+       Connect (check the device picker in the Spotify app).
+    5. Click "Play test track" to confirm audio actually plays in the page.
+
+  Verdicts to record in thoughts/shared/research/2026-07-phase0-spotify-smoke.md:
+    - "ready" event with a device_id  -> SDK registers on dev-mode apps
+    - authentication_error            -> token missing streaming scope or SDK blocked
+    - account_error                   -> Premium required / not available on this account
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>crate — Web Playback SDK probe</title>
+  <style>
+    body { font-family: ui-monospace, monospace; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    input { width: 100%; padding: .5rem; margin: .5rem 0; font-family: inherit; }
+    button { padding: .5rem 1rem; margin-right: .5rem; cursor: pointer; }
+    #status { white-space: pre-wrap; background: #f4f4f4; padding: 1rem; margin-top: 1rem; min-height: 8rem; }
+  </style>
+</head>
+<body>
+  <h1>crate — Web Playback SDK probe</h1>
+  <p>Paste an access token that includes the <code>streaming</code> scope, then Connect.</p>
+
+  <input id="token" type="password" placeholder="Spotify access token">
+  <button id="connect">Connect</button>
+  <button id="play" disabled>Play test track (Blinding Lights)</button>
+
+  <div id="status">status: waiting for token…</div>
+
+  <script>
+    const TEST_TRACK_URI = 'spotify:track:0VjIjW4GlUZAMYd2vXMi3b';
+    const statusEl = document.getElementById('status');
+    let deviceId = null;
+    let accessToken = null;
+
+    function log(line) {
+      statusEl.textContent += '\n' + new Date().toISOString().slice(11, 19) + '  ' + line;
+    }
+
+    // The SDK calls this global once spotify-player.js finishes loading.
+    window.onSpotifyWebPlaybackSDKReady = () => log('SDK script loaded');
+
+    document.getElementById('connect').onclick = () => {
+      accessToken = document.getElementById('token').value.trim();
+      if (!accessToken) { log('no token entered'); return; }
+      if (!window.Spotify) { log('SDK not loaded yet — wait a second and retry'); return; }
+
+      const player = new Spotify.Player({
+        name: 'crate probe',
+        getOAuthToken: cb => cb(accessToken),
+        volume: 0.5,
+      });
+
+      player.addListener('ready', ({ device_id }) => {
+        deviceId = device_id;
+        document.getElementById('play').disabled = false;
+        log('READY — device registered: ' + device_id);
+        log('VERDICT: Web Playback SDK works on this app/token');
+      });
+      player.addListener('not_ready', ({ device_id }) => log('device went offline: ' + device_id));
+      player.addListener('initialization_error', ({ message }) => log('initialization_error: ' + message));
+      player.addListener('authentication_error', ({ message }) => log('authentication_error: ' + message + ' (check streaming scope / dev-mode restrictions)'));
+      player.addListener('account_error', ({ message }) => log('account_error: ' + message + ' (Premium required)'));
+      player.addListener('playback_error', ({ message }) => log('playback_error: ' + message));
+      player.addListener('player_state_changed', state => {
+        if (state) log('state: ' + (state.paused ? 'paused' : 'playing') + ' — ' + (state.track_window?.current_track?.name || '?'));
+      });
+
+      player.connect().then(ok => log(ok ? 'connect() resolved true — waiting for ready event…' : 'connect() failed'));
+    };
+
+    // Playback is started via the Web API, targeting the SDK's device id.
+    document.getElementById('play').onclick = async () => {
+      if (!deviceId) { log('no device yet'); return; }
+      const resp = await fetch(
+        'https://api.spotify.com/v1/me/player/play?device_id=' + deviceId,
+        {
+          method: 'PUT',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uris: [TEST_TRACK_URI] }),
+        }
+      );
+      log('play request: HTTP ' + resp.status + (resp.ok ? ' — listen for audio' : ' — ' + await resp.text()));
+    };
+  </script>
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+</body>
+</html>
