@@ -45,13 +45,22 @@ def seed_track(session: Session, spotify_id: str) -> Track:
     return track
 
 
-def seed_features(session: Session, track: Track, status: FeatureStatus) -> None:
+def seed_features(
+    session: Session,
+    track: Track,
+    status: FeatureStatus,
+    source: FeatureSource | None = None,
+    preview_resolved: bool | None = None,
+) -> None:
+    if source is None and status == FeatureStatus.present:
+        source = FeatureSource.reccobeats
     session.add(
         TrackFeatures(
             track_id=track.id,
             status=status,
-            source=FeatureSource.reccobeats if status == FeatureStatus.present else None,
+            source=source,
             energy=0.5 if status == FeatureStatus.present else None,
+            preview_resolved=preview_resolved,
         )
     )
     session.commit()
@@ -145,3 +154,64 @@ class TestStatusEndpoint:
         assert body["freqblog"]["limit"] == 1000
         assert body["freqblog"]["used"] == 0
         assert body["freqblog"]["configured"] is False
+
+    def test_per_source_counts_and_local_dsp_block(
+        self, client: TestClient, session: Session
+    ) -> None:
+        recco = seed_track(session, "r1")
+        seed_features(session, recco, FeatureStatus.present)
+        local = seed_track(session, "l1")
+        seed_features(
+            session,
+            local,
+            FeatureStatus.present,
+            source=FeatureSource.essentia,
+            preview_resolved=True,
+        )
+        no_preview = seed_track(session, "n1")
+        seed_features(session, no_preview, FeatureStatus.missing, preview_resolved=False)
+        queued = seed_track(session, "q1")
+        seed_features(session, queued, FeatureStatus.missing)
+
+        body = client.get("/v1/enrichment/status").json()
+
+        assert body["features_by_source"] == {"reccobeats": 1, "freqblog": 0, "essentia": 1}
+        dsp = body["local_dsp"]
+        assert dsp["enabled"] is True
+        assert dsp["analyzed"] == 1
+        assert dsp["queued"] == 1  # missing, preview never looked for
+        assert dsp["no_preview"] == 1
+        # Two preview lookups ever attempted, one found audio.
+        assert dsp["preview_resolution_pct"] == pytest.approx(50.0)
+
+    def test_local_dsp_rate_is_null_before_any_attempt(self, client: TestClient) -> None:
+        body = client.get("/v1/enrichment/status").json()
+        assert body["local_dsp"]["preview_resolution_pct"] is None
+        assert body["local_dsp"]["analyzed"] == 0
+
+
+class TestRunEndpointLocalDsp:
+    def test_run_reports_localdsp_counts(
+        self, session: Session, user: User, run_calls: list[int]
+    ) -> None:
+        async def runner(_session: Session, batch_size: int) -> EnrichmentReport:
+            run_calls.append(batch_size)
+            return EnrichmentReport(
+                tracks_processed=2,
+                features_from_localdsp=1,
+                localdsp_no_preview=1,
+                localdsp_uncalibrated=True,
+                errors=["localdsp t-x: decode failed"],
+            )
+
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_enrichment_runner] = lambda: runner
+        body = TestClient(app).post("/v1/enrichment/run").json()
+
+        assert body["features_from_localdsp"] == 1
+        assert body["localdsp_no_preview"] == 1
+        assert body["localdsp_uncalibrated"] is True
+        assert body["localdsp_skipped"] is False
+        assert body["errors"] == ["localdsp t-x: decode failed"]

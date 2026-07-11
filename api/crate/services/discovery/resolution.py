@@ -12,6 +12,7 @@ Resolution turns a (title, artist) proposal into a playable, addable track:
 """
 
 import hashlib
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from sqlmodel import Session
@@ -155,21 +156,39 @@ async def fetch_candidate_features(
     return fetched
 
 
+@dataclass
+class PreviewResolution:
+    """Outcome of one preview pass: successes counted even when a lookup fails."""
+
+    resolved: int = 0
+    errors: list[str] = field(default_factory=list)
+
+
 async def resolve_previews(
     session: Session,
     candidates: list[DiscoveryCandidate],
     previews: PreviewSource,
-) -> int:
-    """Fill Deezer preview URLs; a miss just leaves the candidate preview-less."""
-    resolved = 0
+) -> PreviewResolution:
+    """Fill Deezer preview URLs; a miss just leaves the candidate preview-less.
+
+    Failures are isolated per candidate: the preview source's response cache
+    commits the session as it goes, so a mid-loop error would otherwise leave
+    already-persisted previews uncounted. Each failure is reported and the
+    pass moves on.
+    """
+    outcome = PreviewResolution()
     for candidate in candidates:
         if candidate.status != CandidateStatus.resolved or candidate.preview_url:
             continue
-        result = await previews.search_preview(candidate.title, candidate.artist)
+        try:
+            result = await previews.search_preview(candidate.title, candidate.artist)
+        except Exception as exc:  # one bad lookup never voids the pass
+            outcome.errors.append(f"preview {candidate.title} — {candidate.artist}: {exc}")
+            continue
         if result is None:
             continue
         candidate.preview_url = result.preview
         session.add(candidate)
-        resolved += 1
+        outcome.resolved += 1
     session.commit()
-    return resolved
+    return outcome

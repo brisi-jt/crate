@@ -174,6 +174,13 @@ class TrackFeatures(TimestampedModel, table=True):
     source: FeatureSource | None = Field(
         default=None, sa_column=enum_column(FeatureSource, nullable=True)
     )
+    # Raw local-DSP values before quantile mapping into the ReccoBeats space.
+    # Only set when source is essentia; the mapped values live in the feature
+    # columns above so every consumer ranks in one distribution.
+    local_raw: dict[str, float] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Local analysis needs a 30-second preview. Null = never looked for one,
+    # True = found (and analyzed), False = no preview exists for this track.
+    preview_resolved: bool | None = Field(default=None)
     fetched_at: datetime = Field(default_factory=utcnow)
 
 
@@ -263,6 +270,27 @@ class FeatureCalibration(TimestampedModel, table=True):
     p10: float = Field()
     p50: float = Field()
     p90: float = Field()
+    sample_size: int = Field()
+    computed_at: datetime = Field(default_factory=utcnow)
+
+
+class LocalDspCalibration(TimestampedModel, table=True):
+    """Quantile mapping from local-DSP feature values into the ReccoBeats space.
+
+    Fitted on the overlap set — tracks that have both a ReccoBeats value and a
+    locally-analyzed preview — so the map corrects source bias, not repertoire
+    bias. local_anchors[i] maps to target_anchors[i] by linear interpolation.
+    """
+
+    __tablename__ = "local_dsp_calibrations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    feature: str = Field(unique=True, max_length=32)
+    # Matched quantile grids: same length, both ascending.
+    local_anchors: list[float] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    target_anchors: list[float] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
     sample_size: int = Field()
     computed_at: datetime = Field(default_factory=utcnow)
 

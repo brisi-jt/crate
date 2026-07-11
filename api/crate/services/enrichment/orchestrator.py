@@ -1,9 +1,9 @@
 """Enrichment orchestrator.
 
 One pass walks un-enriched tracks and artists, fans out to the sources with
-a fallback ladder (ReccoBeats → ReccoBeats-by-ISRC → FreqBlog → marked
-missing for later Essentia analysis), persists results, and refreshes the
-feature calibration percentiles.
+a fallback ladder (ReccoBeats → ReccoBeats-by-ISRC → FreqBlog → local audio
+analysis of the track's preview → marked missing), persists results, and
+refreshes the feature calibration percentiles.
 """
 
 from dataclasses import dataclass, field
@@ -12,11 +12,26 @@ from typing import Protocol
 from sqlmodel import Session, select
 
 from crate.model.enums import FeatureSource, FeatureStatus, SimilaritySource, TagSource
-from crate.model.orm import Artist, ArtistSimilarity, ArtistTag, Track, TrackFeatures
+from crate.model.orm import (
+    Artist,
+    ArtistSimilarity,
+    ArtistTag,
+    LocalDspCalibration,
+    Track,
+    TrackFeatures,
+)
 from crate.model.orm.base import utcnow
 from crate.services.analytics.snapshots import invalidate_snapshots
 from crate.services.enrichment.calibration import recompute_calibration
 from crate.services.enrichment.freqblog import try_consume_budget
+from crate.services.enrichment.localdsp import (
+    LOCAL_FEATURES,
+    MIN_OVERLAP_SAMPLES,
+    OVERLAP_SAMPLE_LIMIT,
+    LocalAnalysis,
+    apply_quantile_map,
+    fit_quantile_map,
+)
 from crate.services.enrichment.models import (
     ArtistTagView,
     AudioFeatures,
@@ -27,6 +42,15 @@ from crate.services.enrichment.models import (
 # ISRC lookups attempted per artist when resolving an MBID; each costs a
 # paced MusicBrainz request, so the ladder stays short.
 MAX_MBID_LOOKUPS_PER_ARTIST = 2
+
+
+def _primary_artist_name(track: Track) -> str:
+    """First credited artist — what the Deezer preview search matches against."""
+    for credited in track.artists:
+        name = credited.get("name")
+        if name:
+            return str(name)
+    return ""
 
 
 class FeatureBatchSource(Protocol):
@@ -51,6 +75,10 @@ class MbidSource(Protocol):
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None: ...
 
 
+class LocalDspSource(Protocol):
+    async def analyze(self, title: str, artist: str) -> LocalAnalysis | None: ...
+
+
 @dataclass
 class EnrichmentReport:
     """Counts from one enrichment pass."""
@@ -59,6 +87,9 @@ class EnrichmentReport:
     features_from_reccobeats: int = 0
     features_from_isrc_fallback: int = 0
     features_from_freqblog: int = 0
+    features_from_localdsp: int = 0
+    # Tracks local analysis wanted but Deezer had no preview for.
+    localdsp_no_preview: int = 0
     features_missing: int = 0
     artists_processed: int = 0
     artists_mbid_resolved: int = 0
@@ -69,6 +100,12 @@ class EnrichmentReport:
     lastfm_skipped: bool = False
     # True when the FreqBlog monthly allowance ran out during the pass.
     freqblog_exhausted: bool = False
+    # True when no local-analysis client is configured — remote-missed tracks
+    # stay queued as missing.
+    localdsp_skipped: bool = False
+    # True when local values were stored raw because the overlap set was too
+    # small to fit the quantile map into the ReccoBeats space.
+    localdsp_uncalibrated: bool = False
     errors: list[str] = field(default_factory=list)
 
 
@@ -95,6 +132,7 @@ class EnrichmentService:
         musicbrainz: MbidSource,
         freqblog: FeatureFallbackSource | None = None,
         lastfm: ArtistInfoSource | None = None,
+        localdsp: LocalDspSource | None = None,
         freqblog_budget_limit: int = 1000,
         month: str | None = None,
     ) -> None:
@@ -102,19 +140,25 @@ class EnrichmentService:
         self._musicbrainz = musicbrainz
         self._freqblog = freqblog
         self._lastfm = lastfm
+        self._localdsp = localdsp
         self._freqblog_budget_limit = freqblog_budget_limit
         self._month = month
 
     async def run(self, session: Session, *, batch_size: int = 100) -> EnrichmentReport:
-        report = EnrichmentReport(lastfm_skipped=self._lastfm is None)
+        report = EnrichmentReport(
+            lastfm_skipped=self._lastfm is None,
+            localdsp_skipped=self._localdsp is None,
+        )
         await self._enrich_track_features(session, batch_size, report)
+        if self._localdsp is not None:
+            await self._analyze_missing_locally(session, batch_size, report)
         await self._resolve_artist_mbids(session, batch_size, report)
         if self._lastfm is not None:
             await self._enrich_artists_from_lastfm(session, batch_size, report)
         recompute_calibration(session)
         # New feature values shift the percentile space itself, so cached
         # analytics for every user are stale, not just one library's.
-        if report.tracks_processed:
+        if report.tracks_processed or report.features_from_localdsp:
             invalidate_snapshots(session)
             session.commit()
         return report
@@ -181,6 +225,129 @@ class EnrichmentService:
         return TrackFeatures(
             track_id=track.id, status=FeatureStatus.present, source=source, **values
         )
+
+    # -- local audio analysis -------------------------------------------------
+
+    async def _analyze_missing_locally(
+        self, session: Session, batch_size: int, report: EnrichmentReport
+    ) -> None:
+        """Final rung: analyze the Deezer previews of remote-missed tracks.
+
+        Serves both rows marked missing earlier this pass and the standing
+        backlog. Rows whose preview lookup already failed (preview_resolved
+        False) are left alone — Deezer will not grow a preview between passes.
+        """
+        assert self._localdsp is not None
+        rows = session.exec(
+            select(TrackFeatures, Track)
+            .join(Track, Track.id == TrackFeatures.track_id)
+            .where(TrackFeatures.status == FeatureStatus.missing)
+            .where(TrackFeatures.preview_resolved == None)  # noqa: E711 — SQL expression
+            .limit(batch_size)
+        ).all()
+        if not rows:
+            return
+        maps = await self._ensure_localdsp_calibration(session, report)
+
+        for features_row, track in rows:
+            try:
+                analysis = await self._localdsp.analyze(track.name, _primary_artist_name(track))
+            except Exception as exc:  # one bad preview never voids the pass
+                report.errors.append(f"localdsp {track.name}: {exc}")
+                continue
+            if analysis is None:
+                features_row.preview_resolved = False
+                report.localdsp_no_preview += 1
+                session.add(features_row)
+                continue
+            raw = analysis.features
+            for feature in LOCAL_FEATURES:
+                value = raw.get(feature)
+                if value is None:
+                    continue
+                anchors = maps.get(feature)
+                mapped = apply_quantile_map(*anchors, value) if anchors else value
+                setattr(features_row, feature, mapped)
+            features_row.status = FeatureStatus.present
+            features_row.source = FeatureSource.essentia
+            features_row.local_raw = raw
+            features_row.preview_resolved = True
+            session.add(features_row)
+            report.features_from_localdsp += 1
+            # The track ends the pass with features after all.
+            report.features_missing = max(0, report.features_missing - 1)
+        session.commit()
+
+    async def _ensure_localdsp_calibration(
+        self, session: Session, report: EnrichmentReport
+    ) -> dict[str, tuple[list[float], list[float]]]:
+        """Per-feature quantile maps into the ReccoBeats space, fitting on demand.
+
+        Fitting analyzes the previews of tracks that already carry ReccoBeats
+        values (the overlap set), pairing each feature's local and remote
+        value. Persisted once; later passes just load the stored anchors.
+        """
+        assert self._localdsp is not None
+        existing = session.exec(select(LocalDspCalibration)).all()
+        if existing:
+            return {row.feature: (row.local_anchors, row.target_anchors) for row in existing}
+
+        overlap = session.exec(
+            select(TrackFeatures, Track)
+            .join(Track, Track.id == TrackFeatures.track_id)
+            .where(TrackFeatures.status == FeatureStatus.present)
+            .where(TrackFeatures.source == FeatureSource.reccobeats)
+            .limit(OVERLAP_SAMPLE_LIMIT)
+        ).all()
+
+        pairs: dict[str, list[tuple[float, float]]] = {f: [] for f in LOCAL_FEATURES}
+        analyzed = 0
+        for recco_row, track in overlap:
+            try:
+                analysis = await self._localdsp.analyze(track.name, _primary_artist_name(track))
+            except Exception as exc:
+                report.errors.append(f"localdsp calibration {track.name}: {exc}")
+                continue
+            if analysis is None:
+                if recco_row.preview_resolved is None:
+                    recco_row.preview_resolved = False
+                    session.add(recco_row)
+                continue
+            analyzed += 1
+            # Keep what was learned: the preview exists and the raw values can
+            # feed a future refit. source stays reccobeats.
+            recco_row.preview_resolved = True
+            recco_row.local_raw = analysis.features
+            session.add(recco_row)
+            for feature in LOCAL_FEATURES:
+                target = getattr(recco_row, feature)
+                local = analysis.features.get(feature)
+                if target is not None and local is not None:
+                    pairs[feature].append((local, target))
+
+        if analyzed < MIN_OVERLAP_SAMPLES:
+            report.localdsp_uncalibrated = True
+            session.commit()
+            return {}
+
+        maps: dict[str, tuple[list[float], list[float]]] = {}
+        for feature, samples in pairs.items():
+            if len(samples) < MIN_OVERLAP_SAMPLES:
+                continue
+            local_anchors, target_anchors = fit_quantile_map(
+                [s[0] for s in samples], [s[1] for s in samples]
+            )
+            session.add(
+                LocalDspCalibration(
+                    feature=feature,
+                    local_anchors=local_anchors,
+                    target_anchors=target_anchors,
+                    sample_size=len(samples),
+                )
+            )
+            maps[feature] = (local_anchors, target_anchors)
+        session.commit()
+        return maps
 
     # -- artist mbids --------------------------------------------------------
 
@@ -303,11 +470,21 @@ class EnrichmentService:
 
 async def run_enrichment(session: Session, batch_size: int) -> EnrichmentReport:
     """Production wiring: build clients from settings and run one pass."""
+    from pathlib import Path
+
     from crate.services.enrichment.cache import ResponseCache
+    from crate.services.enrichment.deezer import DeezerClient
     from crate.services.enrichment.freqblog import FreqBlogClient
     from crate.services.enrichment.lastfm import LastFmClient
+    from crate.services.enrichment.localdsp import (
+        DEEZER_PREVIEW_MIN_INTERVAL,
+        LocalDspClient,
+        PreviewCache,
+        default_cache_dir,
+    )
     from crate.services.enrichment.musicbrainz import MusicBrainzClient
     from crate.services.enrichment.reccobeats import ReccoBeatsClient
+    from crate.services.enrichment.throttle import RateLimiter
     from crate.settings import get_settings
 
     settings = get_settings()
@@ -329,13 +506,29 @@ async def run_enrichment(session: Session, batch_size: int) -> EnrichmentReport:
         if settings.lastfm_api_key
         else None
     )
-    clients = [c for c in (reccobeats, musicbrainz, freqblog, lastfm) if c is not None]
+    localdsp = None
+    deezer = None
+    if settings.localdsp_enabled:
+        deezer = DeezerClient(
+            cache=ResponseCache(session, source="deezer"),
+            limiter=RateLimiter(min_interval=DEEZER_PREVIEW_MIN_INTERVAL),
+        )
+        if settings.localdsp_cache_dir:
+            cache_dir = Path(settings.localdsp_cache_dir)
+        else:
+            cache_dir = default_cache_dir()
+        localdsp = LocalDspClient(
+            previews=deezer,
+            cache=PreviewCache(cache_dir, max_bytes=settings.localdsp_cache_max_mb * 1024 * 1024),
+        )
+    clients = [c for c in (reccobeats, musicbrainz, freqblog, lastfm, deezer, localdsp) if c]
     try:
         service = EnrichmentService(
             reccobeats=reccobeats,
             musicbrainz=musicbrainz,
             freqblog=freqblog,
             lastfm=lastfm,
+            localdsp=localdsp,
             freqblog_budget_limit=settings.freqblog_monthly_budget,
         )
         return await service.run(session, batch_size=batch_size)

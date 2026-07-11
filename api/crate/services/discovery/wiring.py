@@ -136,7 +136,9 @@ async def run_discovery(
         except Exception as exc:  # enrichment is best-effort
             report.errors.append(f"features: {exc}")
         try:
-            report.previews_resolved = await resolve_previews(session, list(actionable), deezer)
+            previews = await resolve_previews(session, list(actionable), deezer)
+            report.previews_resolved = previews.resolved
+            report.errors.extend(previews.errors)
         except Exception as exc:  # previews are best-effort
             report.errors.append(f"previews: {exc}")
 

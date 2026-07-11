@@ -79,6 +79,16 @@ class Settings(BaseSettings):
     freqblog_api_key: str | None = None
     freqblog_monthly_budget: int = 1000
 
+    # Local audio analysis: when the hosted feature sources miss a track, a
+    # 30-second Deezer preview is analyzed on this machine instead. Needs no
+    # API key; disable to keep enrichment passes fully remote.
+    localdsp_enabled: bool = Field(default=True, validation_alias="CRATE_LOCALDSP_ENABLED")
+    # Where downloaded preview audio is kept between passes. Empty means a
+    # crate-previews directory under the system temp dir.
+    localdsp_cache_dir: str = ""
+    # Size cap for that preview cache; oldest files are evicted past it.
+    localdsp_cache_max_mb: int = 200
+
 
 @lru_cache
 def get_settings() -> Settings:

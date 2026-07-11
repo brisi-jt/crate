@@ -168,8 +168,56 @@ async def test_preview_resolution_fills_urls_and_tolerates_misses(
     session.commit()
 
     deezer = FakeDeezer({"magical|cassian": "https://cdn.example/preview.mp3"})
-    resolved = await resolve_previews(session, [hit, miss], deezer)
+    outcome = await resolve_previews(session, [hit, miss], deezer)
 
-    assert resolved == 1
+    assert outcome.resolved == 1
+    assert outcome.errors == []
     assert hit.preview_url == "https://cdn.example/preview.mp3"
     assert miss.preview_url is None
+
+
+class ExplodingDeezer(FakeDeezer):
+    """Fails for specific candidates — models a mid-loop Deezer HTTP error."""
+
+    def __init__(self, previews: dict[str, str], explode_on: set[str]) -> None:
+        super().__init__(previews)
+        self.explode_on = explode_on
+
+    async def search_preview(self, title: str, artist: str):
+        if title.lower() in self.explode_on:
+            raise RuntimeError("deezer 500")
+        return await super().search_preview(title, artist)
+
+
+async def test_preview_resolution_counts_partial_progress_when_one_lookup_fails(
+    session: Session, user: User, gym: Playlist
+) -> None:
+    """One failing Deezer lookup must not zero the counter for work already done.
+
+    The response cache commits mid-loop, so previews written before a failure
+    are persisted regardless — the report has to count them, and the failure
+    has to surface as an error instead of aborting the pass.
+    """
+    first = pending(session, user, gym, "Alpha", "Artist A")
+    bad = pending(session, user, gym, "Boom", "Artist B")
+    last = pending(session, user, gym, "Gamma", "Artist C")
+    for c in (first, bad, last):
+        c.status = CandidateStatus.resolved
+        session.add(c)
+    session.commit()
+
+    deezer = ExplodingDeezer(
+        {
+            "alpha|artist a": "https://cdn.example/alpha.mp3",
+            "gamma|artist c": "https://cdn.example/gamma.mp3",
+        },
+        explode_on={"boom"},
+    )
+    outcome = await resolve_previews(session, [first, bad, last], deezer)
+
+    assert outcome.resolved == 2
+    assert first.preview_url == "https://cdn.example/alpha.mp3"
+    assert last.preview_url == "https://cdn.example/gamma.mp3"
+    assert bad.preview_url is None
+    assert len(outcome.errors) == 1
+    assert "Boom" in outcome.errors[0]

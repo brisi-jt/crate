@@ -10,9 +10,11 @@ from crate.model.orm import (
     ArtistTag,
     FeatureCalibration,
     FreqBlogBudget,
+    LocalDspCalibration,
     Track,
     TrackFeatures,
 )
+from crate.services.enrichment.localdsp import LocalAnalysis
 from crate.services.enrichment.models import (
     ArtistTagView,
     AudioFeatures,
@@ -214,6 +216,173 @@ class TestFeatureLadder:
             select(FeatureCalibration).where(FeatureCalibration.feature == "energy")
         ).one()
         assert row.p50 == pytest.approx(0.9)
+
+
+class FakeLocalDsp:
+    """Raw local features by track title; None models a track with no preview."""
+
+    def __init__(
+        self,
+        by_title: dict[str, dict[str, float]] | None = None,
+        explode_on: set[str] | None = None,
+    ) -> None:
+        self.by_title = by_title or {}
+        self.explode_on = explode_on or set()
+        self.calls: list[str] = []
+
+    async def analyze(self, title: str, artist: str) -> LocalAnalysis | None:
+        self.calls.append(title)
+        if title in self.explode_on:
+            raise RuntimeError("decode failed")
+        raw = self.by_title.get(title)
+        if raw is None:
+            return None
+        return LocalAnalysis(features=dict(raw), preview_url=f"https://cdn.example/{title}")
+
+
+def local_raw(energy: float = 0.5, tempo: float = 100.0) -> dict[str, float]:
+    return {
+        "tempo": tempo,
+        "energy": energy,
+        "danceability": 0.6,
+        "valence": 0.4,
+        "acousticness": 0.3,
+        "instrumentalness": 0.7,
+        "speechiness": 0.1,
+        "liveness": 0.2,
+        "loudness": -12.0,
+    }
+
+
+class TestLocalDspRung:
+    async def test_localdsp_fills_a_track_every_remote_source_missed(
+        self, session: Session
+    ) -> None:
+        track = add_track(session, "solo")  # no recco, no freqblog
+        dsp = FakeLocalDsp(by_title={"t-solo": local_raw(energy=0.42)})
+        svc = service(localdsp=dsp)
+
+        report = await svc.run(session, batch_size=10)
+
+        row = stored_features(session, track)
+        assert row.status == FeatureStatus.present
+        assert row.source == FeatureSource.essentia
+        assert row.preview_resolved is True
+        assert row.local_raw is not None
+        assert row.local_raw["energy"] == pytest.approx(0.42)
+        # No overlap set exists, so values are stored unmapped and flagged.
+        assert row.energy == pytest.approx(0.42)
+        assert row.key is None and row.mode is None
+        assert report.features_from_localdsp == 1
+        assert report.localdsp_uncalibrated is True
+        assert report.localdsp_skipped is False
+
+    async def test_no_preview_marks_the_row_and_is_not_retried(self, session: Session) -> None:
+        track = add_track(session, "ghost")
+        dsp = FakeLocalDsp()  # knows nothing -> no preview
+        svc = service(localdsp=dsp)
+
+        report = await svc.run(session, batch_size=10)
+        row = stored_features(session, track)
+        assert row.status == FeatureStatus.missing
+        assert row.preview_resolved is False
+        assert report.localdsp_no_preview == 1
+
+        calls_after_first = len(dsp.calls)
+        await svc.run(session, batch_size=10)
+        assert len(dsp.calls) == calls_after_first  # not re-attempted
+
+    async def test_values_are_quantile_mapped_via_the_overlap_set(self, session: Session) -> None:
+        # Eight overlap tracks: ReccoBeats energy is local energy + 0.2.
+        by_id = {}
+        by_title = {}
+        for i in range(8):
+            add_track(session, f"o{i}")
+            by_id[f"o{i}"] = features(energy=i / 10 + 0.2)
+            by_title[f"t-o{i}"] = local_raw(energy=i / 10)
+        target = add_track(session, "gap")
+        by_title["t-gap"] = local_raw(energy=0.35)
+        dsp = FakeLocalDsp(by_title=by_title)
+        svc = service(reccobeats=FakeRecco(by_id=by_id), localdsp=dsp)
+
+        report = await svc.run(session, batch_size=20)
+
+        row = stored_features(session, target)
+        assert row.source == FeatureSource.essentia
+        # Local 0.35 lands in ReccoBeats space as 0.55 (the fitted +0.2 shift).
+        assert row.energy == pytest.approx(0.55)
+        assert row.local_raw is not None
+        assert row.local_raw["energy"] == pytest.approx(0.35)
+        assert report.localdsp_uncalibrated is False
+        calibrations = session.exec(select(LocalDspCalibration)).all()
+        assert {c.feature for c in calibrations} >= {"energy", "tempo"}
+        # Overlap rows record that their previews resolved (and keep raw values).
+        overlap_row = session.exec(
+            select(TrackFeatures).join(Track).where(Track.spotify_id == "o0")
+        ).one()
+        assert overlap_row.preview_resolved is True
+        assert overlap_row.source == FeatureSource.reccobeats  # source unchanged
+
+    async def test_calibration_is_fitted_once_and_reused(self, session: Session) -> None:
+        by_id = {f"o{i}": features(energy=i / 10 + 0.2) for i in range(8)}
+        by_title = {f"t-o{i}": local_raw(energy=i / 10) for i in range(8)}
+        for i in range(8):
+            add_track(session, f"o{i}")
+        by_title["t-gap1"] = local_raw(energy=0.3)
+        by_title["t-gap2"] = local_raw(energy=0.4)
+        add_track(session, "gap1")
+        dsp = FakeLocalDsp(by_title=by_title)
+        svc = service(reccobeats=FakeRecco(by_id=by_id), localdsp=dsp)
+        await svc.run(session, batch_size=20)
+        overlap_analyses = len(dsp.calls)
+
+        add_track(session, "gap2")
+        await svc.run(session, batch_size=20)
+
+        # Second pass analyzed only the new gap track — no overlap refit.
+        assert len(dsp.calls) == overlap_analyses + 1
+
+    async def test_one_failing_analysis_does_not_void_the_pass(self, session: Session) -> None:
+        first = add_track(session, "ok1")
+        add_track(session, "boom")
+        last = add_track(session, "ok2")
+        dsp = FakeLocalDsp(
+            by_title={"t-ok1": local_raw(0.1), "t-ok2": local_raw(0.9)},
+            explode_on={"t-boom"},
+        )
+        svc = service(localdsp=dsp)
+
+        report = await svc.run(session, batch_size=10)
+
+        assert report.features_from_localdsp == 2
+        assert stored_features(session, first).status == FeatureStatus.present
+        assert stored_features(session, last).status == FeatureStatus.present
+        assert len(report.errors) == 1 and "t-boom" in report.errors[0]
+
+    async def test_without_localdsp_missing_rows_wait_untouched(self, session: Session) -> None:
+        track = add_track(session, "waits")
+        svc = service()  # no localdsp configured
+
+        report = await svc.run(session, batch_size=10)
+
+        row = stored_features(session, track)
+        assert row.status == FeatureStatus.missing
+        assert row.preview_resolved is None
+        assert report.localdsp_skipped is True
+
+    async def test_localdsp_features_enter_the_percentile_calibration(
+        self, session: Session
+    ) -> None:
+        add_track(session, "solo")
+        dsp = FakeLocalDsp(by_title={"t-solo": local_raw(energy=0.42)})
+        svc = service(localdsp=dsp)
+
+        await svc.run(session, batch_size=10)
+
+        row = session.exec(
+            select(FeatureCalibration).where(FeatureCalibration.feature == "energy")
+        ).one()
+        assert row.p50 == pytest.approx(0.42)
 
 
 class TestArtistEnrichment:

@@ -8,7 +8,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from crate.deps import CurrentUserDep, EnrichmentRunner, SessionDep, get_enrichment_runner
-from crate.model.enums import FeatureStatus
+from crate.model.enums import FeatureSource, FeatureStatus
 from crate.model.orm import (
     Artist,
     ArtistSimilarity,
@@ -42,8 +42,14 @@ class EnrichmentRunResult(BaseModel):
     features_from_freqblog: int = Field(
         description="Tracks resolved through FreqBlog (counted against its monthly allowance)."
     )
+    features_from_localdsp: int = Field(
+        description="Tracks resolved by analyzing their 30-second preview locally."
+    )
+    localdsp_no_preview: int = Field(
+        description="Tracks local analysis wanted but no preview audio exists for."
+    )
     features_missing: int = Field(
-        description="Tracks no source could resolve; queued for local audio analysis."
+        description="Tracks that ended the pass without features from any source."
     )
     artists_processed: int = Field(description="Artists examined for similarity and tags.")
     artists_mbid_resolved: int = Field(
@@ -58,6 +64,19 @@ class EnrichmentRunResult(BaseModel):
     freqblog_exhausted: bool = Field(
         description="True when the FreqBlog monthly allowance ran out during the pass."
     )
+    localdsp_skipped: bool = Field(
+        description="True when local audio analysis is disabled, so remote-missed "
+        "tracks stayed queued."
+    )
+    localdsp_uncalibrated: bool = Field(
+        description="True when locally-computed values were stored without "
+        "cross-source calibration because too few tracks carry both a "
+        "ReccoBeats value and a usable preview."
+    )
+    errors: list[str] = Field(
+        description="Per-track failures the pass survived (a bad download or "
+        "decode skips that track, never the whole run)."
+    )
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -68,6 +87,23 @@ class FreqBlogBudgetStatus(BaseModel):
     month: str = Field(description="Calendar month the counter covers.")
     used: int = Field(description="Lookups consumed this month.")
     limit: int = Field(description="Monthly allowance; lookups stop when reached.")
+
+
+class LocalDspStatus(BaseModel):
+    """Progress of local preview analysis over the remote-missed backlog."""
+
+    enabled: bool = Field(description="Whether local audio analysis runs during passes.")
+    analyzed: int = Field(description="Tracks whose features came from local analysis.")
+    queued: int = Field(
+        description="Remote-missed tracks not yet attempted — the local analysis backlog."
+    )
+    no_preview: int = Field(
+        description="Tracks that stay missing because no preview audio exists for them."
+    )
+    preview_resolution_pct: float | None = Field(
+        description="Share of preview lookups that found audio, 0-100; null "
+        "before any lookup has run."
+    )
 
 
 class EnrichmentStatus(BaseModel):
@@ -91,11 +127,15 @@ class EnrichmentStatus(BaseModel):
         description="Share of artists with similarity edges, 0-100."
     )
     tag_coverage_pct: float = Field(description="Share of artists with tags, 0-100.")
+    features_by_source: dict[str, int] = Field(
+        description="Tracks with features, broken down by the source that supplied them."
+    )
     lastfm: Literal["active", "pending"] = Field(
         description="pending while no Last.fm API key is configured — artist "
         "similarity and tags wait on one."
     )
     freqblog: FreqBlogBudgetStatus
+    local_dsp: LocalDspStatus
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -109,10 +149,10 @@ def _pct(part: int, whole: int) -> float:
     description=(
         "Walks tracks without audio features and artists without similarity "
         "data, querying ReccoBeats first, then the per-track ISRC fallback, "
-        "then FreqBlog while its monthly allowance lasts. Tracks that every "
-        "source misses are recorded as missing. Feature calibration "
-        "percentiles are refreshed at the end. Runs synchronously and returns "
-        "the pass's counts."
+        "then FreqBlog while its monthly allowance lasts, then local analysis "
+        "of the track's 30-second preview. Only tracks every rung misses are "
+        "recorded as missing. Feature calibration percentiles are refreshed "
+        "at the end. Runs synchronously and returns the pass's counts."
     ),
 )
 async def trigger_enrichment(
@@ -130,6 +170,8 @@ async def trigger_enrichment(
         features_from_reccobeats=report.features_from_reccobeats,
         features_from_isrc_fallback=report.features_from_isrc_fallback,
         features_from_freqblog=report.features_from_freqblog,
+        features_from_localdsp=report.features_from_localdsp,
+        localdsp_no_preview=report.localdsp_no_preview,
         features_missing=report.features_missing,
         artists_processed=report.artists_processed,
         artists_mbid_resolved=report.artists_mbid_resolved,
@@ -137,6 +179,9 @@ async def trigger_enrichment(
         tags_added=report.tags_added,
         lastfm_skipped=report.lastfm_skipped,
         freqblog_exhausted=report.freqblog_exhausted,
+        localdsp_skipped=report.localdsp_skipped,
+        localdsp_uncalibrated=report.localdsp_uncalibrated,
+        errors=report.errors,
         links={
             "status": HalLink(href="/v1/enrichment/status"),
             "self": HalLink(href="/v1/enrichment/run"),
@@ -171,6 +216,32 @@ def enrichment_status(session: SessionDep, _user: CurrentUserDep) -> EnrichmentS
         .select_from(TrackFeatures)
         .where(TrackFeatures.status == FeatureStatus.missing)
     )
+    features_by_source = {
+        source.value: count(
+            select(func.count())
+            .select_from(TrackFeatures)
+            .where(TrackFeatures.status == FeatureStatus.present)
+            .where(TrackFeatures.source == source)
+        )
+        for source in FeatureSource
+    }
+    localdsp_queued = count(
+        select(func.count())
+        .select_from(TrackFeatures)
+        .where(TrackFeatures.status == FeatureStatus.missing)
+        .where(TrackFeatures.preview_resolved == None)  # noqa: E711 — SQL expression
+    )
+    previews_found = count(
+        select(func.count())
+        .select_from(TrackFeatures)
+        .where(TrackFeatures.preview_resolved == True)  # noqa: E712 — SQL expression
+    )
+    previews_absent = count(
+        select(func.count())
+        .select_from(TrackFeatures)
+        .where(TrackFeatures.preview_resolved == False)  # noqa: E712 — SQL expression
+    )
+    preview_attempts = previews_found + previews_absent
     artists_total = count(select(func.count()).select_from(Artist))
     artists_with_mbid = count(
         select(func.count()).select_from(Artist).where(Artist.mbid != None)  # noqa: E711
@@ -197,12 +268,22 @@ def enrichment_status(session: SessionDep, _user: CurrentUserDep) -> EnrichmentS
         artists_with_tags=artists_with_tags,
         similarity_coverage_pct=_pct(artists_with_similarity, artists_total),
         tag_coverage_pct=_pct(artists_with_tags, artists_total),
+        features_by_source=features_by_source,
         lastfm="active" if settings.lastfm_api_key else "pending",
         freqblog=FreqBlogBudgetStatus(
             configured=settings.freqblog_api_key is not None,
             month=month,
             used=budget_row.used if budget_row else 0,
             limit=settings.freqblog_monthly_budget,
+        ),
+        local_dsp=LocalDspStatus(
+            enabled=settings.localdsp_enabled,
+            analyzed=features_by_source[FeatureSource.essentia.value],
+            queued=localdsp_queued,
+            no_preview=previews_absent,
+            preview_resolution_pct=(
+                _pct(previews_found, preview_attempts) if preview_attempts else None
+            ),
         ),
         links={
             "self": HalLink(href="/v1/enrichment/status"),

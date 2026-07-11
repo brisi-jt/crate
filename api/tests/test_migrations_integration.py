@@ -41,6 +41,7 @@ EXPECTED_TABLES = {
     "saved_tracks",
     "play_events",
     "top_items_snapshots",
+    "local_dsp_calibrations",
 }
 
 

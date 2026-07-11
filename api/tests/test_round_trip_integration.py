@@ -42,6 +42,7 @@ from crate.model.orm import (
     FeatureCalibration,
     FreqBlogBudget,
     Genre,
+    LocalDspCalibration,
     MutationJournal,
     OpPreview,
     PlayEvent,
@@ -357,6 +358,8 @@ def test_track_features_round_trip(migrated_engine: Engine) -> None:
             loudness=-4.209,
             status=FeatureStatus.present,
             source=FeatureSource.reccobeats,
+            local_raw={"energy": 0.51, "tempo": 118.2},
+            preview_resolved=True,
             fetched_at=fetched,
         ),
     )
@@ -377,6 +380,9 @@ def test_track_features_round_trip(migrated_engine: Engine) -> None:
     assert isinstance(row.status, FeatureStatus)
     assert row.source == FeatureSource.reccobeats
     assert isinstance(row.source, FeatureSource)
+    assert row.local_raw == {"energy": 0.51, "tempo": 118.2}
+    assert isinstance(row.local_raw["tempo"], float)
+    assert row.preview_resolved is True
     assert row.fetched_at == fetched
     assert isinstance(row.fetched_at, datetime)
     assert_timestamps(row)
@@ -469,6 +475,44 @@ def test_feature_calibration_round_trip(migrated_engine: Engine) -> None:
     assert row.computed_at == computed
     assert isinstance(row.computed_at, datetime)
     assert_timestamps(row)
+
+
+def test_local_dsp_calibration_round_trip(migrated_engine: Engine) -> None:
+    computed = datetime(2026, 7, 12, 8, 30, 15, 222222)
+    row = persist_and_reload(
+        migrated_engine,
+        LocalDspCalibration(
+            feature="energy",
+            local_anchors=[0.0, 0.35, 0.7],
+            target_anchors=[0.2, 0.55, 0.9],
+            sample_size=17,
+            computed_at=computed,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.feature == "energy"
+    assert row.local_anchors == [0.0, 0.35, 0.7]
+    assert row.target_anchors == [0.2, 0.55, 0.9]
+    assert all(isinstance(v, float) for v in row.local_anchors + row.target_anchors)
+    assert row.sample_size == 17
+    assert isinstance(row.sample_size, int)
+    assert row.computed_at == computed
+    assert isinstance(row.computed_at, datetime)
+    assert_timestamps(row)
+
+
+def test_track_features_missing_row_keeps_dsp_markers_null(migrated_engine: Engine) -> None:
+    track = persist_and_reload(
+        migrated_engine, Track(spotify_id="tr-rt-miss", name="rt-miss", artists=[])
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        TrackFeatures(track_id=track.id, status=FeatureStatus.missing, source=None),
+    )
+    assert row.status == FeatureStatus.missing
+    assert row.source is None
+    assert row.local_raw is None
+    assert row.preview_resolved is None
 
 
 def test_freqblog_budget_round_trip(migrated_engine: Engine) -> None:
