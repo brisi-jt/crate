@@ -7,6 +7,16 @@ a migration.
 from enum import StrEnum
 
 
+class ReauthReason(StrEnum):
+    """Why a Spotify credential needs re-consent."""
+
+    # The refresh token hit Spotify's 6-month authorization lifetime (the
+    # token endpoint answered 400 invalid_grant).
+    token_expired = "token_expired"
+    # Spotify rejected the refresh for any other reason.
+    refresh_rejected = "refresh_rejected"
+
+
 class CredentialStatus(StrEnum):
     """Health of a stored Spotify credential."""
 
@@ -14,6 +24,27 @@ class CredentialStatus(StrEnum):
     # Refresh was rejected by Spotify — the user must re-consent via
     # /v1/auth/spotify/connect before syncing can resume.
     needs_reauth = "needs_reauth"
+    # The refresh token aged out of Spotify's 6-month authorization lifetime;
+    # re-consent is the only recovery (refreshing must not be retried).
+    needs_reauth_expired = "needs_reauth_expired"
+
+    @property
+    def requires_reauth(self) -> bool:
+        return self in (CredentialStatus.needs_reauth, CredentialStatus.needs_reauth_expired)
+
+    @property
+    def reauth_reason(self) -> ReauthReason | None:
+        if self is CredentialStatus.needs_reauth_expired:
+            return ReauthReason.token_expired
+        if self is CredentialStatus.needs_reauth:
+            return ReauthReason.refresh_rejected
+        return None
+
+    @classmethod
+    def for_reauth_reason(cls, reason: ReauthReason) -> "CredentialStatus":
+        if reason is ReauthReason.token_expired:
+            return cls.needs_reauth_expired
+        return cls.needs_reauth
 
 
 class PlaylistSyncStatus(StrEnum):

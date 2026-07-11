@@ -10,7 +10,6 @@ from sqlmodel import select
 
 from crate.deps import CurrentUserDep, SessionDep, SyncRunner, get_sync_runner
 from crate.errors import ProblemDetail
-from crate.model.enums import CredentialStatus
 from crate.model.orm import Playlist, SpotifyCredential, SyncEvent
 
 router = APIRouter(prefix="/v1/sync", tags=["sync"])
@@ -43,6 +42,14 @@ class SyncStatus(BaseModel):
     spotify_connected: bool = Field(description="Whether a Spotify credential is stored.")
     needs_reauth: bool = Field(
         description="True when Spotify rejected the stored credential; reconnect to resume."
+    )
+    reauth_reason: str | None = Field(
+        default=None,
+        description=(
+            "Why reconnection is needed, when needs_reauth is true: "
+            "token_expired (the Spotify session aged out and the user must "
+            "sign in again) or refresh_rejected (any other rejection)."
+        ),
     )
     playlist_count: int = Field(description="Playlists currently tracked (deleted ones excluded).")
     last_synced_at: datetime | None = Field(
@@ -112,7 +119,8 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
         select(func.max(SyncEvent.observed_at)).where(SyncEvent.user_id == user.id)
     ).one()
 
-    needs_reauth = credential is not None and credential.status == CredentialStatus.needs_reauth
+    needs_reauth = credential is not None and credential.status.requires_reauth
+    reauth_reason = credential.status.reauth_reason if credential is not None else None
     links = {
         "self": HalLink(href="/v1/sync/status"),
         "sync": HalLink(href="/v1/sync"),
@@ -124,6 +132,7 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
     return SyncStatus(
         spotify_connected=credential is not None,
         needs_reauth=needs_reauth,
+        reauth_reason=reauth_reason,
         playlist_count=playlist_count,
         last_synced_at=last_synced_at,
         last_event_at=last_event_at,

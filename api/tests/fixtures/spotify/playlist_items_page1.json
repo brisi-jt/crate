@@ -1,7 +1,6 @@
 {
   "synthetic": true,
-  "endpoint_shape": "tracks-deprecated",
-  "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks?offset=0&limit=2",
+  "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items?offset=0&limit=2",
   "items": [
     {
       "added_at": "2025-11-02T21:14:05Z",
@@ -11,6 +10,39 @@
         "uri": "spotify:user:spotify-jt"
       },
       "is_local": false,
+      "item": {
+        "album": {
+          "album_type": "album",
+          "id": "2up3OPMp9Tb4dAKM2erWXQ",
+          "name": "Night Bus",
+          "release_date": "2019-05-10",
+          "type": "album",
+          "uri": "spotify:album:2up3OPMp9Tb4dAKM2erWXQ"
+        },
+        "artists": [
+          {
+            "external_urls": {
+              "spotify": "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb"
+            },
+            "href": "https://api.spotify.com/v1/artists/4Z8W4fKeB5YxbusRsdQVPb",
+            "id": "4Z8W4fKeB5YxbusRsdQVPb",
+            "name": "Night Artist",
+            "type": "artist",
+            "uri": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb"
+          }
+        ],
+        "duration_ms": 214693,
+        "explicit": false,
+        "external_ids": {
+          "isrc": "GBAYE1900123"
+        },
+        "id": "6UelLqGlWMcVH1E5c4H7lY",
+        "is_local": false,
+        "name": "Headlights",
+        "popularity": 61,
+        "type": "track",
+        "uri": "spotify:track:6UelLqGlWMcVH1E5c4H7lY"
+      },
       "track": {
         "album": {
           "album_type": "album",
@@ -53,7 +85,7 @@
         "uri": "spotify:user:spotify-jt"
       },
       "is_local": false,
-      "track": {
+      "item": {
         "album": {
           "album_type": "single",
           "id": "1DFixLWuPkv3KT3TnV35m3",
@@ -99,8 +131,9 @@
     }
   ],
   "limit": 2,
-  "next": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks?offset=2&limit=2",
+  "next": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items?offset=2&limit=2",
   "offset": 0,
   "previous": null,
-  "total": 3
+  "total": 3,
+  "endpoint_shape": "items"
 }

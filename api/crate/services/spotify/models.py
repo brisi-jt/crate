@@ -5,8 +5,9 @@ payload additions on Spotify's side never break parsing.
 """
 
 from datetime import datetime
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SpotifyExternalIds(BaseModel):
@@ -36,11 +37,24 @@ class SpotifyTrack(BaseModel):
 
 
 class PlaylistTrackItem(BaseModel):
-    """One entry of a playlist's track listing."""
+    """One entry of a playlist's track listing.
+
+    `/playlists/{id}/items` responses key the entry on `item` and keep
+    `track` only as a deprecated alias; the older `/tracks` responses carry
+    `track` alone. Both shapes normalize onto `track`, `item` winning when
+    present.
+    """
 
     added_at: datetime | None = None
     # Null when the track has been removed from the catalog.
     track: SpotifyTrack | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _prefer_item_key(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("item") is not None:
+            data = {**data, "track": data["item"]}
+        return data
 
 
 class SpotifyOwner(BaseModel):
@@ -53,7 +67,12 @@ class SpotifyTracksRef(BaseModel):
 
 
 class SpotifyPlaylistSummary(BaseModel):
-    """Playlist as returned by GET /me/playlists (no track listing)."""
+    """Playlist as returned by GET /me/playlists (no track listing).
+
+    The `/items` reshape reframes the entry-count ref from `tracks` to
+    `items`; both shapes normalize onto `tracks`, `items` winning when
+    present.
+    """
 
     id: str
     name: str
@@ -61,6 +80,13 @@ class SpotifyPlaylistSummary(BaseModel):
     snapshot_id: str
     owner: SpotifyOwner | None = None
     tracks: SpotifyTracksRef = Field(default_factory=SpotifyTracksRef)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _prefer_items_ref(cls, data: Any) -> Any:
+        if isinstance(data, dict) and isinstance(data.get("items"), dict):
+            data = {**data, "tracks": data["items"]}
+        return data
 
 
 class SpotifyUser(BaseModel):

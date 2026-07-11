@@ -157,6 +157,7 @@ def test_sync_status_with_playlists(client: TestClient, session: Session, user: 
     body = client.get("/v1/sync/status").json()
     assert body["spotify_connected"] is True
     assert body["needs_reauth"] is False
+    assert body["reauth_reason"] is None
     assert body["playlist_count"] == 1
     assert body["last_synced_at"] is not None
     assert "connect" not in body["_links"]
@@ -187,6 +188,33 @@ def test_sync_with_needs_reauth_credential_conflicts(
 
     status = client.get("/v1/sync/status").json()
     assert status["needs_reauth"] is True
+    assert status["reauth_reason"] == "refresh_rejected"
+    assert status["_links"]["connect"]["href"] == "/v1/auth/spotify/connect"
+
+
+def test_sync_with_expired_credential_surfaces_session_expired(
+    client: TestClient, session: Session, user: User
+) -> None:
+    """A credential killed by Spotify's 6-month refresh-token lifetime gets a
+    distinct problem code and reauth_reason, so the web chrome can say
+    "Spotify session expired — reconnect" instead of a generic failure."""
+    session.add(
+        SpotifyCredential(
+            user_id=user.id,
+            refresh_token_encrypted="ct",
+            status=CredentialStatus.needs_reauth_expired,
+        )
+    )
+    session.commit()
+
+    response = client.post("/v1/sync")
+    assert response.status_code == 409
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["error_code"] == "SPOTIFY_SESSION_EXPIRED"
+
+    status = client.get("/v1/sync/status").json()
+    assert status["needs_reauth"] is True
+    assert status["reauth_reason"] == "token_expired"
     assert status["_links"]["connect"]["href"] == "/v1/auth/spotify/connect"
 
 

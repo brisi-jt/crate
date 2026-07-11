@@ -1,0 +1,5 @@
+{
+  "synthetic": true,
+  "error": "invalid_grant",
+  "error_description": "Refresh token expired"
+}

@@ -21,6 +21,7 @@ from crate.model.orm import Playlist, PlaylistTrack, SpotifyCredential, Track, U
 from crate.services.crypto import get_cipher
 from crate.services.mutations.writer import ClientWriter, SpotifyWriter
 from crate.services.spotify.client import SpotifyClient, SpotifyReauthRequired
+from crate.services.spotify.problems import reauth_conflict
 from crate.settings import get_settings
 
 
@@ -80,15 +81,6 @@ class LocalEchoWriter:
         return None
 
 
-def _reauth_conflict() -> AppError:
-    return AppError(
-        409,
-        "Spotify authorization expired",
-        detail="Reconnect via /v1/auth/spotify/connect before writing to playlists.",
-        error_code="SPOTIFY_REAUTH_REQUIRED",
-    )
-
-
 @asynccontextmanager
 async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator[SpotifyClient]:
     """An authenticated SpotifyClient for the user's stored credential.
@@ -110,8 +102,8 @@ async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator
             "writing to playlists.",
             error_code="SPOTIFY_NOT_CONNECTED",
         )
-    if credential.status == CredentialStatus.needs_reauth:
-        raise _reauth_conflict()
+    if credential.status.requires_reauth:
+        raise reauth_conflict(credential.status)
 
     cipher = get_cipher()
 
@@ -127,14 +119,15 @@ async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator
             else None
         ),
         on_tokens=persist_refresh_token,
+        use_items_endpoints=settings.spotify_use_items_endpoints,
     )
     try:
         yield client
-    except SpotifyReauthRequired:
-        credential.status = CredentialStatus.needs_reauth
+    except SpotifyReauthRequired as exc:
+        credential.status = CredentialStatus.for_reauth_reason(exc.reason)
         session.add(credential)
         session.commit()
-        raise _reauth_conflict() from None
+        raise reauth_conflict(credential.status) from None
     finally:
         if client.access_token is not None:
             credential.access_token_encrypted = cipher.encrypt(client.access_token)

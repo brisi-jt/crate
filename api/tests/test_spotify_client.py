@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 
+from crate.model.enums import ReauthReason
 from crate.services.spotify.auth import (
     build_authorize_url,
     code_challenge,
@@ -147,6 +148,169 @@ async def test_refresh_failure_raises_reauth_required() -> None:
     await client.aclose()
 
 
+# --- refresh-token expiry (invalid_grant, 6-month TTL) ------------------------
+
+
+async def test_refresh_invalid_grant_is_token_expired_and_not_retried() -> None:
+    """An expired refresh token comes back as 400 invalid_grant; the client
+    must classify it as token_expired and never re-attempt the refresh."""
+    token_calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == ACCOUNTS_TOKEN_URL:
+            token_calls["n"] += 1
+            return httpx.Response(400, json=fixture("token_refresh_invalid_grant.json"))
+        return httpx.Response(401, json={"error": {"status": 401, "message": "expired"}})
+
+    client = make_client(handler, access_token=None)
+    with pytest.raises(SpotifyReauthRequired) as exc_info:
+        await client.get_current_user()
+    await client.aclose()
+
+    assert exc_info.value.reason == ReauthReason.token_expired
+    assert token_calls["n"] == 1
+
+
+async def test_refresh_other_400_is_generic_rejection() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == ACCOUNTS_TOKEN_URL:
+            return httpx.Response(400, json={"error": "invalid_request"})
+        return httpx.Response(401, json={"error": {"status": 401}})
+
+    client = make_client(handler, access_token=None)
+    with pytest.raises(SpotifyReauthRequired) as exc_info:
+        await client.get_current_user()
+    await client.aclose()
+
+    assert exc_info.value.reason == ReauthReason.refresh_rejected
+
+
+async def test_refresh_non_json_400_is_generic_rejection() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == ACCOUNTS_TOKEN_URL:
+            return httpx.Response(400, text="Bad Request")
+        return httpx.Response(401, json={"error": {"status": 401}})
+
+    client = make_client(handler, access_token=None)
+    with pytest.raises(SpotifyReauthRequired) as exc_info:
+        await client.get_current_user()
+    await client.aclose()
+
+    assert exc_info.value.reason == ReauthReason.refresh_rejected
+
+
+# --- /items migration (playlist endpoint renames) ------------------------------
+
+
+async def test_iter_playlist_tracks_uses_items_path_by_default() -> None:
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if "offset=2" in str(request.url):
+            return httpx.Response(200, json=fixture("playlist_items_page2.json"))
+        return httpx.Response(200, json=fixture("playlist_items_page1.json"))
+
+    client = make_client(handler)
+    items = [t async for t in client.iter_playlist_tracks("3cEYpjA9oz9GiPac4AsH4n")]
+    await client.aclose()
+
+    assert paths[0] == "/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items"
+    assert len(items) == 3
+    first = items[0].track
+    assert first is not None
+    assert first.id == "6UelLqGlWMcVH1E5c4H7lY"
+    assert first.external_ids.isrc == "GBAYE1900123"
+
+
+async def test_iter_playlist_tracks_falls_back_to_tracks_on_403() -> None:
+    """Followed-but-unowned playlists 403 on /items; the deprecated /tracks
+    path still serves them, so full-library sync keeps working."""
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path.endswith("/items"):
+            return httpx.Response(403, json={"error": {"status": 403, "message": "Forbidden"}})
+        if "offset=2" in str(request.url):
+            return httpx.Response(200, json=fixture("playlist_tracks_page2.json"))
+        return httpx.Response(200, json=fixture("playlist_tracks_page1.json"))
+
+    client = make_client(handler)
+    items = [t async for t in client.iter_playlist_tracks("3cEYpjA9oz9GiPac4AsH4n")]
+    await client.aclose()
+
+    assert paths[:2] == [
+        "/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items",
+        "/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks",
+    ]
+    assert len(items) == 3
+
+
+async def test_flag_off_uses_tracks_path_with_items_fallback() -> None:
+    """With the feature flag off, /tracks is primary — and a hard-cut
+    (404/410) falls forward to /items instead of stranding the sync."""
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.url.path.endswith("/tracks"):
+            return httpx.Response(410, json={"error": {"status": 410, "message": "Gone"}})
+        if "offset=2" in str(request.url):
+            return httpx.Response(200, json=fixture("playlist_items_page2.json"))
+        return httpx.Response(200, json=fixture("playlist_items_page1.json"))
+
+    client = make_client(handler, use_items_endpoints=False)
+    items = [t async for t in client.iter_playlist_tracks("3cEYpjA9oz9GiPac4AsH4n")]
+    await client.aclose()
+
+    assert paths[:2] == [
+        "/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks",
+        "/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/items",
+    ]
+    assert len(items) == 3
+
+
+def test_playlist_item_prefers_item_over_deprecated_track() -> None:
+    """/items entries carry `item`, with `track` kept as a deprecated alias."""
+    from crate.services.spotify.models import PlaylistTrackItem
+
+    entry = PlaylistTrackItem.model_validate(
+        {
+            "added_at": "2026-01-01T00:00:00Z",
+            "item": {"id": "current-id", "name": "Current"},
+            "track": {"id": "deprecated-id", "name": "Deprecated"},
+        }
+    )
+    assert entry.track is not None
+    assert entry.track.id == "current-id"
+
+
+def test_playlist_item_parses_item_only_entry() -> None:
+    from crate.services.spotify.models import PlaylistTrackItem
+
+    entry = PlaylistTrackItem.model_validate(
+        {"added_at": None, "item": {"id": "only-item", "name": "Only"}}
+    )
+    assert entry.track is not None
+    assert entry.track.id == "only-item"
+
+
+def test_playlist_summary_reads_items_total() -> None:
+    """The /items reshape reframes the summary's tracks.total as items.total."""
+    from crate.services.spotify.models import SpotifyPlaylistSummary
+
+    summary = SpotifyPlaylistSummary.model_validate(
+        {
+            "id": "pl1",
+            "name": "reshaped",
+            "snapshot_id": "snap",
+            "items": {"total": 7},
+        }
+    )
+    assert summary.tracks.total == 7
+
+
 async def test_server_error_raises_api_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, json={"error": {"status": 500, "message": "oops"}})
@@ -232,6 +396,21 @@ async def test_search_tracks_parses_items() -> None:
     assert params["type"] == "track"
     assert params["limit"] == "5"
     assert params["q"] == 'track:"Dayvan Cowboy" artist:"Boards of Canada"'
+
+
+async def test_search_tracks_clamps_limit_to_dev_mode_cap() -> None:
+    """Dev-mode search caps limit at 10 — callers passing more get clamped."""
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=fixture("search_tracks.json"))
+
+    client = make_client(handler)
+    await client.search_tracks("isrc:GBAFL0500202", limit=25)
+    await client.aclose()
+
+    assert requests[0].url.params["limit"] == "10"
 
 
 async def test_search_tracks_empty_result() -> None:

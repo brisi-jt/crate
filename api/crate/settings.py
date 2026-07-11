@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     spotify_client_id: str = ""
     spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
 
+    # Playlist entry calls target /playlists/{id}/items (the current path)
+    # when true, the deprecated /tracks alias when false. The client falls
+    # back to the other path per playlist either way, so flipping this only
+    # changes which path is tried first.
+    spotify_use_items_endpoints: bool = True
+
     # Local-development stand-in for Spotify writes: when set, mutations skip
     # the real API entirely (invented ids/snapshots, local state still updated
     # and journaled). Never set in deployed environments.

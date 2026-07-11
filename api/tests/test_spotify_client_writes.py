@@ -42,7 +42,7 @@ async def test_add_tracks_posts_uris_and_returns_snapshot() -> None:
 
     request = recorder.requests[0]
     assert request.method == "POST"
-    assert request.url.path == "/v1/playlists/pl1/tracks"
+    assert request.url.path == "/v1/playlists/pl1/items"
     assert recorder.body(0) == {"uris": ["spotify:track:a"], "position": 2}
     assert snapshot == "snap-1"
 
@@ -80,6 +80,7 @@ async def test_remove_tracks_sends_uri_objects() -> None:
 
     request = recorder.requests[0]
     assert request.method == "DELETE"
+    assert request.url.path == "/v1/playlists/pl1/items"
     assert recorder.body(0) == {"tracks": [{"uri": "spotify:track:a"}, {"uri": "spotify:track:b"}]}
 
 
@@ -91,7 +92,31 @@ async def test_reorder_range_sends_reorder_body() -> None:
 
     request = recorder.requests[0]
     assert request.method == "PUT"
+    assert request.url.path == "/v1/playlists/pl1/items"
     assert recorder.body(0) == {"range_start": 4, "insert_before": 1, "range_length": 1}
+
+
+async def test_add_tracks_falls_back_to_tracks_on_403_and_caches_path() -> None:
+    """A 403 from /items (non-owned playlist) falls back to /tracks once; the
+    working path is remembered so later chunks skip the failing probe."""
+    recorder = Recorder(
+        responses=[
+            httpx.Response(403, json={"error": {"status": 403, "message": "Forbidden"}}),
+            httpx.Response(200, json={"snapshot_id": "snap-a"}),
+            httpx.Response(200, json={"snapshot_id": "snap-b"}),
+        ]
+    )
+    client = make_client(recorder)
+    uris = [f"spotify:track:t{i}" for i in range(150)]
+    snapshot = await client.add_playlist_tracks("pl1", uris)
+    await client.aclose()
+
+    assert [r.url.path for r in recorder.requests] == [
+        "/v1/playlists/pl1/items",
+        "/v1/playlists/pl1/tracks",
+        "/v1/playlists/pl1/tracks",
+    ]
+    assert snapshot == "snap-b"
 
 
 async def test_create_playlist_uses_current_user_and_private() -> None:
@@ -153,3 +178,25 @@ async def test_list_track_uris_pages_through() -> None:
     uris = await client.list_track_uris("pl1")
     await client.aclose()
     assert uris == ["spotify:track:a", "spotify:track:b", "spotify:track:c"]
+
+
+async def test_list_track_uris_reads_item_shaped_entries() -> None:
+    """/items pages key each entry on `item`; the deprecated `track` key may
+    be absent entirely."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {"item": {"uri": "spotify:track:a", "name": "A"}},
+                    {"item": {"uri": "spotify:track:b", "name": "B"}, "track": None},
+                ],
+                "next": None,
+            },
+        )
+
+    client = make_client(handler)
+    uris = await client.list_track_uris("pl1")
+    await client.aclose()
+    assert uris == ["spotify:track:a", "spotify:track:b"]

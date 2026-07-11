@@ -36,6 +36,7 @@ from crate.services.spotify.models import (
     SpotifyPlaylistSummary,
     SpotifyTrack,
 )
+from crate.services.spotify.problems import reauth_conflict
 from crate.settings import get_settings
 
 
@@ -324,13 +325,8 @@ async def run_sync_for_user(session: Session, user: User) -> SyncReport:
             detail="Connect a Spotify account via /v1/auth/spotify/connect before syncing.",
             error_code="SPOTIFY_NOT_CONNECTED",
         )
-    if credential.status == CredentialStatus.needs_reauth:
-        raise AppError(
-            409,
-            "Spotify authorization expired",
-            detail="Reconnect via /v1/auth/spotify/connect to resume syncing.",
-            error_code="SPOTIFY_REAUTH_REQUIRED",
-        )
+    if credential.status.requires_reauth:
+        raise reauth_conflict(credential.status)
 
     cipher = get_cipher()
     settings = get_settings()
@@ -347,19 +343,15 @@ async def run_sync_for_user(session: Session, user: User) -> SyncReport:
             else None
         ),
         on_tokens=persist_refresh_token,
+        use_items_endpoints=settings.spotify_use_items_endpoints,
     )
     try:
         report = await SyncService(session=session, spotify=client, user=user).run()
-    except SpotifyReauthRequired:
-        credential.status = CredentialStatus.needs_reauth
+    except SpotifyReauthRequired as exc:
+        credential.status = CredentialStatus.for_reauth_reason(exc.reason)
         session.add(credential)
         session.commit()
-        raise AppError(
-            409,
-            "Spotify authorization expired",
-            detail="Reconnect via /v1/auth/spotify/connect to resume syncing.",
-            error_code="SPOTIFY_REAUTH_REQUIRED",
-        ) from None
+        raise reauth_conflict(credential.status) from None
     finally:
         await client.aclose()
 
