@@ -14,7 +14,9 @@ export type RightPanel =
   | { kind: "ops-log" }
   | { kind: "track"; trackId: number }
   | { kind: "artist"; artistId: string }
-  | { kind: "frontier" };
+  | { kind: "frontier" }
+  | { kind: "inbox" }
+  | { kind: "radio" };
 
 /**
  * The canvas renders one of three maps: the playlist graph, the track field,
@@ -50,6 +52,8 @@ interface UiState {
   openTrack: (trackId: number) => void;
   openArtist: (artistId: string) => void;
   openFrontier: () => void;
+  openInbox: () => void;
+  openRadio: () => void;
   setMapMode: (mode: MapMode) => void;
   setClusterOverlay: (on: boolean) => void;
   openStats: () => void;
@@ -80,6 +84,10 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openFrontier: () =>
     set({ rightPanel: { kind: "frontier" }, paletteOpen: false }),
+
+  openInbox: () => set({ rightPanel: { kind: "inbox" }, paletteOpen: false }),
+
+  openRadio: () => set({ rightPanel: { kind: "radio" }, paletteOpen: false }),
 
   setMapMode: (mode) => set({ mapMode: mode }),
 

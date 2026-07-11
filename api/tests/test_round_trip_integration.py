@@ -17,12 +17,16 @@ from crate.model.enums import (
     CandidateSource,
     CandidateStatus,
     CredentialStatus,
+    DigestSection,
     FeatureSource,
     FeatureStatus,
     FeedbackAction,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
+    RadioItemFeedback,
+    RadioItemKind,
+    RadioSeedKind,
     SimilaritySource,
     SnapshotKind,
     SyncEventSource,
@@ -38,6 +42,8 @@ from crate.model.orm import (
     ArtistGenre,
     ArtistSimilarity,
     ArtistTag,
+    Digest,
+    DigestItem,
     DiscoveryCandidate,
     FeatureCalibration,
     FreqBlogBudget,
@@ -48,6 +54,8 @@ from crate.model.orm import (
     PlayEvent,
     Playlist,
     PlaylistTrack,
+    RadioItem,
+    RadioSession,
     SavedTrack,
     SpotifyCredential,
     SuggestionFeedback,
@@ -839,4 +847,255 @@ def test_top_items_snapshot_round_trip(migrated_engine: Engine) -> None:
     assert row.captured_at == captured_at  # microseconds must survive
     assert isinstance(row.captured_at, datetime)
     assert row.items == items  # JSON list order preserved
+    assert_timestamps(row)
+
+
+# --- digests -------------------------------------------------------------------
+
+
+def test_digest_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-digest")
+    week_start = datetime(2026, 7, 6, 0, 0, 0)
+    generated_at = datetime(2026, 7, 13, 5, 0, 12, 345678)
+    read_at = datetime(2026, 7, 13, 19, 30, 0, 111111)
+    meta = {
+        "window_start": "2026-07-06T00:00:00",
+        "new_candidates": 7,
+        "plays": 42,
+        "frontier_top": [{"name": "trip hop", "score": 2.31}],
+    }
+    digest = persist_and_reload(
+        migrated_engine,
+        Digest(
+            user_id=user.id,
+            week_start=week_start,
+            generated_at=generated_at,
+            read_at=read_at,
+            meta=meta,
+        ),
+    )
+    assert isinstance(digest.id, int)
+    assert isinstance(digest.user_id, int) and digest.user_id == user.id
+    assert digest.week_start == week_start
+    assert isinstance(digest.week_start, datetime)
+    assert digest.generated_at == generated_at  # microseconds must survive
+    assert digest.read_at == read_at
+    assert digest.meta == meta
+    assert isinstance(digest.meta["new_candidates"], int)
+    assert_timestamps(digest)
+
+    item = persist_and_reload(
+        migrated_engine,
+        DigestItem(
+            digest_id=digest.id,
+            position=3,
+            section=DigestSection.frontier,
+            title="trip hop",
+            body="Moved onto the frontier this week.",
+            playlist_id=None,
+            candidate_id=None,
+            genre="trip hop",
+            extra={"score": 2.31},
+        ),
+    )
+    assert isinstance(item.id, int)
+    assert item.digest_id == digest.id
+    assert item.position == 3
+    assert isinstance(item.position, int)
+    assert item.section == DigestSection.frontier
+    assert isinstance(item.section, DigestSection)
+    assert item.title == "trip hop"
+    assert item.body == "Moved onto the frontier this week."
+    assert item.playlist_id is None
+    assert item.candidate_id is None
+    assert item.genre == "trip hop"
+    assert item.extra == {"score": 2.31}
+    assert_timestamps(item)
+
+
+def test_digest_item_deep_link_fields_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-digest-links")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-digest", name="Digest Target"),
+    )
+    candidate = persist_and_reload(
+        migrated_engine,
+        DiscoveryCandidate(
+            user_id=user.id,
+            playlist_id=playlist.id,
+            source=CandidateSource.lastfm,
+            status=CandidateStatus.resolved,
+            title="Candidate",
+            artist="Someone",
+            dedup_key="someone|candidate",
+        ),
+    )
+    digest = persist_and_reload(
+        migrated_engine,
+        Digest(user_id=user.id, week_start=datetime(2026, 6, 29), meta={}),
+    )
+    item = persist_and_reload(
+        migrated_engine,
+        DigestItem(
+            digest_id=digest.id,
+            position=0,
+            section=DigestSection.candidates,
+            title="Candidate — Someone",
+            playlist_id=playlist.id,
+            candidate_id=candidate.id,
+            extra={"fit": 0.8123},
+        ),
+    )
+    assert isinstance(item.playlist_id, int) and item.playlist_id == playlist.id
+    assert isinstance(item.candidate_id, int) and item.candidate_id == candidate.id
+    assert item.genre is None
+    assert item.body is None
+    assert_timestamps(item)
+
+
+# --- radio ----------------------------------------------------------------------
+
+
+def test_radio_session_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-radio")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-radio", name="Radio Seed"),
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        RadioSession(
+            user_id=user.id,
+            seed_kind=RadioSeedKind.playlist,
+            seed_playlist_id=playlist.id,
+            seed_genre=None,
+            seed_track_ids=[11, 22, 33],
+            label="Radio Seed",
+            discovery_ratio=0.25,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert row.seed_kind == RadioSeedKind.playlist
+    assert isinstance(row.seed_kind, RadioSeedKind)
+    assert isinstance(row.seed_playlist_id, int) and row.seed_playlist_id == playlist.id
+    assert row.seed_genre is None
+    assert row.seed_track_ids == [11, 22, 33]
+    assert all(isinstance(tid, int) for tid in row.seed_track_ids)
+    assert row.label == "Radio Seed"
+    assert row.discovery_ratio == 0.25
+    assert isinstance(row.discovery_ratio, float)
+    assert_timestamps(row)
+
+
+def test_radio_item_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-radio-item")
+    track = make_track(migrated_engine, "rt-radio-item")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-radio-item", name="Item Seed"),
+    )
+    candidate = persist_and_reload(
+        migrated_engine,
+        DiscoveryCandidate(
+            user_id=user.id,
+            playlist_id=playlist.id,
+            source=CandidateSource.enao,
+            status=CandidateStatus.resolved,
+            title="Kept One",
+            artist="Keeper",
+            dedup_key="keeper|kept one",
+        ),
+    )
+    journal = persist_and_reload(
+        migrated_engine,
+        MutationJournal(
+            user_id=user.id,
+            op_type=MutationOpType.add_tracks,
+            payload={"playlist_id": playlist.id},
+            inverse_payload={"remove": []},
+            status=MutationStatus.applied,
+        ),
+    )
+    radio = persist_and_reload(
+        migrated_engine,
+        RadioSession(
+            user_id=user.id,
+            seed_kind=RadioSeedKind.genre,
+            seed_genre="trip hop",
+            label="trip hop",
+            discovery_ratio=0.2,
+        ),
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        RadioItem(
+            session_id=radio.id,
+            position=4,
+            kind=RadioItemKind.discovery,
+            track_id=track.id,
+            candidate_id=candidate.id,
+            title="Kept One",
+            artist="Keeper",
+            spotify_id="6rqhFgbbKwnb9MLmUQDhG6",
+            preview_url="https://cdnt-preview.dzcdn.net/api/1/y.mp3?hdnea=exp",
+            tempo=94.5,
+            camelot="8A",
+            feedback=RadioItemFeedback.kept,
+            journal_id=journal.id,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.session_id == radio.id
+    assert row.position == 4
+    assert isinstance(row.position, int)
+    assert row.kind == RadioItemKind.discovery
+    assert isinstance(row.kind, RadioItemKind)
+    assert isinstance(row.track_id, int) and row.track_id == track.id
+    assert isinstance(row.candidate_id, int) and row.candidate_id == candidate.id
+    assert row.title == "Kept One"
+    assert row.artist == "Keeper"
+    assert row.spotify_id == "6rqhFgbbKwnb9MLmUQDhG6"
+    assert row.preview_url == "https://cdnt-preview.dzcdn.net/api/1/y.mp3?hdnea=exp"
+    assert row.tempo == 94.5
+    assert isinstance(row.tempo, float)
+    assert row.camelot == "8A"
+    assert row.feedback == RadioItemFeedback.kept
+    assert isinstance(row.feedback, RadioItemFeedback)
+    assert isinstance(row.journal_id, int) and row.journal_id == journal.id
+    assert_timestamps(row)
+
+
+def test_radio_item_nullable_fields_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-radio-null")
+    track = make_track(migrated_engine, "rt-radio-null")
+    radio = persist_and_reload(
+        migrated_engine,
+        RadioSession(
+            user_id=user.id,
+            seed_kind=RadioSeedKind.tracks,
+            seed_track_ids=[track.id],
+            label="1 seed tracks",
+            discovery_ratio=0.0,
+        ),
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        RadioItem(
+            session_id=radio.id,
+            position=0,
+            kind=RadioItemKind.library,
+            track_id=track.id,
+            title="Quiet",
+            artist="Nobody",
+        ),
+    )
+    assert row.candidate_id is None
+    assert row.spotify_id is None
+    assert row.preview_url is None
+    assert row.tempo is None
+    assert row.camelot is None
+    assert row.feedback is None
+    assert row.journal_id is None
     assert_timestamps(row)

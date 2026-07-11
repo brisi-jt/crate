@@ -116,3 +116,30 @@ describe("artist galaxy mode + panels", () => {
     expect(useUiStore.getState().rightPanel).toBeNull();
   });
 });
+
+describe("inbox + radio panels", () => {
+  beforeEach(resetStores);
+
+  it("docks the inbox as the right panel and closes the palette", () => {
+    useUiStore.getState().setPaletteOpen(true);
+    useUiStore.getState().openInbox();
+    expect(useUiStore.getState().rightPanel).toEqual({ kind: "inbox" });
+    expect(useUiStore.getState().paletteOpen).toBe(false);
+  });
+
+  it("docks the radio panel, one panel at a time", () => {
+    useUiStore.getState().openInbox();
+    useUiStore.getState().openRadio();
+    expect(useUiStore.getState().rightPanel).toEqual({ kind: "radio" });
+    useUiStore.getState().popLayer();
+    expect(useUiStore.getState().rightPanel).toBeNull();
+  });
+
+  it("deep-linking from the inbox to the deck collapses the panel", () => {
+    useUiStore.getState().openInbox();
+    openListeningDeck(4);
+    expect(useUiStore.getState().rightPanel).toBeNull();
+    expect(useUiStore.getState().mapMode).toBe("playlists");
+    expect(useDeckStore.getState().playlistId).toBe(4);
+  });
+});

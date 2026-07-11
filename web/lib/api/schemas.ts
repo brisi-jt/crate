@@ -478,6 +478,96 @@ export const discoveryRunResultSchema = z.object({
   _links: halLinksSchema,
 });
 
+// ------------------------------------------------- digests (Phase 10 inbox)
+
+export const digestSectionSchema = z.enum([
+  "suggestions",
+  "candidates",
+  "library",
+  "listening",
+  "frontier",
+]);
+
+export const digestItemSchema = z.object({
+  id: z.number(),
+  section: digestSectionSchema,
+  title: z.string(),
+  body: z.string().nullable(),
+  playlist_id: z.number().nullable(),
+  candidate_id: z.number().nullable(),
+  genre: z.string().nullable(),
+  /** Section-specific readouts: counts, fit scores, play totals. */
+  extra: z.record(z.string(), z.unknown()).nullable(),
+});
+
+export const digestSchema = z.object({
+  id: z.number(),
+  week_start: z.string(),
+  generated_at: z.string(),
+  /** Null until the digest has been opened — the inbox unread cue. */
+  read_at: z.string().nullable(),
+  items: z.array(digestItemSchema),
+  _links: halLinksSchema,
+});
+
+export const digestSummarySchema = z.object({
+  id: z.number(),
+  week_start: z.string(),
+  generated_at: z.string(),
+  read_at: z.string().nullable(),
+  item_count: z.number(),
+  _links: halLinksSchema,
+});
+
+export const digestCollectionSchema = z.object({
+  items: z.array(digestSummarySchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+  _links: halLinksSchema,
+});
+
+// --------------------------------------------------- radio (Phase 10 live)
+
+export const radioItemSchema = z.object({
+  id: z.number(),
+  position: z.number(),
+  kind: z.enum(["library", "discovery"]),
+  track_id: z.number().nullable(),
+  candidate_id: z.number().nullable(),
+  title: z.string(),
+  artist: z.string(),
+  spotify_id: z.string().nullable(),
+  preview_url: z.string().nullable(),
+  /** BPM readout, when known. */
+  tempo: z.number().nullable(),
+  /** Camelot wheel position ("8A"), when known. */
+  camelot: z.string().nullable(),
+  feedback: z.enum(["kept", "skipped"]).nullable(),
+  /** Set when keeping the item added it to a playlist (undo target). */
+  journal_id: z.number().nullable(),
+  _links: halLinksSchema,
+});
+
+export const radioSummarySchema = z.object({
+  kept: z.number(),
+  skipped: z.number(),
+  added: z.number(),
+  pending: z.number(),
+});
+
+export const radioSessionSchema = z.object({
+  id: z.number(),
+  seed_kind: z.enum(["playlist", "tracks", "genre"]),
+  seed_playlist_id: z.number().nullable(),
+  seed_genre: z.string().nullable(),
+  label: z.string(),
+  discovery_ratio: z.number(),
+  items: z.array(radioItemSchema),
+  summary: radioSummarySchema,
+  _links: halLinksSchema,
+});
+
 export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistCollection = z.infer<typeof playlistCollectionSchema>;
 export type PlaylistTrack = z.infer<typeof playlistTrackSchema>;
@@ -515,3 +605,11 @@ export type Suggestion = z.infer<typeof suggestionSchema>;
 export type SuggestionQueue = z.infer<typeof suggestionQueueSchema>;
 export type FeedbackResult = z.infer<typeof feedbackResultSchema>;
 export type DiscoveryRunResult = z.infer<typeof discoveryRunResultSchema>;
+export type DigestSection = z.infer<typeof digestSectionSchema>;
+export type DigestItem = z.infer<typeof digestItemSchema>;
+export type Digest = z.infer<typeof digestSchema>;
+export type DigestSummary = z.infer<typeof digestSummarySchema>;
+export type DigestCollection = z.infer<typeof digestCollectionSchema>;
+export type RadioItem = z.infer<typeof radioItemSchema>;
+export type RadioSummary = z.infer<typeof radioSummarySchema>;
+export type RadioSession = z.infer<typeof radioSessionSchema>;

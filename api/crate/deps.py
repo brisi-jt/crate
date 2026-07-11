@@ -9,12 +9,13 @@ from sqlmodel import Session, select
 
 from crate.db import get_session
 from crate.errors import AppError
-from crate.model.orm import User
+from crate.model.orm import RadioSession, User
 from crate.services.account.wiring import AccountSyncReport, run_account_sync_for_user
 from crate.services.discovery.wiring import DiscoveryReport, run_discovery
 from crate.services.enrichment.orchestrator import EnrichmentReport, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
 from crate.services.mutations.writer import SpotifyWriter
+from crate.services.radio.wiring import build_radio_for_user
 from crate.services.spotify.auth import SpotifyAuthGateway
 from crate.services.sync import SyncReport, run_sync_for_user
 from crate.settings import get_settings
@@ -88,6 +89,18 @@ async def _discovery_runner(
 
 def get_discovery_runner() -> DiscoveryRunner:
     return _discovery_runner
+
+
+# (session, user, playlist_id, track_ids, genre_name, length, discovery_ratio)
+# -> persisted radio session. Tests override with an offline builder.
+RadioBuilder = Callable[
+    [Session, User, int | None, list[int] | None, str | None, int, float],
+    Awaitable[RadioSession],
+]
+
+
+def get_radio_builder() -> RadioBuilder:
+    return build_radio_for_user
 
 
 # Async context manager yielding a write-capable Spotify surface for a user.

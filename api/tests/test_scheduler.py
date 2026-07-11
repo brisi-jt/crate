@@ -8,7 +8,12 @@ from sqlmodel import Session
 
 from crate.model.enums import CredentialStatus
 from crate.model.orm import SpotifyCredential, User
-from crate.scheduler import AccountScheduler, seconds_until_daily, seconds_until_monthly
+from crate.scheduler import (
+    AccountScheduler,
+    seconds_until_daily,
+    seconds_until_monthly,
+    seconds_until_weekly,
+)
 from crate.settings import Settings
 
 pytestmark = pytest.mark.unit
@@ -128,6 +133,46 @@ async def test_job_failure_is_contained_and_logged(
     assert any("spotify fell over" in (r.exc_text or "") for r in skip_records(caplog))
 
 
+# --- weekly digest pass -----------------------------------------------------------
+
+
+async def test_digest_pass_runs_without_a_spotify_credential(session: Session, user: User) -> None:
+    """Digest generation is database-local — it must not gate on a credential."""
+    job = JobRecorder()
+    scheduler = AccountScheduler(
+        session_factory=lambda: session,
+        recent_job=job,
+        nightly_job=job,
+        top_job=job,
+        digest_job=job,
+    )
+
+    await scheduler.run_digest_pass()
+
+    assert job.calls == [user.id]
+
+
+async def test_digest_pass_failure_is_contained(
+    session: Session, user: User, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def broken_job(session: Session, user: User) -> None:
+        raise RuntimeError("digest fell over")
+
+    job = JobRecorder()
+    scheduler = AccountScheduler(
+        session_factory=lambda: session,
+        recent_job=job,
+        nightly_job=job,
+        top_job=job,
+        digest_job=broken_job,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="crate.scheduler"):
+        await scheduler.run_digest_pass()  # must not raise
+
+    assert any("digest fell over" in (r.exc_text or "") for r in skip_records(caplog))
+
+
 # --- tick timing ---------------------------------------------------------------
 
 
@@ -158,6 +203,23 @@ def test_seconds_until_monthly_rolls_over_year_end() -> None:
     assert seconds_until_monthly(now, day=1, hour=4) == target_gap.total_seconds()
 
 
+def test_seconds_until_weekly_before_target() -> None:
+    now = datetime(2026, 7, 6, 3, 0, 0)  # Monday 03:00
+    assert seconds_until_weekly(now, weekday=0, hour=5) == 2 * 3600
+
+
+def test_seconds_until_weekly_after_target_rolls_a_week() -> None:
+    now = datetime(2026, 7, 6, 6, 0, 0)  # Monday 06:00 — past 05:00
+    target_gap = datetime(2026, 7, 13, 5, 0, 0) - now
+    assert seconds_until_weekly(now, weekday=0, hour=5) == target_gap.total_seconds()
+
+
+def test_seconds_until_weekly_midweek() -> None:
+    now = datetime(2026, 7, 9, 12, 0, 0)  # Thursday
+    target_gap = datetime(2026, 7, 13, 5, 0, 0) - now
+    assert seconds_until_weekly(now, weekday=0, hour=5) == target_gap.total_seconds()
+
+
 # --- settings toggles ------------------------------------------------------------
 
 
@@ -168,3 +230,5 @@ def test_scheduler_settings_defaults() -> None:
     assert settings.nightly_sync_hour == 3
     assert settings.top_items_day_of_month == 1
     assert settings.top_items_hour == 4
+    assert settings.digest_weekday == 0
+    assert settings.digest_hour == 5

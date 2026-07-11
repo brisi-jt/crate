@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Readout } from "@/components/panels/right-dock";
+import { TargetPicker } from "@/components/panels/target-picker";
 import { Separator } from "@/components/ui/separator";
 import { useFrontier, useSeedDiscovery } from "@/hooks/api/use-frontier";
 import { usePlaylists } from "@/hooks/api/use-playlists";
@@ -262,65 +263,6 @@ function FrontierGenreRow({
                 </button>
               )}
             </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Small owned-playlist picker — the bulk-ops picker pattern, single value. */
-function TargetPicker({
-  options,
-  value,
-  onPick,
-}: {
-  options: Array<{ id: number; name: string }>;
-  value: number | null;
-  onPick: (id: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = options.find((o) => o.id === value) ?? null;
-
-  useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="data-readout cursor-pointer rounded-sm border border-border-subtle bg-surface-2 px-sm py-2xs text-micro text-text-secondary hover:text-text-primary"
-      >
-        {current ? current.name : "TARGET PLAYLIST"} ▾
-      </button>
-      {open && (
-        <div className="absolute bottom-full left-0 z-30 mb-2xs max-h-[240px] w-[220px] overflow-y-auto rounded-md border border-border-subtle bg-surface-3 py-2xs">
-          {options.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => {
-                onPick(option.id);
-                setOpen(false);
-              }}
-              className="block w-full cursor-pointer truncate px-sm py-2xs text-left text-sm text-text-secondary hover:bg-surface-2 hover:text-text-primary"
-            >
-              {option.name}
-            </button>
-          ))}
-          {options.length === 0 && (
-            <span className="block px-sm py-2xs text-sm text-text-muted">
-              No owned playlists yet.
-            </span>
           )}
         </div>
       )}

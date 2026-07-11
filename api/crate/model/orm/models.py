@@ -16,12 +16,16 @@ from crate.model.enums import (
     CandidateSource,
     CandidateStatus,
     CredentialStatus,
+    DigestSection,
     FeatureSource,
     FeatureStatus,
     FeedbackAction,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
+    RadioItemFeedback,
+    RadioItemKind,
+    RadioSeedKind,
     SimilaritySource,
     SnapshotKind,
     SyncEventSource,
@@ -470,6 +474,95 @@ class TopItemsSnapshot(TimestampedModel, table=True):
     items: list[dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON, nullable=False)
     )
+
+
+class Digest(TimestampedModel, table=True):
+    """One weekly digest — a curated summary of what changed and what's queued.
+
+    Keyed by the Monday the covered week starts on; regenerating a week
+    rebuilds the same row's items. read_at drives the inbox unread marker.
+    """
+
+    __tablename__ = "digests"
+    __table_args__ = (UniqueConstraint("user_id", "week_start", name="uq_digests_user_week"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # Monday 00:00 UTC of the week the digest covers.
+    week_start: datetime = Field()
+    generated_at: datetime = Field(default_factory=utcnow)
+    read_at: datetime | None = Field(default=None)
+    # Rollup counts plus the week's frontier reading — the next digest diffs
+    # against it to report frontier movement.
+    meta: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+
+
+class DigestItem(TimestampedModel, table=True):
+    """One entry in a digest section, carrying its deep-link targets."""
+
+    __tablename__ = "digest_items"
+    __table_args__ = (UniqueConstraint("digest_id", "position", name="uq_digest_items_position"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    digest_id: int = Field(foreign_key="digests.id", index=True)
+    position: int = Field()
+    section: DigestSection = Field(sa_column=enum_column(DigestSection, nullable=False))
+    title: str = Field(max_length=512)
+    body: str | None = Field(default=None, sa_column=Column(Text))
+    # Deep-link targets: whichever apply to the item.
+    playlist_id: int | None = Field(default=None, foreign_key="playlists.id")
+    candidate_id: int | None = Field(default=None, foreign_key="discovery_candidates.id")
+    genre: str | None = Field(default=None, max_length=256)
+    # Section-specific readouts (counts, fit scores) for the inbox rendering.
+    extra: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+
+
+class RadioSession(TimestampedModel, table=True):
+    """One generated radio session: an ordered ~25-track listening run."""
+
+    __tablename__ = "radio_sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    seed_kind: RadioSeedKind = Field(sa_column=enum_column(RadioSeedKind, nullable=False))
+    seed_playlist_id: int | None = Field(default=None, foreign_key="playlists.id")
+    seed_genre: str | None = Field(default=None, max_length=256)
+    # Track ids given as an explicit seed set, when seeded from tracks.
+    seed_track_ids: list[int] | None = Field(default=None, sa_column=Column(JSON))
+    # Human-readable seed description, e.g. "GYM" or "trip hop".
+    label: str = Field(max_length=512)
+    # Fraction of the session drawn from discovery candidates.
+    discovery_ratio: float = Field(default=0.2)
+
+
+class RadioItem(TimestampedModel, table=True):
+    """One positioned entry in a radio session.
+
+    Title/artist/preview are denormalized at build time so the session plays
+    back exactly as generated, whatever happens to the underlying rows.
+    """
+
+    __tablename__ = "radio_items"
+    __table_args__ = (UniqueConstraint("session_id", "position", name="uq_radio_items_position"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="radio_sessions.id", index=True)
+    position: int = Field()
+    kind: RadioItemKind = Field(sa_column=enum_column(RadioItemKind, nullable=False))
+    track_id: int | None = Field(default=None, foreign_key="tracks.id")
+    candidate_id: int | None = Field(default=None, foreign_key="discovery_candidates.id")
+    title: str = Field(max_length=512)
+    artist: str = Field(max_length=512)
+    spotify_id: str | None = Field(default=None, max_length=64)
+    preview_url: str | None = Field(default=None, sa_column=Column(Text))
+    # Transition readouts for the tracklist: BPM and Camelot wheel position.
+    tempo: float | None = Field(default=None)
+    camelot: str | None = Field(default=None, max_length=4)
+    feedback: RadioItemFeedback | None = Field(
+        default=None, sa_column=enum_column(RadioItemFeedback, nullable=True)
+    )
+    # Set when a kept candidate was added to a playlist (undo target).
+    journal_id: int | None = Field(default=None, foreign_key="mutation_journal.id")
 
 
 class MutationJournal(TimestampedModel, table=True):

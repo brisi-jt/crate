@@ -42,6 +42,10 @@ EXPECTED_TABLES = {
     "play_events",
     "top_items_snapshots",
     "local_dsp_calibrations",
+    "digests",
+    "digest_items",
+    "radio_sessions",
+    "radio_items",
 }
 
 

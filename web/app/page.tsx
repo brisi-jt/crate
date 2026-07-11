@@ -20,9 +20,11 @@ import {
 import { ArtistCardPanelContent } from "@/components/panels/artist-card-panel";
 import { BulkOpsPanelContent } from "@/components/panels/bulk-ops-panel";
 import { FrontierPanelContent } from "@/components/panels/frontier-panel";
+import { InboxPanelContent } from "@/components/panels/inbox-panel";
 import { LibraryStatsPanelContent } from "@/components/panels/library-stats-panel";
 import { OpsLogPanelContent } from "@/components/panels/ops-log-panel";
 import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
+import { RadioPanelContent } from "@/components/panels/radio-panel";
 import { RightDock } from "@/components/panels/right-dock";
 import { TrackCardPanelContent } from "@/components/panels/track-card-panel";
 import {
@@ -32,10 +34,12 @@ import {
   MapNotComputed,
   SyncInProgress,
 } from "@/components/states/map-states";
+import { useDigests } from "@/hooks/api/use-digests";
 import { useGraph } from "@/hooks/api/use-graph";
 import { useSyncStatus, useTriggerSync } from "@/hooks/api/use-sync";
 import { acousticColor, GREY_NODE, oklchString } from "@/lib/color/acoustic";
 import { nodeRadius } from "@/lib/graph/geometry";
+import { hasUnread } from "@/lib/inbox/logic";
 import { useDeckStore } from "@/lib/store/deck";
 import { useUiStore } from "@/lib/store/ui";
 
@@ -63,6 +67,9 @@ export default function MapPage() {
   const reducedMotion = useReducedMotion() ?? false;
 
   const rightPanel = useUiStore((s) => s.rightPanel);
+  const openInbox = useUiStore((s) => s.openInbox);
+  const digests = useDigests();
+  const inboxUnread = hasUnread(digests.data?.items ?? []);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const openPlaylist = useUiStore((s) => s.openPlaylist);
   const openTrack = useUiStore((s) => s.openTrack);
@@ -128,7 +135,8 @@ export default function MapPage() {
   const rightInset = rightPanel
     ? rightPanel.kind === "stats" ||
       rightPanel.kind === "bulk-ops" ||
-      rightPanel.kind === "frontier"
+      rightPanel.kind === "frontier" ||
+      rightPanel.kind === "radio"
       ? 640
       : 440
     : 0;
@@ -233,13 +241,27 @@ export default function MapPage() {
           <SyncReadout graph={graph.data ?? null} />
           {graph.data && <MapModeSwitch />}
         </div>
-        <button
-          type="button"
-          onClick={() => setPaletteOpen(true)}
-          className="micro-caps pointer-events-auto absolute top-md right-lg z-10 cursor-pointer text-text-muted hover:text-text-secondary"
-        >
-          ⌘K PALETTE
-        </button>
+        <div className="absolute top-md right-lg z-10 flex items-center gap-md">
+          {/* Inbox cue: a 6px amber tick beside the readout while an unread
+              digest waits — marker, not alarm (chrome stays whisper-quiet). */}
+          <button
+            type="button"
+            onClick={openInbox}
+            className="micro-caps pointer-events-auto flex cursor-pointer items-center gap-2xs text-text-muted hover:text-text-secondary"
+          >
+            {inboxUnread && (
+              <span className="inline-block size-[6px] rounded-full bg-amber" />
+            )}
+            INBOX
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="micro-caps pointer-events-auto cursor-pointer text-text-muted hover:text-text-secondary"
+          >
+            ⌘K PALETTE
+          </button>
+        </div>
       </div>
 
       <RightDock
@@ -325,6 +347,23 @@ export default function MapPage() {
         onClose={closeRightPanel}
       >
         {rightPanel?.kind === "frontier" && <FrontierPanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "inbox"}
+        title="Inbox"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "inbox" && <InboxPanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "radio"}
+        wide
+        title="Radio"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "radio" && <RadioPanelContent />}
       </RightDock>
 
       {contextMenu && (

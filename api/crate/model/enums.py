@@ -185,6 +185,45 @@ class FeedbackAction(StrEnum):
     skip = "skip"
 
 
+class DigestSection(StrEnum):
+    """Which part of a weekly digest an item belongs to."""
+
+    # New suggestion counts, per playlist.
+    suggestions = "suggestions"
+    # Top-ranked candidates nobody has reviewed yet.
+    candidates = "candidates"
+    # Library changes observed by sync passes.
+    library = "library"
+    # Listening notes from the play history.
+    listening = "listening"
+    # Movement on the genre frontier.
+    frontier = "frontier"
+
+
+class RadioSeedKind(StrEnum):
+    """What a radio session was seeded from."""
+
+    playlist = "playlist"
+    tracks = "tracks"
+    genre = "genre"
+
+
+class RadioItemKind(StrEnum):
+    """Where a radio item came from."""
+
+    # A track already in the library.
+    library = "library"
+    # A discovery candidate interleaved for audition.
+    discovery = "discovery"
+
+
+class RadioItemFeedback(StrEnum):
+    """The listener's verdict on one radio item."""
+
+    kept = "kept"
+    skipped = "skipped"
+
+
 class TopItemKind(StrEnum):
     """What a top-items snapshot ranks."""
 

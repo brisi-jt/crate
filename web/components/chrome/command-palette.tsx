@@ -26,6 +26,8 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const openPlaylist = useUiStore((s) => s.openPlaylist);
   const openStats = useUiStore((s) => s.openStats);
   const openFrontier = useUiStore((s) => s.openFrontier);
+  const openInbox = useUiStore((s) => s.openInbox);
+  const openRadio = useUiStore((s) => s.openRadio);
   const setMapMode = useUiStore((s) => s.setMapMode);
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
@@ -102,6 +104,18 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               className="data-[selected=true]:bg-surface-2"
             >
               Open frontier explorer
+            </CommandItem>
+            <CommandItem
+              onSelect={() => openInbox()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open inbox
+            </CommandItem>
+            <CommandItem
+              onSelect={() => openRadio()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Start a radio
             </CommandItem>
             <CommandItem
               onSelect={() => {

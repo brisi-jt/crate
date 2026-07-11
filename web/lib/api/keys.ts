@@ -28,4 +28,8 @@ export const queryKeys = {
   libraryStatsScoped: (ownedOnly: boolean) =>
     ["library", "stats", { ownedOnly }] as const,
   journal: ["journal"] as const,
+  digests: ["digests"] as const,
+  /** One digest with its items; invalidate with the bare `digests` prefix. */
+  digest: (digestId: number) => ["digests", digestId] as const,
+  radio: (radioId: number) => ["radio", radioId] as const,
 };

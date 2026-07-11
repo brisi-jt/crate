@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     nightly_sync_hour: int = 3
     top_items_day_of_month: int = 1
     top_items_hour: int = 4
+    # Weekly digest generation: day of week (0 = Monday) and hour, UTC.
+    digest_weekday: int = 0
+    digest_hour: int = 5
 
     # Last.fm API key for artist similarity and tags. Optional: without it the
     # enrichment pipeline skips Last.fm and reports that coverage as pending.
