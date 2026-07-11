@@ -9,8 +9,20 @@ import pytest
 from sqlmodel import Session, select
 
 from crate.model.enums import CandidateSource, CandidateStatus
-from crate.model.orm import DiscoveryCandidate, Playlist, PlaylistTrack, Track, User
-from crate.services.discovery.generation import dedup_key, generate_for_playlist
+from crate.model.orm import (
+    ArtistGenre,
+    DiscoveryCandidate,
+    Genre,
+    Playlist,
+    PlaylistTrack,
+    Track,
+    User,
+)
+from crate.services.discovery.generation import (
+    dedup_key,
+    generate_for_playlist,
+    generate_from_genre,
+)
 from crate.services.enrichment.models import ArtistTopTrack, SimilarArtist
 from tests.discovery_fakes import FakeLastFm, FakeRecco, recommended, seed_playlist
 
@@ -202,3 +214,80 @@ async def test_limit_caps_new_candidates(session: Session, user: User, gym: Play
         session, user, gym, lastfm=lastfm_for_gym(), reccobeats=FakeRecco(), limit=2
     )
     assert len(candidates_of(session, gym)) == 2
+
+
+# ---------------------------------------------------------- genre seeding
+
+
+def seed_genre(session: Session, name: str, members: dict[str, float], rank: int = 1) -> Genre:
+    genre = Genre(name=name, enao_rank=rank)
+    session.add(genre)
+    session.flush()
+    assert genre.id is not None
+    for artist, weight in members.items():
+        session.add(ArtistGenre(genre_id=genre.id, artist_name=artist, weight=weight))
+    session.commit()
+    return genre
+
+
+def melodic_house_tracks() -> FakeLastFm:
+    return FakeLastFm(
+        top_tracks={
+            "Cassian": [top_track("Magical", "Cassian"), top_track("Lafayette", "Cassian")],
+            "Anyma": [top_track("Explore Your Future", "Anyma")],
+        }
+    )
+
+
+async def test_genre_seed_candidates_come_from_non_library_exemplars(
+    session: Session, user: User, gym: Playlist
+) -> None:
+    # KREAM is already in the library — never an exemplar; the fake would
+    # explode on an unexpected top-tracks lookup anyway (empty list).
+    genre = seed_genre(
+        session,
+        "melodic house",
+        {"Cassian": 100.0, "KREAM": 90.0, "Anyma": 80.0},
+    )
+    tracks = melodic_house_tracks()
+
+    report = await generate_from_genre(session, user, gym, genre, tracks=tracks)
+
+    rows = candidates_of(session, gym)
+    titles = {(c.title, c.artist) for c in rows}
+    assert titles == {
+        ("Magical", "Cassian"),
+        ("Lafayette", "Cassian"),
+        ("Explore Your Future", "Anyma"),
+    }
+    assert all(c.source == CandidateSource.enao for c in rows)
+    assert all(c.status == CandidateStatus.pending for c in rows)
+    magical = next(c for c in rows if c.title == "Magical")
+    assert magical.seed_artist == "Cassian"
+    assert report.generated_enao == 3
+    # Exemplars walk in descending genre weight.
+    assert tracks.calls == [("top_tracks", "Cassian"), ("top_tracks", "Anyma")]
+
+
+async def test_genre_seed_respects_library_exclusion_and_limit(
+    session: Session, user: User, gym: Playlist
+) -> None:
+    genre = seed_genre(session, "melodic house", {"Cassian": 100.0, "Anyma": 80.0})
+    tracks = FakeLastFm(
+        top_tracks={
+            # Hyperdrive by KREAM is in the library; a proposal naming an
+            # in-library track under its exemplar artist still gets through
+            # dedupe only when the (title, artist) pair is genuinely new.
+            "Cassian": [top_track("Hyperdrive", "KREAM"), top_track("Magical", "Cassian")],
+            "Anyma": [top_track("Explore Your Future", "Anyma")],
+        }
+    )
+
+    report = await generate_from_genre(session, user, gym, genre, tracks=tracks, limit=2)
+
+    rows = candidates_of(session, gym)
+    titles = {(c.title, c.artist) for c in rows}
+    assert ("Hyperdrive", "KREAM") not in titles  # library exclusion holds
+    assert report.excluded == 1
+    assert report.generated_enao == 2
+    assert len(rows) == 2

@@ -12,10 +12,16 @@ export type RightPanel =
   | { kind: "stats" }
   | { kind: "bulk-ops"; sourceId?: number }
   | { kind: "ops-log" }
-  | { kind: "track"; trackId: number };
+  | { kind: "track"; trackId: number }
+  | { kind: "artist"; artistId: string }
+  | { kind: "frontier" };
 
-/** The canvas renders one of two maps: the playlist graph or the track field. */
-export type MapMode = "playlists" | "tracks";
+/**
+ * The canvas renders one of three maps: the playlist graph, the track field,
+ * or the artist galaxy — the canvas trinity. New surfaces beyond these dock
+ * as panels instead (the frontier explorer is a panel, not a fourth mode).
+ */
+export type MapMode = "playlists" | "tracks" | "artists";
 
 /** A track picked in the playlist panel — target of graph context-menu adds. */
 export interface SelectedTrack {
@@ -42,6 +48,8 @@ interface UiState {
   selectedTracks: SelectedTrack[];
   openPlaylist: (playlistId: number) => void;
   openTrack: (trackId: number) => void;
+  openArtist: (artistId: string) => void;
+  openFrontier: () => void;
   setMapMode: (mode: MapMode) => void;
   setClusterOverlay: (on: boolean) => void;
   openStats: () => void;
@@ -66,6 +74,12 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openTrack: (trackId) =>
     set({ rightPanel: { kind: "track", trackId }, paletteOpen: false }),
+
+  openArtist: (artistId) =>
+    set({ rightPanel: { kind: "artist", artistId }, paletteOpen: false }),
+
+  openFrontier: () =>
+    set({ rightPanel: { kind: "frontier" }, paletteOpen: false }),
 
   setMapMode: (mode) => set({ mapMode: mode }),
 

@@ -25,6 +25,8 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const openPlaylist = useUiStore((s) => s.openPlaylist);
   const openStats = useUiStore((s) => s.openStats);
+  const openFrontier = useUiStore((s) => s.openFrontier);
+  const setMapMode = useUiStore((s) => s.setMapMode);
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
@@ -94,6 +96,21 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               className="data-[selected=true]:bg-surface-2"
             >
               Open operations log
+            </CommandItem>
+            <CommandItem
+              onSelect={() => openFrontier()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open frontier explorer
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setMapMode("artists");
+                setPaletteOpen(false);
+              }}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              View artist galaxy
             </CommandItem>
             {selectedPlaylistId !== null && (
               <CommandItem

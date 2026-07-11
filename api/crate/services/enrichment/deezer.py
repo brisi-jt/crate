@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from crate.services.enrichment.cache import ResponseCache
-from crate.services.enrichment.models import DeezerTrack
+from crate.services.enrichment.models import ArtistTopTrack, DeezerTrack
 from crate.services.enrichment.throttle import RateLimiter, Sleep, request_with_backoff
 
 BASE_URL = "https://api.deezer.com"
@@ -70,3 +70,45 @@ class DeezerClient:
             if result.preview and result.artist_name.strip().lower() == wanted:
                 return result
         return None
+
+    async def get_artist_top_tracks(
+        self, artist_name: str, limit: int = 10
+    ) -> list[ArtistTopTrack]:
+        """The artist's best-known tracks, from a search over their name.
+
+        Deezer orders search results by popularity, so the first distinct
+        titles by the exact artist are its top tracks. Results by other
+        artists (covers, tributes) are dropped.
+        """
+        query = f'artist:"{artist_name}"'
+        cache_key = f"artist-top:{query.lower()}"
+        payload = self._cache.get(cache_key)
+        if payload is None:
+            response = await request_with_backoff(
+                self._http,
+                "GET",
+                f"{self._base_url}/search",
+                params={"q": query},
+                limiter=self._limiter,
+                sleep=self._sleep,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            self._cache.put(cache_key, payload)
+
+        wanted = artist_name.strip().lower()
+        seen: set[str] = set()
+        tracks: list[ArtistTopTrack] = []
+        for item in payload.get("data", []):
+            name = str(item.get("artist", {}).get("name", ""))
+            title = str(item.get("title", ""))
+            if not title or name.strip().lower() != wanted:
+                continue
+            title_key = title.casefold()
+            if title_key in seen:
+                continue
+            seen.add(title_key)
+            tracks.append(ArtistTopTrack(name=title, artist_name=name))
+            if len(tracks) == limit:
+                break
+        return tracks

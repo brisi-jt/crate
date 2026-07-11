@@ -77,3 +77,49 @@ async def test_search_preview_cached_per_query(session: Session) -> None:
 
     assert len(requests) == 1
     await client.aclose()
+
+
+# -------------------------------------------------------- artist top tracks
+
+ARTIST_SEARCH = {
+    "data": [
+        {"id": 1, "title": "Magical", "preview": "https://cdn/p1", "artist": {"name": "Cassian"}},
+        {"id": 2, "title": "Magical", "preview": "https://cdn/p1b", "artist": {"name": "Cassian"}},
+        {"id": 3, "title": "Same Things", "preview": "", "artist": {"name": "Cassian"}},
+        {
+            "id": 4,
+            "title": "Not Him",
+            "preview": "https://cdn/p2",
+            "artist": {"name": "Cassian Cover Band"},
+        },
+        {"id": 5, "title": "Lafayette", "preview": "https://cdn/p3", "artist": {"name": "Cassian"}},
+    ]
+}
+
+
+async def test_artist_top_tracks_filters_artist_and_dedupes_titles(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_handler(requests, ARTIST_SEARCH))
+
+    tracks = await client.get_artist_top_tracks("Cassian", limit=10)
+
+    assert [(t.name, t.artist_name) for t in tracks] == [
+        ("Magical", "Cassian"),
+        ("Same Things", "Cassian"),
+        ("Lafayette", "Cassian"),
+    ]
+    assert requests[0].url.params["q"] == 'artist:"Cassian"'
+    await client.aclose()
+
+
+async def test_artist_top_tracks_respects_limit_and_caches(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_handler(requests, ARTIST_SEARCH))
+
+    first = await client.get_artist_top_tracks("Cassian", limit=2)
+    second = await client.get_artist_top_tracks("Cassian", limit=2)
+
+    assert [t.name for t in first] == ["Magical", "Same Things"]
+    assert first == second
+    assert len(requests) == 1
+    await client.aclose()

@@ -81,3 +81,38 @@ describe("track card panel", () => {
     expect(useUiStore.getState().rightPanel).toBeNull();
   });
 });
+
+describe("artist galaxy mode + panels", () => {
+  beforeEach(resetStores);
+
+  it("switches to the artist galaxy and back", () => {
+    useUiStore.getState().setMapMode("artists");
+    expect(useUiStore.getState().mapMode).toBe("artists");
+    useUiStore.getState().setMapMode("playlists");
+    expect(useUiStore.getState().mapMode).toBe("playlists");
+  });
+
+  it("opening the deck from galaxy mode still snaps to the playlist graph", () => {
+    useUiStore.getState().setMapMode("artists");
+    openListeningDeck(3);
+    expect(useUiStore.getState().mapMode).toBe("playlists");
+  });
+
+  it("docks the artist card as the right panel", () => {
+    useUiStore.getState().setPaletteOpen(true);
+    useUiStore.getState().openArtist("peggy gou");
+    expect(useUiStore.getState().rightPanel).toEqual({
+      kind: "artist",
+      artistId: "peggy gou",
+    });
+    expect(useUiStore.getState().paletteOpen).toBe(false);
+  });
+
+  it("docks the frontier panel and replaces other panels", () => {
+    useUiStore.getState().openStats();
+    useUiStore.getState().openFrontier();
+    expect(useUiStore.getState().rightPanel).toEqual({ kind: "frontier" });
+    useUiStore.getState().popLayer();
+    expect(useUiStore.getState().rightPanel).toBeNull();
+  });
+});

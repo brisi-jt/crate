@@ -130,6 +130,84 @@ export const graphResponseSchema = z.object({
   _links: halLinksSchema,
 });
 
+// -------------------------------------- artist galaxy (GET /v1/graph/artists)
+
+/**
+ * One artist across the in-scope playlists. `id` is the stable artist key
+ * (lowercase name) — edges reference it, and the artist card panel keys off
+ * it. The node is self-sufficient: everything the card shows travels here.
+ */
+export const galaxyNodeSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Distinct library tracks crediting the artist — drives sqrt node sizing. */
+  track_count: z.number(),
+  playlist_count: z.number(),
+  playlist_ids: z.array(z.number()),
+  /** Mean sound of the artist's enriched tracks; null renders the grey state. */
+  centroid: centroidSchema.nullable(),
+  genres: z.array(z.string()),
+  /** Library tracks, alphabetical, capped server-side (track_count = full total). */
+  tracks: z.array(z.object({ id: z.number(), name: z.string() })),
+  similar: z.array(
+    z.object({ name: z.string(), weight: z.number(), in_library: z.boolean() }),
+  ),
+});
+
+export const galaxyEdgeSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  /** co_playlist = solid (weight = shared playlists); similarity = dashed (0..1). */
+  kind: z.enum(["co_playlist", "similarity"]),
+  weight: z.number(),
+});
+
+export const artistGalaxyResponseSchema = z.object({
+  nodes: z.array(galaxyNodeSchema),
+  edges: z.array(galaxyEdgeSchema),
+  /** Cap honesty: large libraries show only the most connected artists. */
+  coverage: z.object({
+    artists_total: z.number(),
+    artists_shown: z.number(),
+    edges_total: z.number(),
+    edges_shown: z.number(),
+  }),
+  _links: halLinksSchema,
+});
+
+// -------------------------------- frontier (GET /v1/discovery/frontier)
+
+export const territoryGenreSchema = z.object({
+  genre_id: z.number(),
+  name: z.string(),
+  enao_rank: z.number().nullable(),
+  /** Library hold on the genre relative to its strongest genre, 0..1. */
+  presence: z.number(),
+  matched_artists: z.number(),
+});
+
+export const frontierGenreSchema = z.object({
+  genre_id: z.number(),
+  name: z.string(),
+  enao_rank: z.number().nullable(),
+  /** Adjacency to territory, discounted by existing presence. */
+  score: z.number(),
+  presence: z.number(),
+  adjacent_to: z.array(z.string()),
+  /** Defining artists NOT in the library — the discovery seeds. */
+  exemplars: z.array(z.object({ name: z.string(), weight: z.number() })),
+});
+
+export const frontierResponseSchema = z.object({
+  territory: z.array(territoryGenreSchema),
+  frontier: z.array(frontierGenreSchema),
+  coverage: z.object({
+    library_artists: z.number(),
+    matched_artists: z.number(),
+  }),
+  _links: halLinksSchema,
+});
+
 // ------------------------------------------- track map (GET /v1/map/tracks)
 
 /**
@@ -387,6 +465,8 @@ export const discoveryRunResultSchema = z.object({
   playlists_processed: z.number(),
   generated_lastfm: z.number(),
   generated_reccobeats: z.number(),
+  /** Candidates sourced from a genre seed's exemplar artists. */
+  generated_enao: z.number().optional(),
   excluded: z.number(),
   resolved: z.number(),
   unresolvable: z.number(),
@@ -412,6 +492,12 @@ export type GraphEdge = z.infer<typeof graphEdgeSchema>;
 export type GraphResponse = z.infer<typeof graphResponseSchema>;
 export type MapPoint = z.infer<typeof mapPointSchema>;
 export type TrackMapResponse = z.infer<typeof trackMapResponseSchema>;
+export type GalaxyNode = z.infer<typeof galaxyNodeSchema>;
+export type GalaxyEdge = z.infer<typeof galaxyEdgeSchema>;
+export type ArtistGalaxyResponse = z.infer<typeof artistGalaxyResponseSchema>;
+export type TerritoryGenre = z.infer<typeof territoryGenreSchema>;
+export type FrontierGenre = z.infer<typeof frontierGenreSchema>;
+export type FrontierResponse = z.infer<typeof frontierResponseSchema>;
 export type PlaylistAnalytics = z.infer<typeof playlistAnalyticsSchema>;
 export type LibraryStats = z.infer<typeof libraryStatsSchema>;
 export type MutationResult = z.infer<typeof mutationResultSchema>;

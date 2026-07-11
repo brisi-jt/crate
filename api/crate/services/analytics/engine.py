@@ -15,13 +15,32 @@ from itertools import pairwise
 from typing import Any
 
 import numpy as np
-from sqlmodel import Session, select
+from sqlmodel import Session, col, func, select
 
 from crate.model.enums import SnapshotKind
-from crate.model.orm import AnalyticsSnapshot, User
+from crate.model.orm import (
+    AnalyticsSnapshot,
+    Artist,
+    ArtistGenre,
+    ArtistSimilarity,
+    Genre,
+    User,
+)
 from crate.services.analytics.clustering import compute_track_map
 from crate.services.analytics.flow import TrackAudio, flow_score, suggest_order, transition_score
-from crate.services.analytics.loaders import LibrarySnapshot, load_library, load_percentile_space
+from crate.services.analytics.galaxy import (
+    MAX_GALAXY_EDGES,
+    MAX_GALAXY_NODES,
+    cap_edges,
+    co_playlist_weights,
+    order_by_degree,
+)
+from crate.services.analytics.loaders import (
+    LibrarySnapshot,
+    load_library,
+    load_percentile_space,
+    load_track_credits,
+)
 from crate.services.analytics.percentiles import PercentileSpace
 from crate.services.analytics.snapshots import get_or_compute, invalidate_snapshots
 from crate.services.analytics.structure import (
@@ -36,6 +55,15 @@ from crate.services.analytics.temporal import AddRecord, drift_by_quarter, growt
 
 # The three features whose playlist centroid drives node color on the map.
 CENTROID_FEATURES = ("acousticness", "energy", "valence")
+
+# Per-node payload budgets for the artist galaxy: enough for the docked
+# artist card without shipping whole rosters for every node.
+GALAXY_GENRES_PER_ARTIST = 3
+GALAXY_TRACKS_PER_ARTIST = 12
+GALAXY_SIMILAR_PER_ARTIST = 8
+
+# Chunk size for IN(...) queries over track ids / artist names.
+_IN_CHUNK = 400
 
 # Greedy reorder is O(n^2) transitions; beyond this the suggestion is skipped
 # rather than stalling the request.
@@ -368,6 +396,154 @@ def compute_track_map_payload(
             for suggestion in result.merge_suggestions
         ],
         "layout_hash": result.layout_hash,
+    }
+
+
+def _artist_genre_tags(session: Session, keys: list[str]) -> dict[str, list[str]]:
+    """artist key -> ENAO genre names by descending membership weight."""
+    weighted: dict[str, list[tuple[float, int, str]]] = {}
+    ordered = sorted(keys)
+    for start in range(0, len(ordered), _IN_CHUNK):
+        chunk = ordered[start : start + _IN_CHUNK]
+        rows = session.exec(
+            select(ArtistGenre, Genre)
+            .where(ArtistGenre.genre_id == Genre.id)  # type: ignore[arg-type]
+            .where(func.lower(ArtistGenre.artist_name).in_(chunk))
+        ).all()
+        for membership, genre in rows:
+            key = membership.artist_name.casefold()
+            weighted.setdefault(key, []).append(
+                (-membership.weight, genre.enao_rank or 0, genre.name)
+            )
+    return {
+        key: [name for _, _, name in sorted(entries)[:GALAXY_GENRES_PER_ARTIST]]
+        for key, entries in weighted.items()
+    }
+
+
+def compute_artist_galaxy_payload(
+    session: Session,
+    user: User,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
+) -> dict[str, Any]:
+    """Artists across the in-scope playlists as a galaxy.
+
+    Nodes are keyed by lowercase artist name (the credit is the identity —
+    a catalog Artist row is optional and only adds similarity data). Edges
+    come in two kinds: co_playlist (playlists holding both artists) and
+    similarity (listener-reported, weight 0..1). Node and edge counts are
+    capped for canvas rendering; coverage reports what the cap dropped.
+    """
+    ctx = _context(session, user, ctx, owned_only)
+    library, vectors = ctx.library, ctx.vectors
+    credits = load_track_credits(session, list(library.track_meta))
+
+    display: dict[str, str] = {}
+    artist_tracks: dict[str, set[int]] = {}
+    for track_id, names in credits.items():
+        for name in names:
+            key = name.casefold()
+            display.setdefault(key, name)
+            artist_tracks.setdefault(key, set()).add(track_id)
+
+    playlist_artists: dict[int, set[str]] = {}
+    artist_playlists: dict[str, set[int]] = {}
+    for playlist_id, members in library.memberships.items():
+        keys = {name.casefold() for track_id in members for name in credits.get(track_id, [])}
+        playlist_artists[playlist_id] = keys
+        for key in keys:
+            artist_playlists.setdefault(key, set()).add(playlist_id)
+
+    weights = co_playlist_weights(playlist_artists)
+    track_counts = {key: len(tracks) for key, tracks in artist_tracks.items()}
+    ordered = order_by_degree(sorted(artist_tracks), weights, track_counts)
+    kept = ordered[:MAX_GALAXY_NODES]
+    kept_set = set(kept)
+
+    # Catalog rows (where they exist) unlock the similarity layer.
+    catalog_ids: dict[int, str] = {}
+    for artist in session.exec(select(Artist)).all():
+        key = artist.name.casefold()
+        if key in kept_set and artist.id is not None:
+            catalog_ids.setdefault(artist.id, key)
+
+    similar_weights: dict[str, dict[str, float]] = {}
+    pair_weights: dict[tuple[str, str], float] = {}
+    if catalog_ids:
+        edges = session.exec(
+            select(ArtistSimilarity).where(col(ArtistSimilarity.artist_id).in_(list(catalog_ids)))
+        ).all()
+        for edge in edges:
+            source_key = catalog_ids[edge.artist_id]
+            target_key = edge.similar_artist_name.casefold()
+            if target_key == source_key:
+                continue
+            per_source = similar_weights.setdefault(source_key, {})
+            per_source[edge.similar_artist_name] = max(
+                per_source.get(edge.similar_artist_name, 0.0), edge.weight
+            )
+            if target_key in kept_set:
+                pair = (min(source_key, target_key), max(source_key, target_key))
+                pair_weights[pair] = max(pair_weights.get(pair, 0.0), edge.weight)
+
+    similarity_edges = [
+        {"source": a, "target": b, "kind": "similarity", "weight": round(weight, 4)}
+        for (a, b), weight in sorted(pair_weights.items())
+    ]
+    co_edges = [
+        {"source": a, "target": b, "kind": "co_playlist", "weight": float(weight)}
+        for (a, b), weight in sorted(weights.items())
+        if a in kept_set and b in kept_set
+    ]
+    edges_total = len(co_edges) + len(similarity_edges)
+    edges = cap_edges(co_edges, similarity_edges, MAX_GALAXY_EDGES)
+
+    genre_tags = _artist_genre_tags(session, kept)
+
+    nodes: list[dict[str, Any]] = []
+    for key in sorted(kept, key=lambda k: (-track_counts[k], k)):
+        member_tracks = sorted(
+            artist_tracks[key],
+            key=lambda tid: (library.track_meta[tid]["name"], tid),
+        )
+        similar = [
+            {
+                "name": name,
+                "weight": round(weight, 4),
+                "in_library": name.casefold() in artist_tracks,
+            }
+            for name, weight in sorted(
+                similar_weights.get(key, {}).items(), key=lambda item: (-item[1], item[0])
+            )[:GALAXY_SIMILAR_PER_ARTIST]
+        ]
+        nodes.append(
+            {
+                "id": key,
+                "name": display[key],
+                "track_count": track_counts[key],
+                "playlist_count": len(artist_playlists.get(key, ())),
+                "playlist_ids": sorted(artist_playlists.get(key, ())),
+                "centroid": _centroid(artist_tracks[key], vectors),
+                "genres": genre_tags.get(key, []),
+                "tracks": [
+                    {"id": tid, "name": library.track_meta[tid]["name"]}
+                    for tid in member_tracks[:GALAXY_TRACKS_PER_ARTIST]
+                ],
+                "similar": similar,
+            }
+        )
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "coverage": {
+            "artists_total": len(artist_tracks),
+            "artists_shown": len(kept),
+            "edges_total": edges_total,
+            "edges_shown": len(edges),
+        },
     }
 
 

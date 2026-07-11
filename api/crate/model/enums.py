@@ -114,6 +114,8 @@ class SnapshotKind(StrEnum):
     library_stats = "library_stats"
     playlist_analytics = "playlist_analytics"
     flow = "flow"
+    artist_galaxy = "artist_galaxy"
+    frontier = "frontier"
 
 
 class MutationOpType(StrEnum):
@@ -156,6 +158,8 @@ class CandidateSource(StrEnum):
     lastfm = "lastfm"
     # Track recommendations seeded by the playlist's exemplar tracks.
     reccobeats = "reccobeats"
+    # Exemplar artists of an ENAO frontier genre, then their top tracks.
+    enao = "enao"
 
 
 class CandidateStatus(StrEnum):

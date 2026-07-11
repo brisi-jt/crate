@@ -11,13 +11,14 @@ from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, field
 
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, func, select
 
 from crate.model.enums import CandidateStatus, PlaylistSyncStatus
-from crate.model.orm import DiscoveryCandidate, Playlist, User
+from crate.model.orm import DiscoveryCandidate, Genre, Playlist, User
 from crate.services.discovery.generation import (
     DEFAULT_CANDIDATE_LIMIT,
     generate_for_playlist,
+    generate_from_genre,
 )
 from crate.services.discovery.resolution import (
     FakeSpotifyResolver,
@@ -41,6 +42,7 @@ class DiscoveryReport:
     playlists_processed: int = 0
     generated_lastfm: int = 0
     generated_reccobeats: int = 0
+    generated_enao: int = 0
     excluded: int = 0
     resolved: int = 0
     unresolvable: int = 0
@@ -65,8 +67,15 @@ async def run_discovery(
     *,
     playlist_id: int | None = None,
     limit: int = DEFAULT_CANDIDATE_LIMIT,
+    genre_seed: str | None = None,
 ) -> DiscoveryReport:
-    """One full discovery pass over one playlist (or every synced playlist)."""
+    """One full discovery pass over one playlist (or every synced playlist).
+
+    With genre_seed set (always alongside playlist_id), generation swaps to
+    the genre's exemplar artists — Last.fm names their top tracks when a key
+    is configured, Deezer search otherwise — and the shared resolve /
+    features / previews pipeline runs unchanged.
+    """
     assert user.id is not None
     settings = get_settings()
     report = DiscoveryReport(lastfm_skipped=not settings.lastfm_api_key)
@@ -95,19 +104,36 @@ async def run_discovery(
             )
             stack.push_async_callback(lastfm.aclose)
 
+        genre: Genre | None = None
+        if genre_seed is not None:
+            genre = session.exec(
+                select(Genre).where(func.lower(Genre.name) == genre_seed.casefold())
+            ).first()
+
         for playlist in playlists:
             # One playlist's source failure (bad seeds, upstream 5xx) never
             # takes down the whole pass — it is reported and skipped.
             try:
-                generation = await generate_for_playlist(
-                    session, user, playlist, lastfm=lastfm, reccobeats=reccobeats, limit=limit
-                )
+                if genre is not None:
+                    generation = await generate_from_genre(
+                        session,
+                        user,
+                        playlist,
+                        genre,
+                        tracks=lastfm if lastfm is not None else deezer,
+                        limit=limit,
+                    )
+                else:
+                    generation = await generate_for_playlist(
+                        session, user, playlist, lastfm=lastfm, reccobeats=reccobeats, limit=limit
+                    )
             except Exception as exc:  # per-playlist isolation
                 report.errors.append(f"{playlist.name}: {exc}")
                 continue
             report.playlists_processed += 1
             report.generated_lastfm += generation.generated_lastfm
             report.generated_reccobeats += generation.generated_reccobeats
+            report.generated_enao += generation.generated_enao
             report.excluded += generation.excluded
 
         pending = session.exec(

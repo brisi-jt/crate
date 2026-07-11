@@ -1,38 +1,50 @@
 "use client";
 
-import { useUiStore } from "@/lib/store/ui";
+import { type MapMode, useUiStore } from "@/lib/store/ui";
+
+const MODES: Array<{ mode: MapMode; label: string }> = [
+  { mode: "playlists", label: "PLAYLIST GRAPH" },
+  { mode: "tracks", label: "TRACK FIELD" },
+  { mode: "artists", label: "ARTIST GALAXY" },
+];
 
 /**
- * Map mode chrome, alongside the sync readout: flips the canvas between the
- * playlist graph (force) and the track field (UMAP scatter), plus the
- * cluster-hull overlay toggle while the field is up. Same field-manual
- * switch pattern as FOLLOWED SHOWN/HIDDEN.
+ * Map mode chrome, alongside the sync readout: a segmented micro-caps
+ * control across the canvas trinity — playlist graph (force), track field
+ * (UMAP scatter), artist galaxy (force). The two-mode state-labeled switch
+ * became a segmented control at three modes; the cluster-hull toggle still
+ * appears only while the field is up.
  */
 export function MapModeSwitch() {
   const mapMode = useUiStore((s) => s.mapMode);
   const setMapMode = useUiStore((s) => s.setMapMode);
   const clusterOverlay = useUiStore((s) => s.clusterOverlay);
   const setClusterOverlay = useUiStore((s) => s.setClusterOverlay);
-  const tracks = mapMode === "tracks";
 
   return (
     <div className="pointer-events-auto flex items-center gap-md">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={tracks}
-        onClick={() => setMapMode(tracks ? "playlists" : "tracks")}
-        title="Flip between the playlist graph and the track field"
-        className={`micro-caps cursor-pointer ${
-          tracks
-            ? "text-text-primary"
-            : "text-text-muted hover:text-text-secondary"
-        }`}
-      >
-        VIEW {tracks ? "TRACK FIELD" : "PLAYLIST GRAPH"}
-      </button>
+      <div className="flex items-center gap-xs">
+        <span className="micro-caps text-text-muted">VIEW</span>
+        {MODES.map(({ mode, label }, index) => (
+          <span key={mode} className="flex items-center gap-xs">
+            {index > 0 && <span className="micro-caps text-text-muted">·</span>}
+            <button
+              type="button"
+              aria-pressed={mapMode === mode}
+              onClick={() => setMapMode(mode)}
+              className={`micro-caps cursor-pointer ${
+                mapMode === mode
+                  ? "text-text-primary"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+            >
+              {label}
+            </button>
+          </span>
+        ))}
+      </div>
 
-      {tracks && (
+      {mapMode === "tracks" && (
         <button
           type="button"
           role="switch"

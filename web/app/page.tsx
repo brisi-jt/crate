@@ -17,7 +17,9 @@ import {
   type ContextMenuState,
   NodeContextMenu,
 } from "@/components/graph/node-context-menu";
+import { ArtistCardPanelContent } from "@/components/panels/artist-card-panel";
 import { BulkOpsPanelContent } from "@/components/panels/bulk-ops-panel";
+import { FrontierPanelContent } from "@/components/panels/frontier-panel";
 import { LibraryStatsPanelContent } from "@/components/panels/library-stats-panel";
 import { OpsLogPanelContent } from "@/components/panels/ops-log-panel";
 import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
@@ -47,6 +49,13 @@ const TrackField = dynamic(() => import("@/components/field/track-field"), {
   ssr: false,
 });
 
+const ArtistGalaxy = dynamic(
+  () => import("@/components/galaxy/artist-galaxy"),
+  {
+    ssr: false,
+  },
+);
+
 export default function MapPage() {
   const graph = useGraph();
   const status = useSyncStatus();
@@ -57,6 +66,7 @@ export default function MapPage() {
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const openPlaylist = useUiStore((s) => s.openPlaylist);
   const openTrack = useUiStore((s) => s.openTrack);
+  const openArtist = useUiStore((s) => s.openArtist);
   const mapMode = useUiStore((s) => s.mapMode);
   const setMapMode = useUiStore((s) => s.setMapMode);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
@@ -116,7 +126,9 @@ export default function MapPage() {
     : null;
 
   const rightInset = rightPanel
-    ? rightPanel.kind === "stats" || rightPanel.kind === "bulk-ops"
+    ? rightPanel.kind === "stats" ||
+      rightPanel.kind === "bulk-ops" ||
+      rightPanel.kind === "frontier"
       ? 640
       : 440
     : 0;
@@ -143,7 +155,23 @@ export default function MapPage() {
     <main className="fixed inset-0 overflow-hidden bg-canvas">
       {/* The map region — everything else docks over it */}
       <div className="absolute inset-x-0 top-0 bottom-[56px]">
-        {graph.data && mapMode === "tracks" ? (
+        {graph.data && mapMode === "artists" ? (
+          <ArtistGalaxy
+            graph={graph.data}
+            selectedArtistId={
+              rightPanel?.kind === "artist" ? rightPanel.artistId : null
+            }
+            onSelectArtist={(artistId) => {
+              if (artistId === null) {
+                if (rightPanel?.kind === "artist") closeRightPanel();
+              } else {
+                openArtist(artistId);
+              }
+            }}
+            rightInset={rightInset}
+            reducedMotion={reducedMotion}
+          />
+        ) : graph.data && mapMode === "tracks" ? (
           <TrackField
             graph={graph.data}
             selectedTrackId={
@@ -271,6 +299,32 @@ export default function MapPage() {
             }}
           />
         )}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "artist"}
+        title="Artist"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "artist" && (
+          <ArtistCardPanelContent
+            artistId={rightPanel.artistId}
+            onShowInGraph={(playlistId) => {
+              setMapMode("playlists");
+              openPlaylist(playlistId);
+            }}
+            onOpenArtist={openArtist}
+          />
+        )}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "frontier"}
+        wide
+        title="Frontier explorer"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "frontier" && <FrontierPanelContent />}
       </RightDock>
 
       {contextMenu && (

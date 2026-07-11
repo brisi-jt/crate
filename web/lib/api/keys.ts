@@ -12,6 +12,12 @@ export const queryKeys = {
   trackMap: ["track-map"] as const,
   /** Scope-keyed track map; invalidate with the bare `trackMap` prefix. */
   trackMapScoped: (ownedOnly: boolean) => ["track-map", { ownedOnly }] as const,
+  galaxy: ["galaxy"] as const,
+  /** Scope-keyed artist galaxy; invalidate with the bare `galaxy` prefix. */
+  galaxyScoped: (ownedOnly: boolean) => ["galaxy", { ownedOnly }] as const,
+  frontier: ["frontier"] as const,
+  /** Scope-keyed genre frontier; invalidate with the bare `frontier` prefix. */
+  frontierScoped: (ownedOnly: boolean) => ["frontier", { ownedOnly }] as const,
   playlistAnalytics: (playlistId: number) =>
     ["playlists", playlistId, "analytics"] as const,
   suggestions: (playlistId: number) =>

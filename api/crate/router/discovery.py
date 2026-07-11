@@ -7,9 +7,9 @@ path, so a deck decision is as undoable as any other playlist edit.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlmodel import select
+from sqlmodel import func, select
 
 from crate.deps import (
     CurrentUserDep,
@@ -19,9 +19,17 @@ from crate.deps import (
     get_discovery_runner,
 )
 from crate.errors import AppError, ProblemDetail
-from crate.model.enums import CandidateSource, CandidateStatus, FeedbackAction, MutationStatus
-from crate.model.orm import DiscoveryCandidate, Playlist
+from crate.model.enums import (
+    CandidateSource,
+    CandidateStatus,
+    FeedbackAction,
+    MutationStatus,
+    SnapshotKind,
+)
+from crate.model.orm import DiscoveryCandidate, Genre, Playlist
 from crate.router.playlists import HalLink
+from crate.services.analytics.snapshots import get_or_compute
+from crate.services.discovery.frontier import compute_frontier_payload
 from crate.services.discovery.generation import DEFAULT_CANDIDATE_LIMIT
 from crate.services.discovery.service import (
     QueueEntry,
@@ -54,6 +62,12 @@ class DiscoveryRunBody(BaseModel):
         ge=1,
         le=200,
         description="Maximum new candidates admitted per playlist.",
+    )
+    genre_seed: str | None = Field(
+        default=None,
+        description="Seed the pass from a genre instead of the playlist's own "
+        "sound: candidates come from the genre's defining artists that the "
+        "library lacks (see the frontier endpoint). Requires playlist_id.",
     )
 
 
@@ -137,6 +151,9 @@ class DiscoveryRunResult(BaseModel):
     playlists_processed: int
     generated_lastfm: int
     generated_reccobeats: int
+    generated_enao: int = Field(
+        description="Candidates sourced from a genre seed's exemplar artists."
+    )
     excluded: int = Field(
         description="Proposals dropped because they were already in the library, "
         "previously rejected, or already queued."
@@ -153,6 +170,73 @@ class DiscoveryRunResult(BaseModel):
         description="Per-step failures the pass survived (a source outage "
         "skips that step, never the whole run)."
     )
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
+# ----------------------------------------------------------------- frontier
+
+
+class TerritoryGenreResource(BaseModel):
+    """One genre the library already inhabits."""
+
+    genre_id: int
+    name: str
+    enao_rank: int | None = Field(
+        description="Position in the global genre popularity ordering (1 = most popular)."
+    )
+    presence: float = Field(
+        description="How strongly the library holds this genre, relative to "
+        "its strongest genre (0..1)."
+    )
+    matched_artists: int = Field(description="Library artists counted toward the presence.")
+
+
+class FrontierExemplarResource(BaseModel):
+    """An artist that defines a frontier genre but isn't in the library."""
+
+    name: str
+    weight: float = Field(
+        description="How central the artist is to the genre, 0..1 (1 = its strongest member)."
+    )
+
+
+class FrontierGenreResource(BaseModel):
+    """A genre next door to the library's territory, worth exploring."""
+
+    genre_id: int
+    name: str
+    enao_rank: int | None
+    score: float = Field(
+        description="Exploration score: adjacency to the library's territory, "
+        "discounted by how much of the genre it already holds."
+    )
+    presence: float = Field(description="The library's existing hold on this genre, 0..1.")
+    adjacent_to: list[str] = Field(
+        description="The territory genres this one borders, strongest link first."
+    )
+    exemplars: list[FrontierExemplarResource] = Field(
+        description="Defining artists not yet in the library — discovery seeds."
+    )
+
+
+class FrontierCoverage(BaseModel):
+    library_artists: int = Field(description="Distinct credited artists in the scope.")
+    matched_artists: int = Field(
+        description="Of those, how many the genre atlas recognizes by name."
+    )
+
+
+class FrontierResponse(BaseModel):
+    """Where the library lives in genre space, and what borders it."""
+
+    territory: list[TerritoryGenreResource] = Field(
+        description="Genres the library already inhabits, strongest first."
+    )
+    frontier: list[FrontierGenreResource] = Field(
+        description="Adjacent but under-explored genres, best exploration "
+        "score first. Each carries seed artists for a discovery run."
+    )
+    coverage: FrontierCoverage
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -308,6 +392,46 @@ async def post_feedback(
     )
 
 
+@router.get(
+    "/v1/discovery/frontier",
+    summary="Genre frontier",
+    description=(
+        "Maps the library onto the genre atlas: the territory it already "
+        "inhabits, and the frontier — genres that border that territory "
+        "through shared artists but are barely represented yet. Each "
+        "frontier genre names its defining artists that the library lacks; "
+        "feed one to a discovery run as a genre seed to explore it."
+    ),
+)
+def genre_frontier(
+    session: SessionDep,
+    user: CurrentUserDep,
+    owned_only: Annotated[
+        bool,
+        Query(
+            description=(
+                "Compute territory from playlists the account owns. Set false "
+                "to also count followed playlists."
+            )
+        ),
+    ] = True,
+) -> FrontierResponse:
+    payload = get_or_compute(
+        session,
+        user,
+        SnapshotKind.frontier,
+        lambda: compute_frontier_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
+    )
+    return FrontierResponse(
+        **payload,
+        links={
+            "self": HalLink(href="/v1/discovery/frontier"),
+            "run": HalLink(href="/v1/discovery/run"),
+        },
+    )
+
+
 @router.post(
     "/v1/discovery/run",
     summary="Run a discovery pass",
@@ -329,11 +453,30 @@ async def run_discovery_pass(
     assert user.id is not None
     if body.playlist_id is not None:
         _require_playlist(session, user.id, body.playlist_id)
-    report = await runner(session, user, body.playlist_id, body.limit)
+    if body.genre_seed is not None:
+        if body.playlist_id is None:
+            raise AppError(
+                400,
+                "Genre seed needs a playlist",
+                detail="A genre-seeded pass targets one playlist — include playlist_id.",
+                error_code="GENRE_SEED_REQUIRES_PLAYLIST",
+            )
+        genre = session.exec(
+            select(Genre).where(func.lower(Genre.name) == body.genre_seed.casefold())
+        ).first()
+        if genre is None:
+            raise AppError(
+                404,
+                "Genre not found",
+                detail=f"No genre named {body.genre_seed!r} in the genre atlas.",
+                error_code="GENRE_NOT_FOUND",
+            )
+    report = await runner(session, user, body.playlist_id, body.limit, body.genre_seed)
     return DiscoveryRunResult(
         playlists_processed=report.playlists_processed,
         generated_lastfm=report.generated_lastfm,
         generated_reccobeats=report.generated_reccobeats,
+        generated_enao=report.generated_enao,
         excluded=report.excluded,
         resolved=report.resolved,
         unresolvable=report.unresolvable,

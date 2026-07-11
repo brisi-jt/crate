@@ -81,6 +81,72 @@ class GraphResponse(BaseModel):
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
+# ---------------------------------------------------------- artist galaxy
+
+
+class GalaxyTrackRef(BaseModel):
+    id: int = Field(description="Track id — matches playlist track listings.")
+    name: str
+
+
+class GalaxySimilarArtist(BaseModel):
+    name: str
+    weight: float = Field(description="Listener-reported similarity strength, 0..1.")
+    in_library: bool = Field(description="True when this artist also appears in the library.")
+
+
+class GalaxyNode(BaseModel):
+    id: str = Field(description="Stable artist key (lowercase name) — edge endpoints reference it.")
+    name: str
+    track_count: int = Field(description="Distinct library tracks crediting the artist.")
+    playlist_count: int = Field(description="Playlists in scope holding the artist.")
+    playlist_ids: list[int]
+    centroid: AcousticCentroid | None = Field(
+        description="Mean sound of the artist's enriched tracks; null until "
+        "enrichment reaches them."
+    )
+    genres: list[str] = Field(description="Strongest genre tags for the artist, best first.")
+    tracks: list[GalaxyTrackRef] = Field(
+        description="The artist's library tracks, alphabetical, capped — "
+        "track_count carries the full number."
+    )
+    similar: list[GalaxySimilarArtist] = Field(
+        description="Artists listeners pair with this one, strongest first. "
+        "Empty when no similarity data exists yet."
+    )
+
+
+class GalaxyEdge(BaseModel):
+    source: str = Field(description="Artist key of one endpoint.")
+    target: str = Field(description="Artist key of the other endpoint.")
+    kind: str = Field(
+        description="co_playlist — playlists hold both artists (weight = how "
+        "many); similarity — listeners pair them (weight 0..1)."
+    )
+    weight: float
+
+
+class GalaxyCoverage(BaseModel):
+    """How much of the full artist set the capped payload shows."""
+
+    artists_total: int
+    artists_shown: int
+    edges_total: int
+    edges_shown: int
+
+
+class ArtistGalaxyResponse(BaseModel):
+    """The library's artists as a galaxy: nodes per artist, edges per relation."""
+
+    nodes: list[GalaxyNode]
+    edges: list[GalaxyEdge]
+    coverage: GalaxyCoverage = Field(
+        description="Large libraries are capped to the most connected artists "
+        "— totals report what the cap dropped."
+    )
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
 # ------------------------------------------------------------- track map
 
 
@@ -335,6 +401,39 @@ def playlist_graph(
             "self": HalLink(href="/v1/graph/playlists"),
             "map": HalLink(href="/v1/map/tracks"),
             "recompute": HalLink(href="/v1/analytics/recompute"),
+        },
+    )
+
+
+@router.get(
+    "/v1/graph/artists",
+    summary="Artist galaxy",
+    description=(
+        "Every credited artist across the playlists in scope, as a galaxy: "
+        "nodes sized by how many library tracks the artist appears on and "
+        "colored from the mean sound of those tracks, with two kinds of "
+        "edges — artists sharing playlists, and artists listeners report as "
+        "similar. Each node carries what the artist card shows: library "
+        "tracks, owning playlists, genre tags, and similar artists. Very "
+        "large libraries are capped to the most connected artists."
+    ),
+)
+def artist_galaxy(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> ArtistGalaxyResponse:
+    payload = get_or_compute(
+        session,
+        user,
+        SnapshotKind.artist_galaxy,
+        lambda: engine.compute_artist_galaxy_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
+    )
+    return ArtistGalaxyResponse(
+        **payload,
+        links={
+            "self": HalLink(href="/v1/graph/artists"),
+            "graph": HalLink(href="/v1/graph/playlists"),
+            "map": HalLink(href="/v1/map/tracks"),
         },
     )
 

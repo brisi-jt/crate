@@ -12,6 +12,7 @@ from crate.deps import get_current_user, get_discovery_runner, get_writer_factor
 from crate.model.enums import CandidateSource, CandidateStatus, FeedbackAction
 from crate.model.orm import (
     DiscoveryCandidate,
+    Genre,
     MutationJournal,
     Playlist,
     PlaylistTrack,
@@ -36,13 +37,16 @@ def fake() -> FakeSpotify:
 
 
 @pytest.fixture
-def run_calls() -> list[tuple[int | None, int]]:
+def run_calls() -> list[tuple[int | None, int, str | None]]:
     return []
 
 
 @pytest.fixture
 def client(
-    session: Session, user: User, fake: FakeSpotify, run_calls: list[tuple[int | None, int]]
+    session: Session,
+    user: User,
+    fake: FakeSpotify,
+    run_calls: list[tuple[int | None, int, str | None]],
 ) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
@@ -55,9 +59,13 @@ def client(
     app.dependency_overrides[get_writer_factory] = lambda: fake_writer
 
     async def fake_runner(
-        _session: Session, _user: User, playlist_id: int | None, limit: int
+        _session: Session,
+        _user: User,
+        playlist_id: int | None,
+        limit: int,
+        genre_seed: str | None,
     ) -> DiscoveryReport:
-        run_calls.append((playlist_id, limit))
+        run_calls.append((playlist_id, limit, genre_seed))
         return DiscoveryReport(playlists_processed=1, generated_reccobeats=3, resolved=3)
 
     app.dependency_overrides[get_discovery_runner] = lambda: fake_runner
@@ -273,7 +281,7 @@ def test_feedback_rejects_unknown_action(
 def test_discovery_run_invokes_runner_with_scope(
     client: TestClient,
     gym: Playlist,
-    run_calls: list[tuple[int | None, int]],
+    run_calls: list[tuple[int | None, int, str | None]],
 ) -> None:
     response = client.post("/v1/discovery/run", json={"playlist_id": gym.id, "limit": 25})
 
@@ -282,17 +290,51 @@ def test_discovery_run_invokes_runner_with_scope(
     assert body["playlists_processed"] == 1
     assert body["generated_reccobeats"] == 3
     assert body["_links"]["self"]["href"] == "/v1/discovery/run"
-    assert run_calls == [(gym.id, 25)]
+    assert run_calls == [(gym.id, 25, None)]
 
 
 def test_discovery_run_defaults_to_all_playlists(
-    client: TestClient, run_calls: list[tuple[int | None, int]]
+    client: TestClient, run_calls: list[tuple[int | None, int, str | None]]
 ) -> None:
     response = client.post("/v1/discovery/run", json={})
     assert response.status_code == 200
-    assert run_calls == [(None, 50)]
+    assert run_calls == [(None, 50, None)]
 
 
 def test_discovery_run_unknown_playlist_404s(client: TestClient) -> None:
     response = client.post("/v1/discovery/run", json={"playlist_id": 999})
     assert response.status_code == 404
+
+
+def test_discovery_run_with_genre_seed_passes_it_through(
+    client: TestClient,
+    session: Session,
+    gym: Playlist,
+    run_calls: list[tuple[int | None, int, str | None]],
+) -> None:
+    session.add(Genre(name="melodic house", enao_rank=42))
+    session.commit()
+
+    response = client.post(
+        "/v1/discovery/run",
+        json={"playlist_id": gym.id, "genre_seed": "Melodic House"},
+    )
+
+    assert response.status_code == 200
+    assert "generated_enao" in response.json()
+    assert run_calls == [(gym.id, 50, "Melodic House")]
+
+
+def test_discovery_run_genre_seed_requires_a_playlist(client: TestClient) -> None:
+    response = client.post("/v1/discovery/run", json={"genre_seed": "melodic house"})
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.json()["error_code"] == "GENRE_SEED_REQUIRES_PLAYLIST"
+
+
+def test_discovery_run_unknown_genre_404s(client: TestClient, gym: Playlist) -> None:
+    response = client.post(
+        "/v1/discovery/run", json={"playlist_id": gym.id, "genre_seed": "polka fusion"}
+    )
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "GENRE_NOT_FOUND"

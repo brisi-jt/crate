@@ -100,6 +100,28 @@ def load_library(session: Session, user_id: int, owned_only: bool = False) -> Li
     return snapshot
 
 
+# Chunk size for IN(...) queries over track ids.
+_IN_CHUNK = 400
+
+
+def load_track_credits(session: Session, track_ids: list[int]) -> dict[int, list[str]]:
+    """track id -> credited artist names, in credit order.
+
+    LibrarySnapshot.track_meta keeps only the primary artist; the artist
+    galaxy and genre frontier need every credit.
+    """
+    credits: dict[int, list[str]] = {}
+    ids = sorted(track_ids)
+    for start in range(0, len(ids), _IN_CHUNK):
+        chunk = ids[start : start + _IN_CHUNK]
+        for track in session.exec(select(Track).where(col(Track.id).in_(chunk))).all():
+            assert track.id is not None
+            credits[track.id] = [
+                str(credit["name"]) for credit in track.artists if credit.get("name")
+            ]
+    return credits
+
+
 def load_percentile_space(session: Session) -> PercentileSpace:
     """Percentile space fitted on every enriched track in the catalog.
 

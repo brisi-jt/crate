@@ -69,14 +69,21 @@ def get_enrichment_runner() -> EnrichmentRunner:
     return run_enrichment
 
 
-# (session, user, playlist_id, limit) -> report. Tests override with a fake.
-DiscoveryRunner = Callable[[Session, User, int | None, int], Awaitable[DiscoveryReport]]
+# (session, user, playlist_id, limit, genre_seed) -> report. Tests override
+# with a fake.
+DiscoveryRunner = Callable[[Session, User, int | None, int, str | None], Awaitable[DiscoveryReport]]
 
 
 async def _discovery_runner(
-    session: Session, user: User, playlist_id: int | None, limit: int
+    session: Session,
+    user: User,
+    playlist_id: int | None,
+    limit: int,
+    genre_seed: str | None,
 ) -> DiscoveryReport:
-    return await run_discovery(session, user, playlist_id=playlist_id, limit=limit)
+    return await run_discovery(
+        session, user, playlist_id=playlist_id, limit=limit, genre_seed=genre_seed
+    )
 
 
 def get_discovery_runner() -> DiscoveryRunner:
