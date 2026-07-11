@@ -74,6 +74,17 @@ class TagSource(StrEnum):
     enao = "enao"
 
 
+class SnapshotKind(StrEnum):
+    """Which analytics payload an AnalyticsSnapshot row caches."""
+
+    graph = "graph"
+    track_map = "track_map"
+    temporal = "temporal"
+    library_stats = "library_stats"
+    playlist_analytics = "playlist_analytics"
+    flow = "flow"
+
+
 class MutationOpType(StrEnum):
     """Reversible write operations recorded in the mutation journal."""
 

@@ -29,6 +29,7 @@ from crate.model.orm import (
     User,
     utcnow,
 )
+from crate.services.analytics.snapshots import invalidate_snapshots
 from crate.services.crypto import get_cipher
 from crate.services.spotify.client import SpotifyClient, SpotifyReauthRequired
 from crate.services.spotify.models import (
@@ -102,8 +103,27 @@ class SyncService:
                 self._emit(row, SyncEventType.playlist_deleted)
                 report.playlists_deleted += 1
 
+        # A change in the library makes every cached analytics payload stale;
+        # a pass that skipped everything keeps the cache warm.
+        if self._library_changed(report):
+            assert self._user.id is not None
+            invalidate_snapshots(session, self._user.id)
+
         session.commit()
         return report
+
+    @staticmethod
+    def _library_changed(report: SyncReport) -> bool:
+        return any(
+            (
+                report.playlists_created,
+                report.playlists_synced,
+                report.playlists_renamed,
+                report.playlists_deleted,
+                report.tracks_added,
+                report.tracks_removed,
+            )
+        )
 
     async def _create_playlist(self, summary: SpotifyPlaylistSummary, report: SyncReport) -> None:
         session = self._session

@@ -30,6 +30,7 @@ EXPECTED_TABLES = {
     "feature_calibrations",
     "freqblog_budget",
     "api_response_cache",
+    "analytics_snapshots",
 }
 
 

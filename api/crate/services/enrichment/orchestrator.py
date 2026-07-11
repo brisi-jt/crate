@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from crate.model.enums import FeatureSource, FeatureStatus, SimilaritySource, TagSource
 from crate.model.orm import Artist, ArtistSimilarity, ArtistTag, Track, TrackFeatures
 from crate.model.orm.base import utcnow
+from crate.services.analytics.snapshots import invalidate_snapshots
 from crate.services.enrichment.calibration import recompute_calibration
 from crate.services.enrichment.freqblog import try_consume_budget
 from crate.services.enrichment.models import (
@@ -111,6 +112,11 @@ class EnrichmentService:
         if self._lastfm is not None:
             await self._enrich_artists_from_lastfm(session, batch_size, report)
         recompute_calibration(session)
+        # New feature values shift the percentile space itself, so cached
+        # analytics for every user are stale, not just one library's.
+        if report.tracks_processed:
+            invalidate_snapshots(session)
+            session.commit()
         return report
 
     # -- track features -----------------------------------------------------

@@ -1,5 +1,6 @@
 from crate.model.orm.base import TimestampedModel, utcnow
 from crate.model.orm.models import (
+    AnalyticsSnapshot,
     ApiResponseCache,
     Artist,
     ArtistGenre,
@@ -19,6 +20,7 @@ from crate.model.orm.models import (
 )
 
 __all__ = [
+    "AnalyticsSnapshot",
     "ApiResponseCache",
     "Artist",
     "ArtistGenre",

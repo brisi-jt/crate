@@ -20,11 +20,13 @@ from crate.model.enums import (
     MutationStatus,
     PlaylistSyncStatus,
     SimilaritySource,
+    SnapshotKind,
     SyncEventSource,
     SyncEventType,
     TagSource,
 )
 from crate.model.orm import (
+    AnalyticsSnapshot,
     ApiResponseCache,
     Artist,
     ArtistGenre,
@@ -447,6 +449,45 @@ def test_api_response_cache_round_trip(migrated_engine: Engine) -> None:
     assert row.fetched_at == fetched
     assert isinstance(row.fetched_at, datetime)
     assert_timestamps(row)
+
+
+def test_analytics_snapshot_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-snap")
+    playlist = persist_and_reload(
+        migrated_engine, Playlist(user_id=user.id, spotify_id="pl-rt-snap", name="rt")
+    )
+    computed = datetime(2026, 7, 11, 20, 15, 30, 654321)
+    payload = {"nodes": [{"id": 1, "centroid": {"energy": 0.42}}], "edges": []}
+    row = persist_and_reload(
+        migrated_engine,
+        AnalyticsSnapshot(
+            user_id=user.id,
+            kind=SnapshotKind.playlist_analytics,
+            playlist_id=playlist.id,
+            payload=payload,
+            computed_at=computed,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.user_id == user.id
+    assert row.kind == SnapshotKind.playlist_analytics
+    assert isinstance(row.kind, SnapshotKind)
+    assert row.playlist_id == playlist.id
+    assert row.payload == payload
+    assert isinstance(row.payload["nodes"][0]["centroid"]["energy"], float)
+    assert row.computed_at == computed
+    assert isinstance(row.computed_at, datetime)
+    assert_timestamps(row)
+
+
+def test_analytics_snapshot_library_scope_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-snap-lib")
+    row = persist_and_reload(
+        migrated_engine,
+        AnalyticsSnapshot(user_id=user.id, kind=SnapshotKind.graph, payload={"nodes": []}),
+    )
+    assert row.playlist_id is None
+    assert row.kind == SnapshotKind.graph
 
 
 def test_created_at_microseconds_survive(migrated_engine: Engine) -> None:

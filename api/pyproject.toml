@@ -14,6 +14,10 @@ dependencies = [
     # belongs in the runtime image.
     "pymysql>=1.1",
     "cryptography>=48.0.0",
+    "numpy>=2.4.6",
+    "scikit-learn>=1.8.0",
+    "umap-learn>=0.5.12",
+    "networkx>=3.6.1",
 ]
 
 [dependency-groups]
