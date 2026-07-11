@@ -31,6 +31,7 @@ EXPECTED_TABLES = {
     "freqblog_budget",
     "api_response_cache",
     "analytics_snapshots",
+    "op_previews",
 }
 
 

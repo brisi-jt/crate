@@ -1,6 +1,7 @@
 """Shared FastAPI dependencies."""
 
 from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from typing import Annotated
 
 from fastapi import Depends
@@ -10,6 +11,8 @@ from crate.db import get_session
 from crate.errors import AppError
 from crate.model.orm import User
 from crate.services.enrichment.orchestrator import EnrichmentReport, run_enrichment
+from crate.services.mutations.wiring import spotify_writer_for_user
+from crate.services.mutations.writer import SpotifyWriter
 from crate.services.spotify.auth import SpotifyAuthGateway
 from crate.services.sync import SyncReport, run_sync_for_user
 from crate.settings import get_settings
@@ -55,6 +58,18 @@ EnrichmentRunner = Callable[[Session, int], Awaitable[EnrichmentReport]]
 
 def get_enrichment_runner() -> EnrichmentRunner:
     return run_enrichment
+
+
+# Async context manager yielding a write-capable Spotify surface for a user.
+# Routes acquire it per-request; tests override with an in-memory fake.
+WriterFactory = Callable[[Session, User], AbstractAsyncContextManager[SpotifyWriter]]
+
+
+def get_writer_factory() -> WriterFactory:
+    return spotify_writer_for_user
+
+
+WriterFactoryDep = Annotated[WriterFactory, Depends(get_writer_factory)]
 
 
 def get_auth_gateway() -> SpotifyAuthGateway:

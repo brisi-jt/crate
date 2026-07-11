@@ -2,11 +2,18 @@
 
 import { useReducedMotion } from "motion/react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/chrome/command-palette";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
+import {
+  type ContextMenuState,
+  NodeContextMenu,
+} from "@/components/graph/node-context-menu";
+import { BulkOpsPanelContent } from "@/components/panels/bulk-ops-panel";
 import { LibraryStatsPanelContent } from "@/components/panels/library-stats-panel";
+import { OpsLogPanelContent } from "@/components/panels/ops-log-panel";
 import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
 import { RightDock } from "@/components/panels/right-dock";
 import {
@@ -39,21 +46,26 @@ export default function MapPage() {
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const popLayer = useUiStore((s) => s.popLayer);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   // Keyboard layer control: ⌘K opens the palette, Escape pops one layer
-  // top-down (palette → right panel → the map, alone).
+  // top-down (context menu → palette → right panel → the map, alone).
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         setPaletteOpen(!useUiStore.getState().paletteOpen);
       } else if (event.key === "Escape") {
-        popLayer();
+        if (contextMenu) {
+          setContextMenu(null);
+        } else {
+          popLayer();
+        }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setPaletteOpen, popLayer]);
+  }, [setPaletteOpen, popLayer, contextMenu]);
 
   const nodes = useMemo(() => graph.data?.nodes ?? [], [graph.data]);
   const selectedNode = useMemo(
@@ -68,7 +80,11 @@ export default function MapPage() {
       )
     : null;
 
-  const rightInset = rightPanel ? (rightPanel.kind === "stats" ? 640 : 440) : 0;
+  const rightInset = rightPanel
+    ? rightPanel.kind === "stats" || rightPanel.kind === "bulk-ops"
+      ? 640
+      : 440
+    : 0;
 
   const showConnectBeacon =
     !graph.data && status.data && !status.data.spotify_connected;
@@ -88,6 +104,9 @@ export default function MapPage() {
             selectedId={selectedPlaylistId}
             onSelect={(id) =>
               id === null ? closeRightPanel() : openPlaylist(id)
+            }
+            onNodeContextMenu={(playlistId, x, y) =>
+              setContextMenu({ playlistId, x, y })
             }
             rightInset={rightInset}
             reducedMotion={reducedMotion}
@@ -151,9 +170,61 @@ export default function MapPage() {
         {rightPanel?.kind === "stats" && <LibraryStatsPanelContent />}
       </RightDock>
 
+      <RightDock
+        open={rightPanel?.kind === "bulk-ops"}
+        wide
+        title="Bulk operation"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "bulk-ops" && (
+          <BulkOpsPanelContent initialSourceId={rightPanel.sourceId} />
+        )}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "ops-log"}
+        title="Operations log"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "ops-log" && <OpsLogPanelContent />}
+      </RightDock>
+
+      {contextMenu && (
+        <NodeContextMenu
+          menu={contextMenu}
+          nodes={nodes}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
       <TransportStrip />
 
       <CommandPalette nodes={nodes} />
+
+      {/* Undo toasts (tier-1 writes): bottom-left, clear of the transport. */}
+      <Toaster
+        position="bottom-left"
+        offset={{ bottom: 72, left: 16 }}
+        gap={8}
+        toastOptions={{
+          unstyled: false,
+          style: {
+            background: "var(--surface-3)",
+            border: "1px solid var(--border-subtle)",
+            color: "var(--text-primary)",
+            fontFamily: "var(--font-b612)",
+            fontSize: "13px",
+            borderRadius: "6px",
+          },
+          actionButtonStyle: {
+            background: "var(--accent-amber)",
+            color: "var(--accent-ink)",
+            fontFamily: "var(--font-b612-mono)",
+            fontSize: "11px",
+            letterSpacing: "0.08em",
+          },
+        }}
+      />
     </main>
   );
 }

@@ -13,6 +13,7 @@ from sqlalchemy import Engine, create_engine
 from sqlmodel import Session
 
 from crate.model.enums import (
+    BulkOperation,
     CredentialStatus,
     FeatureSource,
     FeatureStatus,
@@ -36,6 +37,7 @@ from crate.model.orm import (
     FreqBlogBudget,
     Genre,
     MutationJournal,
+    OpPreview,
     Playlist,
     PlaylistTrack,
     SpotifyCredential,
@@ -263,6 +265,7 @@ def test_mutation_journal_round_trip(migrated_engine: Engine) -> None:
     user = make_user(migrated_engine, "rt-mj")
     payload = {"playlist_id": 1, "track_ids": ["a", "b"]}
     inverse = {"playlist_id": 1, "restore_order": ["b", "a"]}
+    undone = datetime(2026, 7, 11, 21, 2, 3, 456789)
     row = persist_and_reload(
         migrated_engine,
         MutationJournal(
@@ -270,7 +273,8 @@ def test_mutation_journal_round_trip(migrated_engine: Engine) -> None:
             op_type=MutationOpType.add_tracks,
             payload=payload,
             inverse_payload=inverse,
-            status=MutationStatus.applied,
+            status=MutationStatus.partial,
+            undone_at=undone,
         ),
     )
     assert isinstance(row.id, int)
@@ -279,8 +283,47 @@ def test_mutation_journal_round_trip(migrated_engine: Engine) -> None:
     assert isinstance(row.op_type, MutationOpType)
     assert row.payload == payload
     assert row.inverse_payload == inverse
-    assert row.status == MutationStatus.applied
+    assert row.status == MutationStatus.partial
     assert isinstance(row.status, MutationStatus)
+    assert row.undone_at == undone  # microseconds must survive
+    assert isinstance(row.undone_at, datetime)
+    assert_timestamps(row)
+
+
+def test_op_preview_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-op")
+    params = {"operation": "dedupe", "source_ids": [3], "target_id": None}
+    manifest = {
+        "entries": [
+            {
+                "playlist_id": 3,
+                "playlist_name": "Chill",
+                "new": False,
+                "adds": [],
+                "removes": [{"position": 2, "track_id": 9, "spotify_id": "t9", "name": "N"}],
+            }
+        ],
+        "summary": {"adds": 0, "removes": 1, "playlists": 1},
+    }
+    fingerprint = "f" * 64
+    row = persist_and_reload(
+        migrated_engine,
+        OpPreview(
+            user_id=user.id,
+            operation=BulkOperation.dedupe,
+            params=params,
+            manifest=manifest,
+            fingerprint=fingerprint,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert row.operation == BulkOperation.dedupe
+    assert isinstance(row.operation, BulkOperation)
+    assert row.params == params
+    assert row.manifest == manifest
+    assert isinstance(row.manifest["summary"]["removes"], int)
+    assert row.fingerprint == fingerprint
     assert_timestamps(row)
 
 

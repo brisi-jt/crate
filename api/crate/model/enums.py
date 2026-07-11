@@ -93,6 +93,8 @@ class MutationOpType(StrEnum):
     create_playlist = "create_playlist"
     rename_playlist = "rename_playlist"
     reorder = "reorder"
+    # One bulk-algebra apply: a previewed delta across one or more playlists.
+    bulk = "bulk"
 
 
 class MutationStatus(StrEnum):
@@ -101,3 +103,16 @@ class MutationStatus(StrEnum):
     pending = "pending"
     applied = "applied"
     undone = "undone"
+    # A bulk apply where some playlists succeeded and some failed — the
+    # journal keeps per-playlist results, and undo restores what did apply.
+    partial = "partial"
+
+
+class BulkOperation(StrEnum):
+    """Set expressions the bulk-algebra preview can compute."""
+
+    union = "union"
+    difference = "difference"
+    intersect = "intersect"
+    dedupe = "dedupe"
+    sync_subset_to_parent = "sync_subset_to_parent"

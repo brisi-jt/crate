@@ -6,7 +6,8 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { NotYetComputed, Readout } from "@/components/panels/right-dock";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,12 +20,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUndoJournal } from "@/hooks/api/use-journal";
+import { useRemoveTrackAt } from "@/hooks/api/use-mutations";
 import { usePlaylistAnalytics } from "@/hooks/api/use-playlist-analytics";
 import {
   TRACK_PAGE_SIZE,
   usePlaylistTracks,
 } from "@/hooks/api/use-playlist-tracks";
 import type { GraphNode, PlaylistTrack } from "@/lib/api/schemas";
+import { useUiStore } from "@/lib/store/ui";
 
 function formatDuration(ms: number | null): string {
   if (ms === null) return "—";
@@ -35,29 +39,6 @@ function formatDuration(ms: number | null): string {
 }
 
 const columnHelper = createColumnHelper<PlaylistTrack>();
-
-const trackColumns = [
-  columnHelper.accessor("position", {
-    header: "#",
-    cell: (info) => String(info.getValue() + 1).padStart(2, "0"),
-  }),
-  columnHelper.accessor("track.name", {
-    header: "Title",
-    cell: (info) => (
-      <span>
-        <span className="text-text-primary">{info.getValue()}</span>
-        <span className="text-text-secondary">
-          {" · "}
-          {info.row.original.track.artists.map((a) => a.name).join(", ")}
-        </span>
-      </span>
-    ),
-  }),
-  columnHelper.accessor("track.duration_ms", {
-    header: "Dur",
-    cell: (info) => formatDuration(info.getValue()),
-  }),
-];
 
 interface PlaylistPanelContentProps {
   playlistId: number;
@@ -74,6 +55,81 @@ export function PlaylistPanelContent({
   const [offset, setOffset] = useState(0);
   const tracks = usePlaylistTracks(playlistId, offset);
   const analytics = usePlaylistAnalytics(playlistId);
+  const removeTrack = useRemoveTrackAt(playlistId);
+  const undo = useUndoJournal();
+  const selectedTracks = useUiStore((s) => s.selectedTracks);
+  const toggleTrackSelection = useUiStore((s) => s.toggleTrackSelection);
+  const clearTrackSelection = useUiStore((s) => s.clearTrackSelection);
+  const playlistName = node?.name ?? "playlist";
+
+  // Tier-1 instant remove: optimistic row removal + an 8s undo toast.
+  const handleRemove = useMemo(
+    () => (row: PlaylistTrack) => {
+      removeTrack.mutate(
+        { position: row.position, offset },
+        {
+          onSuccess: (result) => {
+            toast(`Removed ${row.track.name} from ${playlistName}`, {
+              duration: 8000,
+              action: {
+                label: "UNDO",
+                onClick: () => undo.mutate(result.journal_id),
+              },
+            });
+          },
+          onError: (error) => {
+            toast.error(
+              error instanceof Error ? error.message : "Remove failed",
+            );
+          },
+        },
+      );
+    },
+    [removeTrack, offset, playlistName, undo],
+  );
+
+  const trackColumns = useMemo(
+    () => [
+      columnHelper.accessor("position", {
+        header: "#",
+        cell: (info) => String(info.getValue() + 1).padStart(2, "0"),
+      }),
+      columnHelper.accessor("track.name", {
+        header: "Title",
+        cell: (info) => (
+          <span>
+            <span className="text-text-primary">{info.getValue()}</span>
+            <span className="text-text-secondary">
+              {" · "}
+              {info.row.original.track.artists.map((a) => a.name).join(", ")}
+            </span>
+          </span>
+        ),
+      }),
+      columnHelper.accessor("track.duration_ms", {
+        header: "Dur",
+        cell: (info) => formatDuration(info.getValue()),
+      }),
+      columnHelper.display({
+        id: "remove",
+        header: "",
+        cell: (info) => (
+          <button
+            type="button"
+            aria-label={`Remove ${info.row.original.track.name}`}
+            className="cursor-pointer px-xs text-text-muted hover:text-danger"
+            onClick={(event) => {
+              event.stopPropagation();
+              handleRemove(info.row.original);
+            }}
+          >
+            ✕
+          </button>
+        ),
+      }),
+    ],
+    [handleRemove],
+  );
 
   const table = useReactTable({
     data: tracks.data?.items ?? [],
@@ -164,26 +220,53 @@ export function PlaylistPanelContent({
                   ))}
                 </TableHeader>
                 <TableBody>
-                  {table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="border-border-subtle text-sm hover:bg-surface-2"
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          className="data-readout py-xs text-text-secondary first:w-8 last:text-right [&:nth-child(2)]:font-[family-name:var(--font-b612)]"
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
+                  {table.getRowModel().rows.map((row) => {
+                    const selected = selectedTracks.some(
+                      (t) => t.trackId === row.original.track.id,
+                    );
+                    return (
+                      <TableRow
+                        key={row.id}
+                        data-selected={selected || undefined}
+                        className="cursor-pointer border-border-subtle text-sm hover:bg-surface-2 data-[selected]:bg-surface-2 data-[selected]:shadow-[inset_2px_0_0_var(--accent-amber)]"
+                        onClick={() =>
+                          toggleTrackSelection({
+                            trackId: row.original.track.id,
+                            name: row.original.track.name,
+                          })
+                        }
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell
+                            key={cell.id}
+                            className="data-readout py-xs text-text-secondary first:w-8 last:w-8 last:text-right [&:nth-child(2)]:font-[family-name:var(--font-b612)] [&:nth-child(3)]:text-right"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
+              {selectedTracks.length > 0 && (
+                <div className="flex items-center gap-sm">
+                  <span className="data-readout text-micro text-amber">
+                    {selectedTracks.length} selected · right-click a map node to
+                    add
+                  </span>
+                  <button
+                    type="button"
+                    className="micro-caps cursor-pointer text-text-muted hover:text-text-primary"
+                    onClick={clearTrackSelection}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-sm">
                 <span className="data-readout text-micro text-text-muted">
                   {offset + 1}–{Math.min(offset + TRACK_PAGE_SIZE, total)} of{" "}

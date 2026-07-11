@@ -12,6 +12,7 @@ from sqlalchemy import JSON, Column, Text, UniqueConstraint
 from sqlmodel import Field
 
 from crate.model.enums import (
+    BulkOperation,
     CredentialStatus,
     FeatureSource,
     FeatureStatus,
@@ -327,3 +328,25 @@ class MutationJournal(TimestampedModel, table=True):
         default=MutationStatus.pending,
         sa_column=enum_column(MutationStatus, nullable=False),
     )
+    undone_at: datetime | None = Field(default=None)
+
+
+class OpPreview(TimestampedModel, table=True):
+    """A persisted bulk-algebra dry run.
+
+    Apply consumes the stored delta manifest exactly as previewed — nothing is
+    recomputed. The fingerprint captures the library state the manifest was
+    computed against; apply refuses (409) when the library has moved since.
+    """
+
+    __tablename__ = "op_previews"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    operation: BulkOperation = Field(sa_column=enum_column(BulkOperation, nullable=False))
+    # The expression as requested: source playlist ids, target, new-name.
+    params: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # Computed delta: per-playlist adds/removes, exactly what apply performs.
+    manifest: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # sha256 over the library's playlist membership at preview time.
+    fingerprint: str = Field(max_length=64)

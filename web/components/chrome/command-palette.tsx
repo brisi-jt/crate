@@ -24,6 +24,8 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const openPlaylist = useUiStore((s) => s.openPlaylist);
   const openStats = useUiStore((s) => s.openStats);
+  const openBulkOps = useUiStore((s) => s.openBulkOps);
+  const openOpsLog = useUiStore((s) => s.openOpsLog);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const rightPanel = useUiStore((s) => s.rightPanel);
   const sync = useTriggerSync();
@@ -78,6 +80,18 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               className="data-[selected=true]:bg-surface-2"
             >
               Open library stats
+            </CommandItem>
+            <CommandItem
+              onSelect={() => openBulkOps()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open bulk operations
+            </CommandItem>
+            <CommandItem
+              onSelect={() => openOpsLog()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open operations log
             </CommandItem>
             {rightPanel && (
               <CommandItem

@@ -78,6 +78,8 @@ interface GraphCanvasProps {
   graph: GraphResponse;
   selectedId: number | null;
   onSelect: (playlistId: number | null) => void;
+  /** Right-click on a node — opens the map context menu at screen coords. */
+  onNodeContextMenu?: (playlistId: number, x: number, y: number) => void;
   /** Right-dock width in px — fit and camera moves respect the inset. */
   rightInset: number;
   reducedMotion: boolean;
@@ -87,6 +89,7 @@ export default function GraphCanvas({
   graph,
   selectedId,
   onSelect,
+  onNodeContextMenu,
   rightInset,
   reducedMotion,
 }: GraphCanvasProps) {
@@ -427,6 +430,10 @@ export default function GraphCanvas({
           nodeLabel={() => ""}
           onNodeHover={handleHover}
           onNodeClick={(node) => onSelect(node.id)}
+          onNodeRightClick={(node, event) => {
+            event.preventDefault();
+            onNodeContextMenu?.(node.id, event.clientX, event.clientY);
+          }}
           onBackgroundClick={() => onSelect(null)}
           onRenderFramePre={() => {
             placedLabels.current = [];

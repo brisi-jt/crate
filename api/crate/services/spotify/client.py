@@ -149,3 +149,100 @@ class SpotifyClient:
         ):
             for item in page.get("items", []):
                 yield PlaylistTrackItem.model_validate(item)
+
+    # -- writes ------------------------------------------------------------
+
+    _WRITE_CHUNK = 100  # Spotify's per-call cap on playlist item operations
+
+    async def list_track_uris(self, playlist_id: str) -> list[str]:
+        """The playlist's current track URIs in playlist order."""
+        uris: list[str] = []
+        async for page in self._iter_pages(
+            f"{API_BASE_URL}/playlists/{playlist_id}/tracks", params={"limit": 100}
+        ):
+            for item in page.get("items", []):
+                track = item.get("track") or {}
+                uri = track.get("uri")
+                if uri:
+                    uris.append(uri)
+        return uris
+
+    async def add_playlist_tracks(
+        self, playlist_id: str, uris: list[str], position: int | None = None
+    ) -> str:
+        """Add tracks (chunked at the API's 100-URI cap). Returns the new snapshot id."""
+        snapshot = ""
+        for offset in range(0, len(uris), self._WRITE_CHUNK):
+            chunk = uris[offset : offset + self._WRITE_CHUNK]
+            body: dict[str, Any] = {"uris": chunk}
+            if position is not None:
+                body["position"] = position + offset
+            response = await self._request(
+                "POST", f"{API_BASE_URL}/playlists/{playlist_id}/tracks", json=body
+            )
+            snapshot = response.json().get("snapshot_id", "")
+        return snapshot
+
+    async def remove_playlist_tracks(self, playlist_id: str, uris: list[str]) -> str:
+        """Remove every occurrence of each URI. Returns the new snapshot id."""
+        snapshot = ""
+        for offset in range(0, len(uris), self._WRITE_CHUNK):
+            chunk = uris[offset : offset + self._WRITE_CHUNK]
+            response = await self._request(
+                "DELETE",
+                f"{API_BASE_URL}/playlists/{playlist_id}/tracks",
+                json={"tracks": [{"uri": uri} for uri in chunk]},
+            )
+            snapshot = response.json().get("snapshot_id", "")
+        return snapshot
+
+    async def reorder_playlist_range(
+        self,
+        playlist_id: str,
+        *,
+        range_start: int,
+        insert_before: int,
+        range_length: int = 1,
+    ) -> str:
+        """Move a range of items (indices refer to the pre-move listing)."""
+        response = await self._request(
+            "PUT",
+            f"{API_BASE_URL}/playlists/{playlist_id}/tracks",
+            json={
+                "range_start": range_start,
+                "insert_before": insert_before,
+                "range_length": range_length,
+            },
+        )
+        return response.json().get("snapshot_id", "")
+
+    async def create_playlist(self, name: str, description: str | None = None) -> tuple[str, str]:
+        """Create a private playlist. Returns (spotify_id, snapshot_id)."""
+        me = await self.get_current_user()
+        body: dict[str, Any] = {"name": name, "public": False}
+        if description:
+            body["description"] = description
+        response = await self._request("POST", f"{API_BASE_URL}/users/{me.id}/playlists", json=body)
+        payload = response.json()
+        return payload["id"], payload.get("snapshot_id", "")
+
+    async def change_playlist_details(
+        self,
+        playlist_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Update name and/or description; omitted fields keep their value."""
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = name
+        if description is not None:
+            body["description"] = description
+        if not body:
+            return
+        await self._request("PUT", f"{API_BASE_URL}/playlists/{playlist_id}", json=body)
+
+    async def unfollow_playlist(self, playlist_id: str) -> None:
+        """Remove the playlist from the library (Spotify's closest thing to delete)."""
+        await self._request("DELETE", f"{API_BASE_URL}/playlists/{playlist_id}/followers")

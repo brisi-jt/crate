@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     spotify_client_id: str = ""
     spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
 
+    # Local-development stand-in for Spotify writes: when set, mutations skip
+    # the real API entirely (invented ids/snapshots, local state still updated
+    # and journaled). Never set in deployed environments.
+    fake_spotify: bool = Field(default=False, validation_alias="CRATE_FAKE_SPOTIFY")
+
     # Last.fm API key for artist similarity and tags. Optional: without it the
     # enrichment pipeline skips Last.fm and reports that coverage as pending.
     lastfm_api_key: str | None = None

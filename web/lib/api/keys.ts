@@ -8,4 +8,5 @@ export const queryKeys = {
     ["playlists", playlistId, "analytics"] as const,
   syncStatus: ["sync", "status"] as const,
   libraryStats: ["library", "stats"] as const,
+  journal: ["journal"] as const,
 };

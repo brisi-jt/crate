@@ -195,6 +195,94 @@ export const libraryStatsSchema = z.object({
   _links: halLinksSchema,
 });
 
+// -------------------------------------------------- writes (Phase 7 live)
+
+/** Result of a single journaled write (add/remove/rename/reorder). */
+export const mutationResultSchema = z.object({
+  journal_id: z.number(),
+  status: z.string(),
+  playlist_id: z.number(),
+  track_count: z.number(),
+  _links: halLinksSchema,
+});
+
+export const manifestTrackRefSchema = z.object({
+  track_id: z.number(),
+  spotify_id: z.string(),
+  name: z.string(),
+  artist: z.string(),
+});
+
+export const manifestRemoveRefSchema = manifestTrackRefSchema.extend({
+  position: z.number(),
+});
+
+export const manifestEntrySchema = z.object({
+  playlist_id: z.number().nullable(),
+  playlist_name: z.string(),
+  /** True when apply will create this playlist. */
+  new: z.boolean(),
+  adds: z.array(manifestTrackRefSchema),
+  removes: z.array(manifestRemoveRefSchema),
+});
+
+export const manifestSchema = z.object({
+  entries: z.array(manifestEntrySchema),
+  summary: z.object({
+    adds: z.number(),
+    removes: z.number(),
+    playlists: z.number(),
+  }),
+});
+
+/** A stored dry run: apply performs exactly this delta or 409s. */
+export const opPreviewSchema = z.object({
+  preview_id: z.number(),
+  operation: z.string(),
+  manifest: manifestSchema,
+  created_at: z.string(),
+  _links: halLinksSchema,
+});
+
+export const applyResultSchema = z.object({
+  journal_id: z.number(),
+  status: z.string(),
+  results: z.array(
+    z.object({
+      playlist_id: z.number().nullable(),
+      name: z.string(),
+      status: z.string(),
+      error: z.string().nullable().optional(),
+    }),
+  ),
+  _links: halLinksSchema,
+});
+
+export const journalEntrySchema = z.object({
+  id: z.number(),
+  op_type: z.string(),
+  status: z.string(),
+  summary: z.string(),
+  created_at: z.string(),
+  undone_at: z.string().nullable(),
+  detail: z.record(z.string(), z.unknown()),
+  _links: halLinksSchema,
+});
+
+export const journalCollectionSchema = z.object({
+  items: z.array(journalEntrySchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+  _links: halLinksSchema,
+});
+
+export const undoResultSchema = z.object({
+  journal_id: z.number(),
+  status: z.string(),
+  _links: halLinksSchema,
+});
+
 export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistCollection = z.infer<typeof playlistCollectionSchema>;
 export type PlaylistTrack = z.infer<typeof playlistTrackSchema>;
@@ -209,3 +297,12 @@ export type GraphEdge = z.infer<typeof graphEdgeSchema>;
 export type GraphResponse = z.infer<typeof graphResponseSchema>;
 export type PlaylistAnalytics = z.infer<typeof playlistAnalyticsSchema>;
 export type LibraryStats = z.infer<typeof libraryStatsSchema>;
+export type MutationResult = z.infer<typeof mutationResultSchema>;
+export type ManifestTrackRef = z.infer<typeof manifestTrackRefSchema>;
+export type ManifestRemoveRef = z.infer<typeof manifestRemoveRefSchema>;
+export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
+export type Manifest = z.infer<typeof manifestSchema>;
+export type OpPreview = z.infer<typeof opPreviewSchema>;
+export type ApplyResult = z.infer<typeof applyResultSchema>;
+export type JournalEntry = z.infer<typeof journalEntrySchema>;
+export type JournalCollection = z.infer<typeof journalCollectionSchema>;
