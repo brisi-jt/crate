@@ -1,6 +1,8 @@
 /** Centralized TanStack Query keys — one vocabulary for cache invalidation. */
 export const queryKeys = {
   graph: ["graph"] as const,
+  /** Scope-keyed graph fetch; invalidate with the bare `graph` prefix. */
+  graphScoped: (ownedOnly: boolean) => ["graph", { ownedOnly }] as const,
   playlists: ["playlists"] as const,
   playlistTracks: (playlistId: number, offset: number) =>
     ["playlists", playlistId, "tracks", { offset }] as const,
@@ -10,5 +12,8 @@ export const queryKeys = {
     ["playlists", playlistId, "suggestions"] as const,
   syncStatus: ["sync", "status"] as const,
   libraryStats: ["library", "stats"] as const,
+  /** Scope-keyed stats fetch; invalidate with the bare `libraryStats` prefix. */
+  libraryStatsScoped: (ownedOnly: boolean) =>
+    ["library", "stats", { ownedOnly }] as const,
   journal: ["journal"] as const,
 };

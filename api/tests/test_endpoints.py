@@ -90,6 +90,21 @@ def test_list_playlists_excludes_deleted_by_default(
     assert client.get("/v1/playlists", params={"include_deleted": True}).json()["total"] == 1
 
 
+def test_list_playlists_owned_filter(client: TestClient, session: Session, user: User) -> None:
+    seed_playlist(session, user, "mine", ["t1"])
+    followed = seed_playlist(session, user, "theirs", ["t2"])
+    followed.is_owned = False
+    session.add(followed)
+    session.commit()
+
+    # The browse list shows everything unless the caller filters.
+    assert client.get("/v1/playlists").json()["total"] == 2
+    owned = client.get("/v1/playlists", params={"owned": True}).json()
+    assert [item["name"] for item in owned["items"]] == ["mine"]
+    followed_only = client.get("/v1/playlists", params={"owned": False}).json()
+    assert [item["name"] for item in followed_only["items"]] == ["theirs"]
+
+
 def test_playlist_tracks_pagination_and_links(
     client: TestClient, session: Session, user: User
 ) -> None:

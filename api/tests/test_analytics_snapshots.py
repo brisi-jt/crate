@@ -32,6 +32,17 @@ def test_playlist_scope_separates_snapshots(session: Session, user: User) -> Non
     assert get_or_compute(session, user, SnapshotKind.flow, dict, playlist_id=2) == {"p": 2}
 
 
+def test_owned_scope_separates_snapshots(session: Session, user: User) -> None:
+    get_or_compute(session, user, SnapshotKind.graph, lambda: {"scope": "owned"})
+    get_or_compute(session, user, SnapshotKind.graph, lambda: {"scope": "all"}, owned_only=False)
+    assert get_or_compute(session, user, SnapshotKind.graph, dict) == {"scope": "owned"}
+    assert get_or_compute(session, user, SnapshotKind.graph, dict, owned_only=False) == {
+        "scope": "all"
+    }
+    rows = session.exec(select(AnalyticsSnapshot)).all()
+    assert {row.owned_only for row in rows} == {True, False}
+
+
 def test_invalidate_scoped_to_user(session: Session, user: User) -> None:
     other = User(clerk_user_id="other-user")
     session.add(other)

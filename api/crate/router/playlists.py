@@ -98,8 +98,9 @@ def _collection_links(
     "",
     summary="List playlists",
     description=(
-        "Synced playlists for the account, ordered by name. Deleted playlists "
-        "are excluded unless include_deleted is set."
+        "Synced playlists for the account, ordered by name — owned and "
+        "followed alike. Deleted playlists are excluded unless "
+        "include_deleted is set; filter by ownership with owned."
     ),
 )
 def list_playlists(
@@ -110,10 +111,21 @@ def list_playlists(
     include_deleted: Annotated[
         bool, Query(description="Include playlists that no longer exist on Spotify.")
     ] = False,
+    owned: Annotated[
+        bool | None,
+        Query(
+            description=(
+                "true = only playlists the account owns, false = only followed "
+                "playlists. Omit for both."
+            )
+        ),
+    ] = None,
 ) -> PlaylistCollection:
     filters = [Playlist.user_id == user.id]
     if not include_deleted:
         filters.append(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
+    if owned is not None:
+        filters.append(Playlist.is_owned == owned)
 
     total = session.exec(select(func.count()).select_from(Playlist).where(*filters)).one()
     rows = session.exec(

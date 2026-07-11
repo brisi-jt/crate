@@ -512,6 +512,7 @@ def test_analytics_snapshot_round_trip(migrated_engine: Engine) -> None:
             user_id=user.id,
             kind=SnapshotKind.playlist_analytics,
             playlist_id=playlist.id,
+            owned_only=False,
             payload=payload,
             computed_at=computed,
         ),
@@ -521,6 +522,8 @@ def test_analytics_snapshot_round_trip(migrated_engine: Engine) -> None:
     assert row.kind == SnapshotKind.playlist_analytics
     assert isinstance(row.kind, SnapshotKind)
     assert row.playlist_id == playlist.id
+    assert row.owned_only is False
+    assert isinstance(row.owned_only, bool)
     assert row.payload == payload
     assert isinstance(row.payload["nodes"][0]["centroid"]["energy"], float)
     assert row.computed_at == computed
@@ -536,6 +539,29 @@ def test_analytics_snapshot_library_scope_round_trip(migrated_engine: Engine) ->
     )
     assert row.playlist_id is None
     assert row.kind == SnapshotKind.graph
+    assert row.owned_only is True  # owned scope is the default key
+
+
+def test_analytics_snapshot_scopes_share_a_kind(migrated_engine: Engine) -> None:
+    """Owned and full-library payloads for one kind must coexist under the
+    widened uniqueness key."""
+    user = make_user(migrated_engine, "rt-snap-scope")
+    owned = persist_and_reload(
+        migrated_engine,
+        AnalyticsSnapshot(user_id=user.id, kind=SnapshotKind.temporal, payload={"scope": "owned"}),
+    )
+    everything = persist_and_reload(
+        migrated_engine,
+        AnalyticsSnapshot(
+            user_id=user.id,
+            kind=SnapshotKind.temporal,
+            owned_only=False,
+            payload={"scope": "all"},
+        ),
+    )
+    assert owned.id != everything.id
+    assert owned.payload == {"scope": "owned"}
+    assert everything.payload == {"scope": "all"}
 
 
 def test_created_at_microseconds_survive(migrated_engine: Engine) -> None:

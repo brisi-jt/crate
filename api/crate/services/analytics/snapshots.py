@@ -20,14 +20,20 @@ def get_or_compute(
     kind: SnapshotKind,
     compute: Callable[[], dict[str, Any]],
     playlist_id: int | None = None,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    """Serve the cached payload for (user, kind, playlist) or compute and store it."""
+    """Serve the cached payload for (user, kind, playlist, scope) or compute and store it.
+
+    owned_only is part of the cache key: the same kind computed over owned
+    playlists and over the full library are different payloads.
+    """
     assert user.id is not None
     row = session.exec(
         select(AnalyticsSnapshot)
         .where(AnalyticsSnapshot.user_id == user.id)
         .where(AnalyticsSnapshot.kind == kind)
         .where(AnalyticsSnapshot.playlist_id == playlist_id)
+        .where(AnalyticsSnapshot.owned_only == owned_only)
     ).first()
     if row is not None:
         return row.payload
@@ -38,6 +44,7 @@ def get_or_compute(
             user_id=user.id,
             kind=kind,
             playlist_id=playlist_id,
+            owned_only=owned_only,
             payload=payload,
             computed_at=utcnow(),
         )

@@ -2,6 +2,7 @@
 
 import { useSyncStatus, useTriggerSync } from "@/hooks/api/use-sync";
 import type { GraphResponse } from "@/lib/api/schemas";
+import { useUiStore } from "@/lib/store/ui";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_CRATE_API_URL ?? "http://localhost:8200";
@@ -24,6 +25,8 @@ function formatTime(iso: string | null): string {
 export function SyncReadout({ graph }: { graph: GraphResponse | null }) {
   const status = useSyncStatus();
   const sync = useTriggerSync();
+  const includeFollowed = useUiStore((state) => state.includeFollowed);
+  const setIncludeFollowed = useUiStore((state) => state.setIncludeFollowed);
 
   const connectHref = `${API_BASE}/v1/auth/spotify/connect`;
 
@@ -100,6 +103,23 @@ export function SyncReadout({ graph }: { graph: GraphResponse | null }) {
           className="micro-caps cursor-pointer text-text-secondary hover:text-text-primary disabled:cursor-default disabled:text-text-muted"
         >
           {sync.isPending ? "SYNCING…" : "SYNC NOW"}
+        </button>
+      )}
+
+      {s.spotify_connected && !s.needs_reauth && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={includeFollowed}
+          onClick={() => setIncludeFollowed(!includeFollowed)}
+          title="Followed playlists stay off the map unless shown"
+          className={`micro-caps cursor-pointer ${
+            includeFollowed
+              ? "text-text-primary"
+              : "text-text-muted hover:text-text-secondary"
+          }`}
+        >
+          FOLLOWED {includeFollowed ? "SHOWN" : "HIDDEN"}
         </button>
       )}
     </div>

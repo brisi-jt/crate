@@ -5,9 +5,9 @@ enrichment pass computes and stores, later reads serve the stored payload.
 All feature-derived numbers are library percentiles (0..1), not raw values.
 """
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
@@ -19,6 +19,16 @@ from crate.services.analytics import engine
 from crate.services.analytics.snapshots import get_or_compute
 
 router = APIRouter(tags=["analytics"])
+
+OwnedOnlyParam = Annotated[
+    bool,
+    Query(
+        description=(
+            "Limit analytics to playlists the account owns. Set false to also "
+            "include followed playlists — a much larger set on most accounts."
+        )
+    ),
+]
 
 
 class HalLink(BaseModel):
@@ -309,12 +319,15 @@ def _require_playlist(session: SessionDep, user: User, playlist_id: int) -> Play
         "inside another."
     ),
 )
-def playlist_graph(session: SessionDep, user: CurrentUserDep) -> GraphResponse:
+def playlist_graph(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> GraphResponse:
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.graph,
-        lambda: engine.compute_graph_payload(session, user),
+        lambda: engine.compute_graph_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
     )
     return GraphResponse(
         **payload,
@@ -336,12 +349,15 @@ def playlist_graph(session: SessionDep, user: CurrentUserDep) -> GraphResponse:
         "one cluster are merge candidates."
     ),
 )
-def track_map(session: SessionDep, user: CurrentUserDep) -> TrackMapResponse:
+def track_map(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> TrackMapResponse:
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.track_map,
-        lambda: engine.compute_track_map_payload(session, user),
+        lambda: engine.compute_track_map_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
     )
     return TrackMapResponse(
         **payload,
@@ -360,12 +376,15 @@ def track_map(session: SessionDep, user: CurrentUserDep) -> TrackMapResponse:
         "drifted, and how each playlist grew."
     ),
 )
-def temporal_analytics(session: SessionDep, user: CurrentUserDep) -> TemporalResponse:
+def temporal_analytics(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> TemporalResponse:
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.temporal,
-        lambda: engine.compute_temporal_payload(session, user),
+        lambda: engine.compute_temporal_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
     )
     return TemporalResponse(
         **payload,
@@ -385,12 +404,15 @@ def temporal_analytics(session: SessionDep, user: CurrentUserDep) -> TemporalRes
         "sound clusters."
     ),
 )
-def library_stats(session: SessionDep, user: CurrentUserDep) -> LibraryStatsResponse:
+def library_stats(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> LibraryStatsResponse:
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.library_stats,
-        lambda: engine.compute_library_stats_payload(session, user),
+        lambda: engine.compute_library_stats_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
     )
     return LibraryStatsResponse(
         **payload,
@@ -416,13 +438,19 @@ def library_stats(session: SessionDep, user: CurrentUserDep) -> LibraryStatsResp
 def playlist_analytics(
     playlist_id: int, session: SessionDep, user: CurrentUserDep
 ) -> PlaylistAnalyticsResponse:
-    _require_playlist(session, user, playlist_id)
+    playlist = _require_playlist(session, user, playlist_id)
+    # Owned playlists are analyzed against the owned library (overlaps stay
+    # inside the curated set); a followed playlist only exists in the full
+    # library, so it is analyzed against that.
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.playlist_analytics,
-        lambda: engine.compute_playlist_analytics_payload(session, user, playlist_id),
+        lambda: engine.compute_playlist_analytics_payload(
+            session, user, playlist_id, owned_only=playlist.is_owned
+        ),
         playlist_id=playlist_id,
+        owned_only=playlist.is_owned,
     )
     return PlaylistAnalyticsResponse(
         **payload,
@@ -445,13 +473,16 @@ def playlist_analytics(
     responses={404: {"model": ProblemDetail, "description": "Unknown playlist."}},
 )
 def playlist_flow(playlist_id: int, session: SessionDep, user: CurrentUserDep) -> FlowResponse:
-    _require_playlist(session, user, playlist_id)
+    playlist = _require_playlist(session, user, playlist_id)
     payload = get_or_compute(
         session,
         user,
         SnapshotKind.flow,
-        lambda: engine.compute_flow_payload(session, user, playlist_id),
+        lambda: engine.compute_flow_payload(
+            session, user, playlist_id, owned_only=playlist.is_owned
+        ),
         playlist_id=playlist_id,
+        owned_only=playlist.is_owned,
     )
     return FlowResponse(
         **payload,
@@ -467,14 +498,17 @@ def playlist_flow(playlist_id: int, session: SessionDep, user: CurrentUserDep) -
     "/v1/analytics/recompute",
     summary="Recompute all analytics",
     description=(
-        "Drops every cached analytics payload and rebuilds the full set — "
-        "graph, track map, temporal, library stats, and per-playlist "
-        "analytics. Runs synchronously; cached reads stay fast afterwards. "
-        "Normally unnecessary: sync and enrichment already refresh the cache."
+        "Drops every cached analytics payload and rebuilds the set for the "
+        "requested scope — graph, track map, temporal, library stats, and "
+        "per-playlist analytics. Runs synchronously; cached reads stay fast "
+        "afterwards. Normally unnecessary: sync and enrichment already "
+        "refresh the cache."
     ),
 )
-def recompute_analytics(session: SessionDep, user: CurrentUserDep) -> RecomputeResponse:
-    counts: dict[str, Any] = engine.recompute_all(session, user)
+def recompute_analytics(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> RecomputeResponse:
+    counts: dict[str, Any] = engine.recompute_all(session, user, owned_only=owned_only)
     return RecomputeResponse(
         **counts,
         links={

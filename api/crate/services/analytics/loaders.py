@@ -39,12 +39,21 @@ def primary_artist(track: Track) -> str:
     return names[0] if names else ""
 
 
-def load_library(session: Session, user_id: int) -> LibrarySnapshot:
+def load_library(session: Session, user_id: int, owned_only: bool = False) -> LibrarySnapshot:
+    """One user's playlists with memberships, metadata, and features.
+
+    owned_only drops followed playlists — and with them every track reachable
+    only by following. Spotify accounts follow far more than they curate, so
+    analytics default to the owned scope at their own entry points.
+    """
     snapshot = LibrarySnapshot()
 
-    playlists = session.exec(
+    statement = (
         select(Playlist).where(Playlist.user_id == user_id).where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
-    ).all()
+    )
+    if owned_only:
+        statement = statement.where(Playlist.is_owned == True)  # noqa: E712 — SQL expression
+    playlists = session.exec(statement).all()
     for playlist in playlists:
         assert playlist.id is not None
         snapshot.playlist_names[playlist.id] = playlist.name
@@ -62,7 +71,7 @@ def load_library(session: Session, user_id: int) -> LibrarySnapshot:
     ).all()
     for membership, track in rows:
         if membership.playlist_id not in snapshot.memberships:
-            continue  # deleted playlist's retained history
+            continue  # out-of-scope playlist: deleted, or followed under owned_only
         assert track.id is not None
         snapshot.memberships[membership.playlist_id].add(track.id)
         snapshot.occurrences[membership.playlist_id].append(track.id)

@@ -294,23 +294,28 @@ class ApiResponseCache(TimestampedModel, table=True):
 
 
 class AnalyticsSnapshot(TimestampedModel, table=True):
-    """Cached analytics payload, one row per (user, kind, playlist).
+    """Cached analytics payload, one row per (user, kind, playlist, scope).
 
     Analytics are pure functions of the local database, so results live here
     until a sync or enrichment pass changes the inputs — those passes delete
     the user's rows, and the next read recomputes. playlist_id is null for
     library-scoped kinds (graph, track_map, temporal, library_stats).
+    owned_only records which playlist scope the payload was computed over:
+    the account's own playlists, or those plus followed ones.
     """
 
     __tablename__ = "analytics_snapshots"
     __table_args__ = (
-        UniqueConstraint("user_id", "kind", "playlist_id", name="uq_analytics_snapshots_scope"),
+        UniqueConstraint(
+            "user_id", "kind", "playlist_id", "owned_only", name="uq_analytics_snapshots_scope"
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
     kind: SnapshotKind = Field(sa_column=enum_column(SnapshotKind, nullable=False))
     playlist_id: int | None = Field(default=None, foreign_key="playlists.id")
+    owned_only: bool = Field(default=True)
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     computed_at: datetime = Field(default_factory=utcnow)
 

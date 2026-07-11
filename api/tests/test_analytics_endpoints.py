@@ -25,7 +25,7 @@ from sqlmodel import Session, select
 from crate.app import create_app
 from crate.db import get_session
 from crate.deps import get_current_user
-from crate.model.enums import FeatureSource, FeatureStatus, PlaylistSyncStatus
+from crate.model.enums import FeatureSource, FeatureStatus, PlaylistSyncStatus, SnapshotKind
 from crate.model.orm import (
     AnalyticsSnapshot,
     Playlist,
@@ -35,6 +35,7 @@ from crate.model.orm import (
     User,
     utcnow,
 )
+from crate.services.analytics import engine
 
 pytestmark = pytest.mark.unit
 
@@ -131,6 +132,76 @@ def seed_library(session: Session, user: User) -> dict[str, int]:
     playlist("Gamma", [1, 2, 3, 4, 5, 6])
     session.commit()
     return ids
+
+
+def seed_followed(session: Session, user: User, ids: dict[str, int]) -> int:
+    """A followed (not owned) playlist "Radar" = [t3, t4, t5, t7].
+
+    t7 exists only here, with features, so the reachable track set differs
+    between the owned and full scopes. Radar's adds all land in 2026Q1 — a
+    quarter no owned playlist touches.
+
+    Hand-derived edges when Radar is in scope:
+      Alpha-Radar: shared 2, containment 2/4       -> no subset
+      Beta-Radar:  shared 3, containment 3/3 = 1.0 -> subset
+      Gamma-Radar: shared 3, containment 3/4       -> no subset
+    """
+    t7 = Track(
+        spotify_id="sp-t7",
+        isrc="ISRC00000007",
+        name="Track 7",
+        artists=[{"spotify_id": "sp-a7", "name": "Artist 7"}],
+        album_name="Album",
+        duration_ms=180_000,
+    )
+    session.add(t7)
+    session.flush()
+    assert t7.id is not None
+    ids["t7"] = t7.id
+    session.add(
+        TrackFeatures(
+            track_id=t7.id,
+            energy=0.65,
+            valence=0.65,
+            danceability=0.65,
+            acousticness=0.65,
+            instrumentalness=0.65,
+            liveness=0.65,
+            speechiness=0.65,
+            tempo=107.0,
+            loudness=-3.0,
+            key=0,
+            mode=1,
+            status=FeatureStatus.present,
+            source=FeatureSource.reccobeats,
+        )
+    )
+
+    radar = Playlist(
+        user_id=user.id,
+        spotify_id="sp-Radar",
+        name="Radar",
+        snapshot_id="snap",
+        is_owned=False,
+        status=PlaylistSyncStatus.synced,
+        last_synced_at=utcnow(),
+    )
+    session.add(radar)
+    session.flush()
+    assert radar.id is not None
+    ids["Radar"] = radar.id
+    for position, track_id in enumerate([ids["t3"], ids["t4"], ids["t5"], t7.id]):
+        session.add(
+            PlaylistTrack(
+                user_id=user.id,
+                playlist_id=radar.id,
+                track_id=track_id,
+                position=position,
+                added_at=datetime(2026, 1, 15),
+            )
+        )
+    session.commit()
+    return radar.id
 
 
 # ------------------------------------------------------------------- graph
@@ -370,3 +441,145 @@ def test_playlist_snapshots_are_scoped_per_playlist(
         ("playlist_analytics", ids["Alpha"]),
         ("playlist_analytics", ids["Beta"]),
     }
+
+
+# ------------------------------------------------- owned vs followed scoping
+
+
+def test_graph_builder_scopes_to_owned_playlists(session: Session, user: User):
+    ids = seed_library(session, user)
+    seed_followed(session, user, ids)
+
+    owned = engine.compute_graph_payload(session, user)
+    assert {node["name"] for node in owned["nodes"]} == {"Alpha", "Beta", "Gamma"}
+    assert owned["coverage"] == {"enriched_tracks": 5, "total_tracks": 6}
+
+    everything = engine.compute_graph_payload(session, user, owned_only=False)
+    assert {node["name"] for node in everything["nodes"]} == {"Alpha", "Beta", "Gamma", "Radar"}
+    # t7 is reachable only through Radar.
+    assert everything["coverage"] == {"enriched_tracks": 6, "total_tracks": 7}
+
+
+def test_graph_endpoint_excludes_followed_by_default(
+    client: TestClient, session: Session, user: User
+):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    body = client.get("/v1/graph/playlists").json()
+    assert {node["id"] for node in body["nodes"]} == {ids["Alpha"], ids["Beta"], ids["Gamma"]}
+    assert all(radar_id not in (edge["source"], edge["target"]) for edge in body["edges"])
+
+
+def test_graph_endpoint_includes_followed_when_owned_only_false(
+    client: TestClient, session: Session, user: User
+):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    body = client.get("/v1/graph/playlists", params={"owned_only": False}).json()
+    assert {node["id"] for node in body["nodes"]} == {
+        ids["Alpha"],
+        ids["Beta"],
+        ids["Gamma"],
+        radar_id,
+    }
+    edges = {(edge["source"], edge["target"]): edge for edge in body["edges"]}
+    br = edges[tuple(sorted((ids["Beta"], radar_id)))]
+    assert br["shared"] == 3 and br["subset"]
+
+
+def test_temporal_scopes_followed_adds(client: TestClient, session: Session, user: User):
+    ids = seed_library(session, user)
+    seed_followed(session, user, ids)
+
+    owned = client.get("/v1/analytics/temporal").json()
+    assert all(point["quarter"] != "2026Q1" for point in owned["drift"])
+    assert {curve["name"] for curve in owned["growth"]} == {"Alpha", "Beta", "Gamma"}
+
+    everything = client.get("/v1/analytics/temporal", params={"owned_only": False}).json()
+    assert any(point["quarter"] == "2026Q1" for point in everything["drift"])
+    assert {curve["name"] for curve in everything["growth"]} == {"Alpha", "Beta", "Gamma", "Radar"}
+
+
+def test_library_stats_scope_duplicates(client: TestClient, session: Session, user: User):
+    ids = seed_library(session, user)
+    seed_followed(session, user, ids)
+
+    owned = client.get("/v1/analytics/library").json()
+    assert sorted(owned["duplicates"][0]["playlists"]) == ["Beta", "Gamma"]
+
+    everything = client.get("/v1/analytics/library", params={"owned_only": False}).json()
+    assert sorted(everything["duplicates"][0]["playlists"]) == ["Beta", "Gamma", "Radar"]
+
+
+def test_owned_playlist_overlaps_exclude_followed(client: TestClient, session: Session, user: User):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    body = client.get(f"/v1/playlists/{ids['Beta']}/analytics").json()
+    assert radar_id not in [overlap["playlist_id"] for overlap in body["overlaps"]]
+
+
+def test_followed_playlist_analytics_use_the_full_library(
+    client: TestClient, session: Session, user: User
+):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    body = client.get(f"/v1/playlists/{radar_id}/analytics").json()
+    overlaps = {overlap["playlist_id"]: overlap for overlap in body["overlaps"]}
+    assert overlaps[ids["Beta"]]["shared"] == 3
+
+    row = session.exec(
+        select(AnalyticsSnapshot).where(AnalyticsSnapshot.playlist_id == radar_id)
+    ).one()
+    assert row.owned_only is False
+
+
+def test_snapshot_scopes_do_not_collide(client: TestClient, session: Session, user: User):
+    ids = seed_library(session, user)
+    seed_followed(session, user, ids)
+
+    assert len(client.get("/v1/graph/playlists").json()["nodes"]) == 3
+    assert len(client.get("/v1/graph/playlists", params={"owned_only": False}).json()["nodes"]) == 4
+
+    rows = session.exec(
+        select(AnalyticsSnapshot).where(AnalyticsSnapshot.kind == SnapshotKind.graph)
+    ).all()
+    assert {row.owned_only for row in rows} == {True, False}
+    # Cached reads keep serving their own scope.
+    assert len(client.get("/v1/graph/playlists").json()["nodes"]) == 3
+
+
+def test_recompute_scopes_to_owned_by_default(client: TestClient, session: Session, user: User):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    counts = client.post("/v1/analytics/recompute").json()
+    # 4 library payloads + (analytics + flow) per owned playlist.
+    assert counts["computed"] == 4 + 2 * 3
+
+    rows = session.exec(select(AnalyticsSnapshot)).all()
+    assert all(row.owned_only for row in rows)
+    assert radar_id not in {row.playlist_id for row in rows}
+
+
+def test_recompute_all_scope_covers_followed_playlists(
+    client: TestClient, session: Session, user: User
+):
+    ids = seed_library(session, user)
+    radar_id = seed_followed(session, user, ids)
+
+    counts = client.post("/v1/analytics/recompute", params={"owned_only": False}).json()
+    # 4 full-scope library payloads + 2 per owned playlist + 2 for Radar.
+    assert counts["computed"] == 4 + 2 * 3 + 2
+
+    rows = session.exec(select(AnalyticsSnapshot)).all()
+    per_playlist_scopes = {row.playlist_id: row.owned_only for row in rows if row.playlist_id}
+    # Owned playlists stay keyed to the owned scope their reads use; Radar
+    # (reachable only in the full scope) is keyed to it.
+    assert per_playlist_scopes[ids["Alpha"]] is True
+    assert per_playlist_scopes[radar_id] is False
+    library_scopes = {row.owned_only for row in rows if row.playlist_id is None}
+    assert library_scopes == {False}

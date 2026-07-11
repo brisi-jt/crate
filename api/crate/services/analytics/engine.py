@@ -54,8 +54,16 @@ class AnalyticsContext:
     space: PercentileSpace
 
     @classmethod
-    def load(cls, session: Session, user_id: int) -> "AnalyticsContext":
-        return cls(library=load_library(session, user_id), space=load_percentile_space(session))
+    def load(cls, session: Session, user_id: int, owned_only: bool = True) -> "AnalyticsContext":
+        """Load the user's library at the requested playlist scope.
+
+        The percentile space stays catalog-wide either way — a track's rank is
+        relative to everything enriched, not to the playlists in view.
+        """
+        return cls(
+            library=load_library(session, user_id, owned_only=owned_only),
+            space=load_percentile_space(session),
+        )
 
     @cached_property
     def vectors(self) -> dict[int, dict[str, float]]:
@@ -70,9 +78,11 @@ class AnalyticsContext:
         return overlap_edges(self.library.memberships)
 
 
-def _context(session: Session, user: User, ctx: AnalyticsContext | None) -> AnalyticsContext:
+def _context(
+    session: Session, user: User, ctx: AnalyticsContext | None, owned_only: bool
+) -> AnalyticsContext:
     assert user.id is not None
-    return ctx if ctx is not None else AnalyticsContext.load(session, user.id)
+    return ctx if ctx is not None else AnalyticsContext.load(session, user.id, owned_only)
 
 
 # ------------------------------------------------------------ shared helpers
@@ -110,9 +120,13 @@ def _track_audio(library: LibrarySnapshot, track_id: int) -> TrackAudio:
 
 
 def compute_graph_payload(
-    session: Session, user: User, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library, vectors = ctx.library, ctx.vectors
 
     nodes = [
@@ -143,9 +157,14 @@ def compute_graph_payload(
 
 
 def compute_playlist_analytics_payload(
-    session: Session, user: User, playlist_id: int, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    playlist_id: int,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library, vectors = ctx.library, ctx.vectors
     members = library.memberships.get(playlist_id, set())
 
@@ -201,9 +220,14 @@ def compute_playlist_analytics_payload(
 
 
 def compute_flow_payload(
-    session: Session, user: User, playlist_id: int, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    playlist_id: int,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library = ctx.library
     ordered = [_track_audio(library, tid) for tid in library.occurrences.get(playlist_id, [])]
 
@@ -246,9 +270,13 @@ def _add_records(library: LibrarySnapshot, vectors: dict[int, dict[str, float]])
 
 
 def compute_temporal_payload(
-    session: Session, user: User, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library = ctx.library
     records = _add_records(library, ctx.vectors)
 
@@ -276,9 +304,13 @@ def compute_temporal_payload(
 
 
 def compute_track_map_payload(
-    session: Session, user: User, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library, vectors = ctx.library, ctx.vectors
 
     track_ids = sorted(vectors)
@@ -340,24 +372,33 @@ def compute_track_map_payload(
 
 
 def compute_library_stats_payload(
-    session: Session, user: User, ctx: AnalyticsContext | None = None
+    session: Session,
+    user: User,
+    ctx: AnalyticsContext | None = None,
+    *,
+    owned_only: bool = True,
 ) -> dict[str, Any]:
     """Drift + duplicates + a cluster summary — the library stats screen's body.
 
     The drift and cluster inputs come through the snapshot cache (computing on
     a miss), so the UMAP projection never runs twice for one library state.
     """
-    ctx = _context(session, user, ctx)
+    ctx = _context(session, user, ctx, owned_only)
     library = ctx.library
 
     temporal = get_or_compute(
-        session, user, SnapshotKind.temporal, lambda: compute_temporal_payload(session, user, ctx)
+        session,
+        user,
+        SnapshotKind.temporal,
+        lambda: compute_temporal_payload(session, user, ctx),
+        owned_only=owned_only,
     )
     track_map = get_or_compute(
         session,
         user,
         SnapshotKind.track_map,
         lambda: compute_track_map_payload(session, user, ctx),
+        owned_only=owned_only,
     )
 
     duplicates = [
@@ -390,48 +431,74 @@ def compute_library_stats_payload(
 # ----------------------------------------------------------------- recompute
 
 
-def recompute_all(session: Session, user: User) -> dict[str, int]:
-    """Drop every cached payload for the user and rebuild the full set:
-    library-level analytics plus per-playlist analytics and flow."""
+def recompute_all(session: Session, user: User, owned_only: bool = True) -> dict[str, int]:
+    """Drop every cached payload for the user and rebuild the requested scope.
+
+    Both scopes' caches are dropped (the underlying data changed for both);
+    library-level payloads are rebuilt for the requested scope, and the other
+    scope refills lazily on its next read. Per-playlist payloads are keyed to
+    the scope their reads use — owned playlists to the owned library, followed
+    playlists (in scope only when owned_only is false) to the full library.
+    """
     assert user.id is not None
     invalidated = invalidate_snapshots(session, user.id)
     session.commit()
 
-    ctx = AnalyticsContext.load(session, user.id)
+    owned_ctx = AnalyticsContext.load(session, user.id, owned_only=True)
+    library_ctx = (
+        owned_ctx if owned_only else AnalyticsContext.load(session, user.id, owned_only=False)
+    )
 
     get_or_compute(
-        session, user, SnapshotKind.graph, lambda: compute_graph_payload(session, user, ctx)
+        session,
+        user,
+        SnapshotKind.graph,
+        lambda: compute_graph_payload(session, user, library_ctx),
+        owned_only=owned_only,
     )
     get_or_compute(
         session,
         user,
         SnapshotKind.track_map,
-        lambda: compute_track_map_payload(session, user, ctx),
+        lambda: compute_track_map_payload(session, user, library_ctx),
+        owned_only=owned_only,
     )
     get_or_compute(
-        session, user, SnapshotKind.temporal, lambda: compute_temporal_payload(session, user, ctx)
+        session,
+        user,
+        SnapshotKind.temporal,
+        lambda: compute_temporal_payload(session, user, library_ctx),
+        owned_only=owned_only,
     )
     get_or_compute(
         session,
         user,
         SnapshotKind.library_stats,
-        lambda: compute_library_stats_payload(session, user, ctx),
+        lambda: compute_library_stats_payload(session, user, library_ctx, owned_only=owned_only),
+        owned_only=owned_only,
     )
 
-    for playlist_id in sorted(ctx.library.playlist_names):
+    owned_ids = set(owned_ctx.library.playlist_names)
+    for playlist_id in sorted(library_ctx.library.playlist_names):
+        is_owned = playlist_id in owned_ids
+        ctx = owned_ctx if is_owned else library_ctx
         get_or_compute(
             session,
             user,
             SnapshotKind.playlist_analytics,
-            lambda pid=playlist_id: compute_playlist_analytics_payload(session, user, pid, ctx),
+            lambda pid=playlist_id, c=ctx: compute_playlist_analytics_payload(
+                session, user, pid, c
+            ),
             playlist_id=playlist_id,
+            owned_only=is_owned,
         )
         get_or_compute(
             session,
             user,
             SnapshotKind.flow,
-            lambda pid=playlist_id: compute_flow_payload(session, user, pid, ctx),
+            lambda pid=playlist_id, c=ctx: compute_flow_payload(session, user, pid, c),
             playlist_id=playlist_id,
+            owned_only=is_owned,
         )
 
     computed = len(

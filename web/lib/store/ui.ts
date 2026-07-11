@@ -22,6 +22,12 @@ export interface SelectedTrack {
 interface UiState {
   rightPanel: RightPanel | null;
   paletteOpen: boolean;
+  /**
+   * Whether the map and library analytics also cover followed playlists.
+   * Off by default: followed playlists outnumber owned ones several times
+   * over, and the map is designed around the curated set.
+   */
+  includeFollowed: boolean;
   /** Node selected on the map (drives the selection ring + playlist panel). */
   selectedPlaylistId: number | null;
   /** Tracks marked in the playlist panel, for "add selection to…" actions. */
@@ -32,6 +38,7 @@ interface UiState {
   openOpsLog: () => void;
   closeRightPanel: () => void;
   setPaletteOpen: (open: boolean) => void;
+  setIncludeFollowed: (include: boolean) => void;
   toggleTrackSelection: (track: SelectedTrack) => void;
   clearTrackSelection: () => void;
   popLayer: () => void;
@@ -40,6 +47,7 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   rightPanel: null,
   paletteOpen: false,
+  includeFollowed: false,
   selectedPlaylistId: null,
   selectedTracks: [],
 
@@ -63,6 +71,8 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ rightPanel: null, selectedPlaylistId: null, selectedTracks: [] }),
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
+
+  setIncludeFollowed: (include) => set({ includeFollowed: include }),
 
   toggleTrackSelection: (track) => {
     const current = get().selectedTracks;
