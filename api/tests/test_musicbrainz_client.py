@@ -91,3 +91,52 @@ async def test_calls_are_paced_at_one_per_second(session: Session) -> None:
 
     assert sleeps == [pytest.approx(1.0)]
     await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_hyphenated_isrc_is_normalized_before_lookup(session: Session) -> None:
+    """Spotify ships some ISRCs hyphen-formatted; MusicBrainz 400s that form.
+
+    Observed live 2026-07-11: `DE-Z20-06-00039` killed a whole enrichment
+    pass. Normalized (`DEZ200600039`) it is a valid lookup.
+    """
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        return httpx.Response(200, json={"recordings": []})
+
+    client = make_client(session, handler)
+    result = await client.lookup_isrc("de-z20-06-00039")
+    assert result is None
+    assert seen_paths == ["/ws/2/isrc/DEZ200600039"]
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_client_error_status_is_treated_as_no_match(session: Session) -> None:
+    """A 400 on one ISRC must not abort the surrounding enrichment pass."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": "invalid isrc"})
+
+    client = make_client(session, handler)
+    assert await client.lookup_isrc("NOTREALISRC1") is None
+    await client.aclose()
+
+
+@pytest.mark.anyio
+async def test_no_match_lookups_are_negatively_cached(session: Session) -> None:
+    """404 misses must not be re-queried on every enrichment pass."""
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(404, json={"error": "not found"})
+
+    client = make_client(session, handler)
+    assert await client.lookup_isrc("GBAAA0000001") is None
+    assert await client.lookup_isrc("GBAAA0000001") is None
+    assert calls == 1
+    await client.aclose()

@@ -43,19 +43,29 @@ class MusicBrainzClient:
         await self._http.aclose()
 
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None:
-        """Resolve an ISRC to its first recording and that recording's artists."""
-        cache_key = f"isrc:{isrc}"
+        """Resolve an ISRC to its first recording and that recording's artists.
+
+        ISRCs arrive in the wild both bare (DEZ200600039) and hyphenated
+        (DE-Z20-06-00039); MusicBrainz only accepts the bare form. Any 4xx is
+        a no-match for that ISRC, never an error for the caller — one bad
+        identifier must not abort a whole enrichment pass. Misses are cached
+        as empty recording lists so they aren't re-queried every pass.
+        """
+        normalized = isrc.replace("-", "").replace(" ", "").upper()
+        cache_key = f"isrc:{normalized}"
         cached = self._cache.get(cache_key)
         if cached is None:
             response = await request_with_backoff(
                 self._http,
                 "GET",
-                f"{self._base_url}/isrc/{isrc}",
+                f"{self._base_url}/isrc/{normalized}",
                 params={"fmt": "json", "inc": "artist-credits"},
                 limiter=self._limiter,
                 sleep=self._sleep,
             )
-            if response.status_code == 404:
+            if 400 <= response.status_code < 500:
+                cached = {"recordings": []}
+                self._cache.put(cache_key, cached)
                 return None
             response.raise_for_status()
             cached = response.json()
