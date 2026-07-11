@@ -1,0 +1,39 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/tracks?offset=0&limit=50",
+  "items": [
+    {
+      "added_at": "2026-07-01T10:00:00Z",
+      "track": {
+        "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+        "name": "Dayvan Cowboy",
+        "duration_ms": 300000,
+        "is_local": false,
+        "external_ids": { "isrc": "USWB11300423" },
+        "artists": [
+          { "id": "2VAvhf61GgLYmC6C8anyX1", "name": "Boards of Canada" }
+        ],
+        "album": { "id": "1vDkznlJEsMBOigDzNRgTV", "name": "The Campfire Headphase" }
+      }
+    },
+    {
+      "added_at": "2026-06-15T18:30:00Z",
+      "track": {
+        "id": "0rTV5WefWd1J3OwIheTzxM",
+        "name": "Kerala",
+        "duration_ms": 238000,
+        "is_local": false,
+        "external_ids": { "isrc": "GBCFB1600561" },
+        "artists": [
+          { "id": "0cmWgDlu9CwTgxPhf403hb", "name": "Bonobo" }
+        ],
+        "album": { "id": "0EBLL0GjNIIQ5xkNZym7Q4", "name": "Migration" }
+      }
+    }
+  ],
+  "limit": 50,
+  "next": "https://api.spotify.com/v1/me/tracks?offset=2&limit=50",
+  "offset": 0,
+  "previous": null,
+  "total": 3
+}

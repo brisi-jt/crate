@@ -28,6 +28,8 @@ from crate.model.enums import (
     SyncEventSource,
     SyncEventType,
     TagSource,
+    TopItemKind,
+    TopTimeRange,
 )
 from crate.model.orm import (
     AnalyticsSnapshot,
@@ -42,11 +44,14 @@ from crate.model.orm import (
     Genre,
     MutationJournal,
     OpPreview,
+    PlayEvent,
     Playlist,
     PlaylistTrack,
+    SavedTrack,
     SpotifyCredential,
     SuggestionFeedback,
     SyncEvent,
+    TopItemsSnapshot,
     Track,
     TrackFeatures,
     User,
@@ -687,4 +692,107 @@ def test_suggestion_feedback_round_trip(migrated_engine: Engine) -> None:
     assert row.artist == "Cassian"
     assert row.action == FeedbackAction.reject
     assert isinstance(row.action, FeedbackAction)
+    assert_timestamps(row)
+
+
+def make_track(engine: Engine, suffix: str) -> Track:
+    return persist_and_reload(
+        engine,
+        Track(
+            spotify_id=f"track-{suffix}",
+            name=f"Track {suffix}",
+            artists=[{"spotify_id": f"artist-{suffix}", "name": f"Artist {suffix}"}],
+        ),
+    )
+
+
+def test_saved_track_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-saved")
+    track = make_track(migrated_engine, "rt-saved")
+    saved_at = datetime(2026, 7, 1, 9, 15, 30, 654321)
+    removed_at = datetime(2026, 7, 10, 22, 5, 0, 111222)
+    row = persist_and_reload(
+        migrated_engine,
+        SavedTrack(
+            user_id=user.id,
+            track_id=track.id,
+            saved_at=saved_at,
+            is_removed=True,
+            removed_at=removed_at,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert isinstance(row.track_id, int) and row.track_id == track.id
+    assert row.saved_at == saved_at  # microseconds must survive
+    assert isinstance(row.saved_at, datetime)
+    assert row.is_removed is True
+    assert isinstance(row.is_removed, bool)
+    assert row.removed_at == removed_at
+    assert isinstance(row.removed_at, datetime)
+    assert_timestamps(row)
+
+
+def test_play_event_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-play")
+    track = make_track(migrated_engine, "rt-play")
+    played_at = datetime(2026, 7, 12, 9, 14, 32, 123000)
+    row = persist_and_reload(
+        migrated_engine,
+        PlayEvent(
+            user_id=user.id,
+            track_id=track.id,
+            played_at=played_at,
+            context_type="playlist",
+            context_uri="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert isinstance(row.track_id, int) and row.track_id == track.id
+    assert row.played_at == played_at  # microseconds must survive
+    assert isinstance(row.played_at, datetime)
+    assert row.context_type == "playlist"
+    assert row.context_uri == "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
+    assert_timestamps(row)
+
+
+def test_play_event_nullable_context_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-play-null")
+    track = make_track(migrated_engine, "rt-play-null")
+    row = persist_and_reload(
+        migrated_engine,
+        PlayEvent(user_id=user.id, track_id=track.id, played_at=datetime(2026, 7, 12, 8, 0)),
+    )
+    assert row.context_type is None
+    assert row.context_uri is None
+    assert_timestamps(row)
+
+
+def test_top_items_snapshot_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-top")
+    captured_at = datetime(2026, 7, 12, 4, 0, 0, 987654)
+    items = [
+        {"rank": 1, "spotify_id": "t1", "name": "First", "artists": ["A One"]},
+        {"rank": 2, "spotify_id": "t2", "name": "Second", "artists": ["A Two", "A Three"]},
+    ]
+    row = persist_and_reload(
+        migrated_engine,
+        TopItemsSnapshot(
+            user_id=user.id,
+            kind=TopItemKind.track,
+            time_range=TopTimeRange.medium,
+            captured_at=captured_at,
+            items=items,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert row.kind == TopItemKind.track
+    assert isinstance(row.kind, TopItemKind)
+    assert row.time_range == TopTimeRange.medium
+    assert isinstance(row.time_range, TopTimeRange)
+    assert row.captured_at == captured_at  # microseconds must survive
+    assert isinstance(row.captured_at, datetime)
+    assert row.items == items  # JSON list order preserved
     assert_timestamps(row)

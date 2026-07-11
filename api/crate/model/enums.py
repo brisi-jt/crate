@@ -179,3 +179,22 @@ class FeedbackAction(StrEnum):
     accept = "accept"
     reject = "reject"
     skip = "skip"
+
+
+class TopItemKind(StrEnum):
+    """What a top-items snapshot ranks."""
+
+    artist = "artist"
+    track = "track"
+
+
+class TopTimeRange(StrEnum):
+    """Spotify affinity window a top-items snapshot covers.
+
+    Maps to the API's short_term (~4 weeks), medium_term (~6 months) and
+    long_term (~1 year) ranges.
+    """
+
+    short = "short"
+    medium = "medium"
+    long = "long"

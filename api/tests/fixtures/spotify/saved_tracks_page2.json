@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/tracks?offset=2&limit=50",
+  "items": [
+    {
+      "added_at": "2026-05-02T08:12:45Z",
+      "track": {
+        "id": "5FVd6KXrgO9B3JPmC8OPst",
+        "name": "Do I Wanna Know?",
+        "duration_ms": 272000,
+        "is_local": false,
+        "external_ids": { "isrc": "GBCEL1300362" },
+        "artists": [
+          { "id": "7Ln80lUS6He07XvHI8qqHH", "name": "Arctic Monkeys" }
+        ],
+        "album": { "id": "78bpIziExqiI9qztvNFlQu", "name": "AM" }
+      }
+    }
+  ],
+  "limit": 50,
+  "next": null,
+  "offset": 2,
+  "previous": "https://api.spotify.com/v1/me/tracks?offset=0&limit=50",
+  "total": 3
+}

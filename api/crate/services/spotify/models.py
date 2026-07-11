@@ -57,6 +57,36 @@ class PlaylistTrackItem(BaseModel):
         return data
 
 
+class SavedTrackItem(BaseModel):
+    """One entry of the user's saved-tracks (Liked Songs) listing."""
+
+    added_at: datetime | None = None
+    track: SpotifyTrack
+
+
+class PlayContext(BaseModel):
+    """Where a play happened — playlist, album, artist or show."""
+
+    type: str | None = None
+    uri: str | None = None
+
+
+class PlayHistoryItem(BaseModel):
+    """One play from the recently-played history."""
+
+    played_at: datetime
+    track: SpotifyTrack
+    context: PlayContext | None = None
+
+
+class SpotifyTopArtist(BaseModel):
+    """Artist as ranked by the top-items endpoint."""
+
+    id: str
+    name: str
+    genres: list[str] = Field(default_factory=list)
+
+
 class SpotifyOwner(BaseModel):
     id: str
     display_name: str | None = None

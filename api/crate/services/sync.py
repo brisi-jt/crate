@@ -67,6 +67,52 @@ def _naive_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(UTC).replace(tzinfo=None)
 
 
+def upsert_track(
+    session: Session, remote: SpotifyTrack, cache: dict[str, Track] | None = None
+) -> Track:
+    """Create or refresh the global catalog row for a Spotify track.
+
+    Also upserts the track's artists. The optional cache avoids re-querying
+    tracks already seen within one pass.
+    """
+    assert remote.id is not None  # callers filter local/ghost tracks
+    row = cache.get(remote.id) if cache is not None else None
+    if row is None:
+        row = session.exec(select(Track).where(Track.spotify_id == remote.id)).first()
+    artists_json: list[dict[str, Any]] = [
+        {"spotify_id": artist.id, "name": artist.name} for artist in remote.artists
+    ]
+    if row is None:
+        row = Track(spotify_id=remote.id, name=remote.name)
+        session.add(row)
+    row.name = remote.name
+    row.isrc = remote.external_ids.isrc
+    row.artists = artists_json
+    row.album_spotify_id = remote.album.id if remote.album else None
+    row.album_name = remote.album.name if remote.album else None
+    row.duration_ms = remote.duration_ms
+    session.add(row)
+    session.flush()
+    if cache is not None:
+        cache[remote.id] = row
+
+    for artist in remote.artists:
+        if artist.id is not None and artist.name is not None:
+            upsert_artist(session, artist.id, artist.name)
+    return row
+
+
+def upsert_artist(session: Session, spotify_id: str, name: str) -> None:
+    """Create or rename the global catalog row for a Spotify artist."""
+    row = session.exec(select(Artist).where(Artist.spotify_id == spotify_id)).first()
+    if row is None:
+        row = Artist(spotify_id=spotify_id, name=name)
+    else:
+        row.name = name
+    session.add(row)
+    session.flush()
+
+
 class SyncService:
     def __init__(self, *, session: Session, spotify: SpotifyReader, user: User) -> None:
         self._session = session
@@ -247,41 +293,7 @@ class SyncService:
         return None
 
     def _upsert_track(self, remote: SpotifyTrack) -> Track:
-        session = self._session
-        assert remote.id is not None  # callers filter local/ghost tracks
-        row = self._tracks_by_spotify_id.get(remote.id)
-        if row is None:
-            row = session.exec(select(Track).where(Track.spotify_id == remote.id)).first()
-        artists_json: list[dict[str, Any]] = [
-            {"spotify_id": artist.id, "name": artist.name} for artist in remote.artists
-        ]
-        if row is None:
-            row = Track(spotify_id=remote.id, name=remote.name)
-            session.add(row)
-        row.name = remote.name
-        row.isrc = remote.external_ids.isrc
-        row.artists = artists_json
-        row.album_spotify_id = remote.album.id if remote.album else None
-        row.album_name = remote.album.name if remote.album else None
-        row.duration_ms = remote.duration_ms
-        session.add(row)
-        session.flush()
-        self._tracks_by_spotify_id[remote.id] = row
-
-        for artist in remote.artists:
-            if artist.id is not None and artist.name is not None:
-                self._upsert_artist(artist.id, artist.name)
-        return row
-
-    def _upsert_artist(self, spotify_id: str, name: str) -> None:
-        session = self._session
-        row = session.exec(select(Artist).where(Artist.spotify_id == spotify_id)).first()
-        if row is None:
-            row = Artist(spotify_id=spotify_id, name=name)
-        else:
-            row.name = name
-        session.add(row)
-        session.flush()
+        return upsert_track(self._session, remote, self._tracks_by_spotify_id)
 
     def _is_owned(self, summary: SpotifyPlaylistSummary) -> bool:
         if summary.owner is None or self._user.spotify_user_id is None:

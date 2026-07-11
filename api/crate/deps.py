@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from crate.db import get_session
 from crate.errors import AppError
 from crate.model.orm import User
+from crate.services.account.wiring import AccountSyncReport, run_account_sync_for_user
 from crate.services.discovery.wiring import DiscoveryReport, run_discovery
 from crate.services.enrichment.orchestrator import EnrichmentReport, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
@@ -52,6 +53,13 @@ SyncRunner = Callable[[Session, User], Awaitable[SyncReport]]
 
 def get_sync_runner() -> SyncRunner:
     return run_sync_for_user
+
+
+AccountSyncRunner = Callable[[Session, User], Awaitable[AccountSyncReport]]
+
+
+def get_account_sync_runner() -> AccountSyncRunner:
+    return run_account_sync_for_user
 
 
 EnrichmentRunner = Callable[[Session, int], Awaitable[EnrichmentReport]]

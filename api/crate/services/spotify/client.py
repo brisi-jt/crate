@@ -14,8 +14,11 @@ import httpx
 from crate.model.enums import ReauthReason
 from crate.model.orm.base import utcnow
 from crate.services.spotify.models import (
+    PlayHistoryItem,
     PlaylistTrackItem,
+    SavedTrackItem,
     SpotifyPlaylistSummary,
+    SpotifyTopArtist,
     SpotifyTrack,
     SpotifyUser,
     TokenResponse,
@@ -248,6 +251,43 @@ class SpotifyClient:
         async for page in self._iter_playlist_entry_pages(playlist_id, params={"limit": 100}):
             for item in page.get("items", []):
                 yield PlaylistTrackItem.model_validate(item)
+
+    async def iter_saved_tracks(self) -> AsyncIterator[SavedTrackItem]:
+        """The user's full saved-tracks (Liked Songs) library, newest first."""
+        async for page in self._iter_pages(f"{API_BASE_URL}/me/tracks", params={"limit": 50}):
+            for item in page.get("items", []):
+                yield SavedTrackItem.model_validate(item)
+
+    async def get_recently_played(self, limit: int = 50) -> list[PlayHistoryItem]:
+        """The most recent plays (Spotify keeps a rolling window of 50)."""
+        response = await self._request(
+            "GET",
+            f"{API_BASE_URL}/me/player/recently-played",
+            params={"limit": limit},
+        )
+        return [PlayHistoryItem.model_validate(item) for item in response.json().get("items", [])]
+
+    async def get_top_artists(
+        self, time_range: str = "medium_term", limit: int = 50
+    ) -> list[SpotifyTopArtist]:
+        """The user's top artists for one affinity window, best first."""
+        response = await self._request(
+            "GET",
+            f"{API_BASE_URL}/me/top/artists",
+            params={"time_range": time_range, "limit": limit},
+        )
+        return [SpotifyTopArtist.model_validate(item) for item in response.json().get("items", [])]
+
+    async def get_top_tracks(
+        self, time_range: str = "medium_term", limit: int = 50
+    ) -> list[SpotifyTrack]:
+        """The user's top tracks for one affinity window, best first."""
+        response = await self._request(
+            "GET",
+            f"{API_BASE_URL}/me/top/tracks",
+            params={"time_range": time_range, "limit": limit},
+        )
+        return [SpotifyTrack.model_validate(item) for item in response.json().get("items", [])]
 
     # Dev-mode search rejects limits above 10 (default 5); callers wanting
     # more results must paginate with `offset`.

@@ -1,0 +1,27 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=50",
+  "items": [
+    {
+      "id": "2VAvhf61GgLYmC6C8anyX1",
+      "name": "Boards of Canada",
+      "genres": ["idm", "downtempo"],
+      "popularity": 62,
+      "type": "artist",
+      "uri": "spotify:artist:2VAvhf61GgLYmC6C8anyX1"
+    },
+    {
+      "id": "0cmWgDlu9CwTgxPhf403hb",
+      "name": "Bonobo",
+      "genres": ["downtempo", "nu jazz"],
+      "popularity": 70,
+      "type": "artist",
+      "uri": "spotify:artist:0cmWgDlu9CwTgxPhf403hb"
+    }
+  ],
+  "limit": 50,
+  "next": null,
+  "offset": 0,
+  "previous": null,
+  "total": 2
+}

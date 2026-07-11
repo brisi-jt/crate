@@ -10,7 +10,14 @@ from sqlmodel import select
 
 from crate.deps import CurrentUserDep, SessionDep, SyncRunner, get_sync_runner
 from crate.errors import ProblemDetail
-from crate.model.orm import Playlist, SpotifyCredential, SyncEvent
+from crate.model.orm import (
+    PlayEvent,
+    Playlist,
+    SavedTrack,
+    SpotifyCredential,
+    SyncEvent,
+    TopItemsSnapshot,
+)
 
 router = APIRouter(prefix="/v1/sync", tags=["sync"])
 
@@ -56,6 +63,20 @@ class SyncStatus(BaseModel):
         description="Completion time of the most recent sync of any playlist."
     )
     last_event_at: datetime | None = Field(description="Time of the most recent change event.")
+    saved_tracks_captured_at: datetime | None = Field(
+        default=None,
+        description=(
+            "When the saved-tracks library last changed on record; null before the first capture."
+        ),
+    )
+    recent_plays_captured_at: datetime | None = Field(
+        default=None,
+        description="When a play was last recorded; null before the first capture.",
+    )
+    top_items_captured_at: datetime | None = Field(
+        default=None,
+        description="When top-items rankings were last snapshotted; null before the first capture.",
+    )
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -118,6 +139,15 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
     last_event_at = session.exec(
         select(func.max(SyncEvent.observed_at)).where(SyncEvent.user_id == user.id)
     ).one()
+    saved_tracks_captured_at = session.exec(
+        select(func.max(SavedTrack.updated_at)).where(SavedTrack.user_id == user.id)
+    ).one()
+    recent_plays_captured_at = session.exec(
+        select(func.max(PlayEvent.created_at)).where(PlayEvent.user_id == user.id)
+    ).one()
+    top_items_captured_at = session.exec(
+        select(func.max(TopItemsSnapshot.captured_at)).where(TopItemsSnapshot.user_id == user.id)
+    ).one()
 
     needs_reauth = credential is not None and credential.status.requires_reauth
     reauth_reason = credential.status.reauth_reason if credential is not None else None
@@ -136,5 +166,8 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
         playlist_count=playlist_count,
         last_synced_at=last_synced_at,
         last_event_at=last_event_at,
+        saved_tracks_captured_at=saved_tracks_captured_at,
+        recent_plays_captured_at=recent_plays_captured_at,
+        top_items_captured_at=top_items_captured_at,
         links=links,
     )

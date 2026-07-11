@@ -1,0 +1,44 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+  "items": [
+    {
+      "played_at": "2026-07-12T09:14:32.123Z",
+      "context": {
+        "type": "playlist",
+        "uri": "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+        "href": "https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M",
+        "external_urls": { "spotify": "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M" }
+      },
+      "track": {
+        "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+        "name": "Dayvan Cowboy",
+        "duration_ms": 300000,
+        "is_local": false,
+        "external_ids": { "isrc": "USWB11300423" },
+        "artists": [
+          { "id": "2VAvhf61GgLYmC6C8anyX1", "name": "Boards of Canada" }
+        ],
+        "album": { "id": "1vDkznlJEsMBOigDzNRgTV", "name": "The Campfire Headphase" }
+      }
+    },
+    {
+      "played_at": "2026-07-12T08:47:03.987Z",
+      "context": null,
+      "track": {
+        "id": "0rTV5WefWd1J3OwIheTzxM",
+        "name": "Kerala",
+        "duration_ms": 238000,
+        "is_local": false,
+        "external_ids": { "isrc": "GBCFB1600561" },
+        "artists": [
+          { "id": "0cmWgDlu9CwTgxPhf403hb", "name": "Bonobo" }
+        ],
+        "album": { "id": "0EBLL0GjNIIQ5xkNZym7Q4", "name": "Migration" }
+      }
+    }
+  ],
+  "next": "https://api.spotify.com/v1/me/player/recently-played?before=1783156023987&limit=50",
+  "cursors": { "after": "1783157672123", "before": "1783156023987" },
+  "limit": 50
+}

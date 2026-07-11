@@ -38,6 +38,9 @@ EXPECTED_TABLES = {
     "op_previews",
     "discovery_candidates",
     "suggestion_feedback",
+    "saved_tracks",
+    "play_events",
+    "top_items_snapshots",
 }
 
 

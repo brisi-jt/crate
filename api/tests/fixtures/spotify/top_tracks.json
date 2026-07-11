@@ -1,0 +1,22 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=10",
+  "items": [
+    {
+      "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+      "name": "Dayvan Cowboy",
+      "duration_ms": 300000,
+      "is_local": false,
+      "external_ids": { "isrc": "USWB11300423" },
+      "artists": [
+        { "id": "2VAvhf61GgLYmC6C8anyX1", "name": "Boards of Canada" }
+      ],
+      "album": { "id": "1vDkznlJEsMBOigDzNRgTV", "name": "The Campfire Headphase" }
+    }
+  ],
+  "limit": 10,
+  "next": null,
+  "offset": 0,
+  "previous": null,
+  "total": 1
+}

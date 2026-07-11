@@ -27,6 +27,8 @@ from crate.model.enums import (
     SyncEventSource,
     SyncEventType,
     TagSource,
+    TopItemKind,
+    TopTimeRange,
 )
 from crate.model.orm.base import TimestampedModel, enum_column, utcnow
 
@@ -376,6 +378,70 @@ class SuggestionFeedback(TimestampedModel, table=True):
     playlist_id: int = Field(foreign_key="playlists.id", index=True)
     artist: str = Field(index=True, max_length=512)
     action: FeedbackAction = Field(sa_column=enum_column(FeedbackAction, nullable=False))
+
+
+class SavedTrack(TimestampedModel, table=True):
+    """One track in the user's Liked Songs library.
+
+    A removal flips is_removed instead of deleting the row, so the library's
+    add/remove history survives; a re-save reactivates the same row with a
+    fresh saved_at. This row-level trail is the saved-library counterpart of
+    SyncEvent (which is playlist-scoped).
+    """
+
+    __tablename__ = "saved_tracks"
+    __table_args__ = (UniqueConstraint("user_id", "track_id", name="uq_saved_tracks_user_track"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    track_id: int = Field(foreign_key="tracks.id", index=True)
+    saved_at: datetime | None = Field(default=None)
+    is_removed: bool = Field(default=False)
+    removed_at: datetime | None = Field(default=None)
+
+
+class PlayEvent(TimestampedModel, table=True):
+    """One play from the recently-played history.
+
+    Spotify timestamps each play uniquely per user, so (user_id, played_at)
+    dedupes overlapping capture windows on replay.
+    """
+
+    __tablename__ = "play_events"
+    __table_args__ = (
+        UniqueConstraint("user_id", "played_at", name="uq_play_events_user_played_at"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    track_id: int = Field(foreign_key="tracks.id", index=True)
+    played_at: datetime = Field()
+    # Where the play happened, when Spotify reports it: context type
+    # (playlist/album/artist/show) and the context's URI.
+    context_type: str | None = Field(default=None, max_length=32)
+    context_uri: str | None = Field(default=None, max_length=128)
+
+
+class TopItemsSnapshot(TimestampedModel, table=True):
+    """A point-in-time ranking of the user's top artists or tracks.
+
+    One capture pass writes six rows (artist/track x short/medium/long),
+    all sharing captured_at. items is the ranked list as JSON — snapshots
+    are immutable history, never updated in place.
+    """
+
+    __tablename__ = "top_items_snapshots"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    kind: TopItemKind = Field(sa_column=enum_column(TopItemKind, nullable=False))
+    time_range: TopTimeRange = Field(sa_column=enum_column(TopTimeRange, nullable=False))
+    captured_at: datetime = Field(default_factory=utcnow, index=True)
+    # Ranked [{"rank": 1, "spotify_id": ..., "name": ..., ...}] — track items
+    # also carry their artist names.
+    items: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
 
 
 class MutationJournal(TimestampedModel, table=True):

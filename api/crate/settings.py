@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     # and journaled). Never set in deployed environments.
     fake_spotify: bool = Field(default=False, validation_alias="CRATE_FAKE_SPOTIFY")
 
+    # In-process background scheduler (recently-played polling, nightly
+    # library sync, monthly top-items snapshots). Stands in for platform cron
+    # until the API is deployed with one; disable when an external scheduler
+    # takes over so passes don't run twice. All times are UTC.
+    scheduler_enabled: bool = Field(default=True, validation_alias="CRATE_SCHEDULER_ENABLED")
+    recent_plays_interval_minutes: int = 30
+    nightly_sync_hour: int = 3
+    top_items_day_of_month: int = 1
+    top_items_hour: int = 4
+
     # Last.fm API key for artist similarity and tags. Optional: without it the
     # enrichment pipeline skips Last.fm and reports that coverage as pending.
     lastfm_api_key: str | None = None
