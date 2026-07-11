@@ -268,7 +268,7 @@ class SyncService:
         self._tracks_by_spotify_id[remote.id] = row
 
         for artist in remote.artists:
-            if artist.id is not None:
+            if artist.id is not None and artist.name is not None:
                 self._upsert_artist(artist.id, artist.name)
         return row
 

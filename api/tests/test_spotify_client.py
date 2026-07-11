@@ -241,3 +241,39 @@ async def test_search_tracks_empty_result() -> None:
     client = make_client(handler)
     assert await client.search_tracks("isrc:ZZZ00000000") == []
     await client.aclose()
+
+
+def test_playlist_item_parses_local_file_with_null_artist_fields() -> None:
+    """Local files come back with null artist id AND name; parsing must not raise.
+
+    Observed live on 2026-07-11 (first real-library sync): a playlist holding a
+    local file crashed the whole sync at validation time, before the sync
+    engine's local/ghost skip could run.
+    """
+    from crate.services.spotify.models import PlaylistTrackItem
+
+    item = PlaylistTrackItem.model_validate(
+        {
+            "added_at": "2020-05-01T10:00:00Z",
+            "track": {
+                "id": None,
+                "name": "bootleg rip.mp3",
+                "duration_ms": 183000,
+                "is_local": True,
+                "external_ids": {},
+                "artists": [{"id": None, "name": None}],
+                "album": {"id": None, "name": None},
+            },
+        }
+    )
+    assert item.track is not None
+    assert item.track.is_local is True
+    assert item.track.id is None  # the sync engine's skip condition
+
+
+def test_playlist_item_parses_catalog_ghost() -> None:
+    """Items whose track was removed from the catalog arrive as track: null."""
+    from crate.services.spotify.models import PlaylistTrackItem
+
+    item = PlaylistTrackItem.model_validate({"added_at": None, "track": None})
+    assert item.track is None

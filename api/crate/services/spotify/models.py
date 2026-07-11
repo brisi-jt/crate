@@ -14,9 +14,9 @@ class SpotifyExternalIds(BaseModel):
 
 
 class SpotifyArtistRef(BaseModel):
-    # Null for local files.
+    # Both null for local files.
     id: str | None = None
-    name: str
+    name: str | None = None
 
 
 class SpotifyAlbumRef(BaseModel):
