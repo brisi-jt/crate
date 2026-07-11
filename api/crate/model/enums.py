@@ -42,6 +42,38 @@ class SyncEventSource(StrEnum):
     crate = "crate"
 
 
+class FeatureSource(StrEnum):
+    """Which provider supplied a track's audio features."""
+
+    reccobeats = "reccobeats"
+    freqblog = "freqblog"
+    # Self-hosted Essentia extraction (Hybrid-B) — not wired up yet; rows
+    # marked missing are its future work queue.
+    essentia = "essentia"
+
+
+class FeatureStatus(StrEnum):
+    """Whether a track's feature lookup produced values."""
+
+    present = "present"
+    # Every available source missed — the track waits for Essentia analysis.
+    missing = "missing"
+
+
+class SimilaritySource(StrEnum):
+    """Which service asserted an artist-similarity edge."""
+
+    lastfm = "lastfm"
+    listenbrainz = "listenbrainz"
+
+
+class TagSource(StrEnum):
+    """Where an artist tag came from."""
+
+    lastfm = "lastfm"
+    enao = "enao"
+
+
 class MutationOpType(StrEnum):
     """Reversible write operations recorded in the mutation journal."""
 

@@ -13,11 +13,15 @@ from sqlmodel import Field
 
 from crate.model.enums import (
     CredentialStatus,
+    FeatureSource,
+    FeatureStatus,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
+    SimilaritySource,
     SyncEventSource,
     SyncEventType,
+    TagSource,
 )
 from crate.model.orm.base import TimestampedModel, enum_column, utcnow
 
@@ -130,6 +134,158 @@ class SyncEvent(TimestampedModel, table=True):
     )
     observed_at: datetime = Field(default_factory=utcnow, index=True)
     detail: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+
+
+class TrackFeatures(TimestampedModel, table=True):
+    """Audio features for one track, from whichever source answered first.
+
+    Feature values are Essentia-derived (ReccoBeats/FreqBlog), not
+    Spotify-distributed — compare them through FeatureCalibration percentiles,
+    never against Spotify-era absolute thresholds.
+    """
+
+    __tablename__ = "track_features"
+
+    id: int | None = Field(default=None, primary_key=True)
+    track_id: int = Field(foreign_key="tracks.id", unique=True)
+    energy: float | None = Field(default=None)
+    valence: float | None = Field(default=None)
+    danceability: float | None = Field(default=None)
+    acousticness: float | None = Field(default=None)
+    instrumentalness: float | None = Field(default=None)
+    liveness: float | None = Field(default=None)
+    speechiness: float | None = Field(default=None)
+    tempo: float | None = Field(default=None)
+    key: int | None = Field(default=None)
+    mode: int | None = Field(default=None)
+    loudness: float | None = Field(default=None)
+    status: FeatureStatus = Field(
+        default=FeatureStatus.present,
+        sa_column=enum_column(FeatureStatus, nullable=False),
+    )
+    # Null while status is missing — no source has supplied values yet.
+    source: FeatureSource | None = Field(
+        default=None, sa_column=enum_column(FeatureSource, nullable=True)
+    )
+    fetched_at: datetime = Field(default_factory=utcnow)
+
+
+class ArtistSimilarity(TimestampedModel, table=True):
+    """Directed artist→artist similarity edge.
+
+    The similar artist is stored by name (plus mbid when the source gives
+    one); similar_artist_id is linked only when that artist exists in our
+    catalog.
+    """
+
+    __tablename__ = "artist_similarities"
+    __table_args__ = (
+        UniqueConstraint(
+            "artist_id", "similar_artist_name", "source", name="uq_artist_similarities_edge"
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    artist_id: int = Field(foreign_key="artists.id", index=True)
+    similar_artist_id: int | None = Field(default=None, foreign_key="artists.id")
+    similar_artist_name: str = Field(max_length=512)
+    similar_artist_mbid: str | None = Field(default=None, max_length=64)
+    # Source-reported match strength, normalized to 0..1.
+    weight: float = Field()
+    source: SimilaritySource = Field(sa_column=enum_column(SimilaritySource, nullable=False))
+
+
+class ArtistTag(TimestampedModel, table=True):
+    """Descriptive tag on an artist (Last.fm folksonomy or ENAO genre)."""
+
+    __tablename__ = "artist_tags"
+    __table_args__ = (UniqueConstraint("artist_id", "tag", "source", name="uq_artist_tags_tag"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    artist_id: int = Field(foreign_key="artists.id", index=True)
+    tag: str = Field(max_length=256)
+    # Source-reported relevance (Last.fm count, 0..100).
+    weight: float = Field()
+    source: TagSource = Field(sa_column=enum_column(TagSource, nullable=False))
+
+
+class Genre(TimestampedModel, table=True):
+    """Genre from the Every Noise at Once dump."""
+
+    __tablename__ = "genres"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, max_length=256)
+    # Position in ENAO's popularity-ordered genre list (1 = most popular).
+    enao_rank: int | None = Field(default=None)
+
+
+class ArtistGenre(TimestampedModel, table=True):
+    """Artist↔genre membership from the ENAO dump.
+
+    Keyed by artist name (the dump has no Spotify IDs for artists);
+    artist_id is linked when the name matches an artist in our catalog.
+    Weight sums exemplar-list appearances and sub-genre tag counts, so it is
+    comparable within a genre, not across genres.
+    """
+
+    __tablename__ = "artist_genres"
+    __table_args__ = (
+        UniqueConstraint("genre_id", "artist_name", name="uq_artist_genres_membership"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    genre_id: int = Field(foreign_key="genres.id", index=True)
+    artist_name: str = Field(index=True, max_length=512)
+    artist_id: int | None = Field(default=None, foreign_key="artists.id")
+    weight: float = Field()
+
+
+class FeatureCalibration(TimestampedModel, table=True):
+    """Library-wide percentile anchors for one audio feature.
+
+    Downstream analytics rank tracks against these percentiles instead of
+    absolute values, because the feature distributions are Essentia's, not
+    Spotify's.
+    """
+
+    __tablename__ = "feature_calibrations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    feature: str = Field(unique=True, max_length=32)
+    p10: float = Field()
+    p50: float = Field()
+    p90: float = Field()
+    sample_size: int = Field()
+    computed_at: datetime = Field(default_factory=utcnow)
+
+
+class FreqBlogBudget(TimestampedModel, table=True):
+    """Calls consumed against FreqBlog's monthly lookup allowance."""
+
+    __tablename__ = "freqblog_budget"
+
+    id: int | None = Field(default=None, primary_key=True)
+    # Calendar month the counter covers, e.g. "2026-07".
+    month: str = Field(unique=True, max_length=7)
+    used: int = Field(default=0)
+
+
+class ApiResponseCache(TimestampedModel, table=True):
+    """Cached third-party API responses, keyed per source.
+
+    Enrichment sources are heavily rate-limited; re-runs read from here
+    instead of re-fetching.
+    """
+
+    __tablename__ = "api_response_cache"
+    __table_args__ = (UniqueConstraint("source", "cache_key", name="uq_api_response_cache_key"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    source: str = Field(max_length=32)
+    cache_key: str = Field(max_length=255)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    fetched_at: datetime = Field(default_factory=utcnow)
 
 
 class MutationJournal(TimestampedModel, table=True):

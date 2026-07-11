@@ -14,20 +14,32 @@ from sqlmodel import Session
 
 from crate.model.enums import (
     CredentialStatus,
+    FeatureSource,
+    FeatureStatus,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
+    SimilaritySource,
     SyncEventSource,
     SyncEventType,
+    TagSource,
 )
 from crate.model.orm import (
+    ApiResponseCache,
     Artist,
+    ArtistGenre,
+    ArtistSimilarity,
+    ArtistTag,
+    FeatureCalibration,
+    FreqBlogBudget,
+    Genre,
     MutationJournal,
     Playlist,
     PlaylistTrack,
     SpotifyCredential,
     SyncEvent,
     Track,
+    TrackFeatures,
     User,
 )
 from crate.settings import get_settings
@@ -267,6 +279,173 @@ def test_mutation_journal_round_trip(migrated_engine: Engine) -> None:
     assert row.inverse_payload == inverse
     assert row.status == MutationStatus.applied
     assert isinstance(row.status, MutationStatus)
+    assert_timestamps(row)
+
+
+def test_track_features_round_trip(migrated_engine: Engine) -> None:
+    track = persist_and_reload(
+        migrated_engine, Track(spotify_id="tr-rt-feat", name="rt", artists=[])
+    )
+    fetched = datetime(2026, 7, 11, 9, 8, 7, 654321)
+    row = persist_and_reload(
+        migrated_engine,
+        TrackFeatures(
+            track_id=track.id,
+            energy=0.816,
+            valence=0.557,
+            danceability=0.548,
+            acousticness=0.122,
+            instrumentalness=0.0,
+            liveness=0.335,
+            speechiness=0.0465,
+            tempo=95.39,
+            key=0,
+            mode=1,
+            loudness=-4.209,
+            status=FeatureStatus.present,
+            source=FeatureSource.reccobeats,
+            fetched_at=fetched,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.track_id, int) and row.track_id == track.id
+    assert row.energy == pytest.approx(0.816)
+    assert row.valence == pytest.approx(0.557)
+    assert row.danceability == pytest.approx(0.548)
+    assert row.acousticness == pytest.approx(0.122)
+    assert row.instrumentalness == pytest.approx(0.0)
+    assert row.liveness == pytest.approx(0.335)
+    assert row.speechiness == pytest.approx(0.0465)
+    assert row.tempo == pytest.approx(95.39)
+    assert row.key == 0 and isinstance(row.key, int)
+    assert row.mode == 1 and isinstance(row.mode, int)
+    assert row.loudness == pytest.approx(-4.209)
+    assert row.status == FeatureStatus.present
+    assert isinstance(row.status, FeatureStatus)
+    assert row.source == FeatureSource.reccobeats
+    assert isinstance(row.source, FeatureSource)
+    assert row.fetched_at == fetched
+    assert isinstance(row.fetched_at, datetime)
+    assert_timestamps(row)
+
+
+def test_artist_similarity_round_trip(migrated_engine: Engine) -> None:
+    artist = persist_and_reload(migrated_engine, Artist(spotify_id="ar-rt-sim", name="Tycho"))
+    linked = persist_and_reload(
+        migrated_engine, Artist(spotify_id="ar-rt-sim2", name="Boards of Canada")
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        ArtistSimilarity(
+            artist_id=artist.id,
+            similar_artist_id=linked.id,
+            similar_artist_name="Boards of Canada",
+            similar_artist_mbid="69158f97-4c07-4c4e-baf8-4e4ab1ed666e",
+            weight=0.87,
+            source=SimilaritySource.lastfm,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.artist_id, int) and row.artist_id == artist.id
+    assert isinstance(row.similar_artist_id, int) and row.similar_artist_id == linked.id
+    assert row.similar_artist_name == "Boards of Canada"
+    assert row.similar_artist_mbid == "69158f97-4c07-4c4e-baf8-4e4ab1ed666e"
+    assert row.weight == pytest.approx(0.87)
+    assert isinstance(row.weight, float)
+    assert row.source == SimilaritySource.lastfm
+    assert isinstance(row.source, SimilaritySource)
+    assert_timestamps(row)
+
+
+def test_artist_tag_round_trip(migrated_engine: Engine) -> None:
+    artist = persist_and_reload(migrated_engine, Artist(spotify_id="ar-rt-tag", name="Tycho"))
+    row = persist_and_reload(
+        migrated_engine,
+        ArtistTag(artist_id=artist.id, tag="electronic", weight=100.0, source=TagSource.lastfm),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.artist_id, int) and row.artist_id == artist.id
+    assert row.tag == "electronic"
+    assert row.weight == pytest.approx(100.0)
+    assert isinstance(row.weight, float)
+    assert row.source == TagSource.lastfm
+    assert isinstance(row.source, TagSource)
+    assert_timestamps(row)
+
+
+def test_genre_and_artist_genre_round_trip(migrated_engine: Engine) -> None:
+    genre = persist_and_reload(migrated_engine, Genre(name="chillwave", enao_rank=147))
+    assert isinstance(genre.id, int)
+    assert genre.name == "chillwave"
+    assert genre.enao_rank == 147
+    assert isinstance(genre.enao_rank, int)
+    assert_timestamps(genre)
+
+    artist = persist_and_reload(
+        migrated_engine, Artist(spotify_id="ar-rt-genre", name="Washed Out")
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        ArtistGenre(genre_id=genre.id, artist_name="Washed Out", artist_id=artist.id, weight=312.5),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.genre_id, int) and row.genre_id == genre.id
+    assert row.artist_name == "Washed Out"
+    assert isinstance(row.artist_id, int) and row.artist_id == artist.id
+    assert row.weight == pytest.approx(312.5)
+    assert isinstance(row.weight, float)
+    assert_timestamps(row)
+
+
+def test_feature_calibration_round_trip(migrated_engine: Engine) -> None:
+    computed = datetime(2026, 7, 11, 23, 59, 59, 111111)
+    row = persist_and_reload(
+        migrated_engine,
+        FeatureCalibration(
+            feature="energy", p10=0.12, p50=0.55, p90=0.91, sample_size=4211, computed_at=computed
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.feature == "energy"
+    assert row.p10 == pytest.approx(0.12)
+    assert row.p50 == pytest.approx(0.55)
+    assert row.p90 == pytest.approx(0.91)
+    assert isinstance(row.p10, float)
+    assert row.sample_size == 4211
+    assert isinstance(row.sample_size, int)
+    assert row.computed_at == computed
+    assert isinstance(row.computed_at, datetime)
+    assert_timestamps(row)
+
+
+def test_freqblog_budget_round_trip(migrated_engine: Engine) -> None:
+    row = persist_and_reload(migrated_engine, FreqBlogBudget(month="2026-07", used=42))
+    assert isinstance(row.id, int)
+    assert row.month == "2026-07"
+    assert row.used == 42
+    assert isinstance(row.used, int)
+    assert_timestamps(row)
+
+
+def test_api_response_cache_round_trip(migrated_engine: Engine) -> None:
+    fetched = datetime(2026, 7, 11, 18, 30, 0, 202020)
+    payload = {"content": [{"id": "abc", "energy": 0.5, "key": 7}]}
+    row = persist_and_reload(
+        migrated_engine,
+        ApiResponseCache(
+            source="reccobeats",
+            cache_key="audio-features:6UelLqGlWMcVH1E5c4H7lY",
+            payload=payload,
+            fetched_at=fetched,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.source == "reccobeats"
+    assert row.cache_key == "audio-features:6UelLqGlWMcVH1E5c4H7lY"
+    assert row.payload == payload
+    assert isinstance(row.payload["content"][0]["key"], int)
+    assert row.fetched_at == fetched
+    assert isinstance(row.fetched_at, datetime)
     assert_timestamps(row)
 
 

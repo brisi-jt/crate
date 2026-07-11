@@ -1,0 +1,29 @@
+{
+  "synthetic": true,
+  "similarartists": {
+    "artist": [
+      {
+        "name": "Boards of Canada",
+        "mbid": "69158f97-4c07-4c4e-baf8-4e4ab1ed666e",
+        "match": "1.0",
+        "url": "https://www.last.fm/music/Boards+of+Canada",
+        "streamable": "0"
+      },
+      {
+        "name": "Aphex Twin",
+        "mbid": "f22942a1-6f70-4f48-866e-238cb2308fbd",
+        "match": "0.87",
+        "url": "https://www.last.fm/music/Aphex+Twin",
+        "streamable": "0"
+      },
+      {
+        "name": "Bibio",
+        "mbid": "",
+        "match": "0.62",
+        "url": "https://www.last.fm/music/Bibio",
+        "streamable": "0"
+      }
+    ],
+    "@attr": { "artist": "Tycho" }
+  }
+}

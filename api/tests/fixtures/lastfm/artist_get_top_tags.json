@@ -1,0 +1,12 @@
+{
+  "synthetic": true,
+  "toptags": {
+    "tag": [
+      { "count": 100, "name": "electronic", "url": "https://www.last.fm/tag/electronic" },
+      { "count": 82, "name": "ambient", "url": "https://www.last.fm/tag/ambient" },
+      { "count": 47, "name": "chillwave", "url": "https://www.last.fm/tag/chillwave" },
+      { "count": 12, "name": "seen live", "url": "https://www.last.fm/tag/seen+live" }
+    ],
+    "@attr": { "artist": "Tycho" }
+  }
+}

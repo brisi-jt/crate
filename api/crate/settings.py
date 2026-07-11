@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     spotify_client_id: str = ""
     spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
 
+    # Last.fm API key for artist similarity and tags. Optional: without it the
+    # enrichment pipeline skips Last.fm and reports that coverage as pending.
+    lastfm_api_key: str | None = None
+
+    # FreqBlog audio-features fallback. Optional; calls are metered against a
+    # hard monthly allowance tracked in the freqblog_budget table.
+    freqblog_api_key: str | None = None
+    freqblog_monthly_budget: int = 1000
+
 
 @lru_cache
 def get_settings() -> Settings:

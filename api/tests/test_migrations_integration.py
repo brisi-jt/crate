@@ -22,6 +22,14 @@ EXPECTED_TABLES = {
     "playlist_tracks",
     "sync_events",
     "mutation_journal",
+    "track_features",
+    "artist_similarities",
+    "artist_tags",
+    "genres",
+    "artist_genres",
+    "feature_calibrations",
+    "freqblog_budget",
+    "api_response_cache",
 }
 
 

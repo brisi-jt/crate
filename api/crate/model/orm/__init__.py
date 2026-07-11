@@ -1,17 +1,32 @@
 from crate.model.orm.base import TimestampedModel, utcnow
 from crate.model.orm.models import (
+    ApiResponseCache,
     Artist,
+    ArtistGenre,
+    ArtistSimilarity,
+    ArtistTag,
+    FeatureCalibration,
+    FreqBlogBudget,
+    Genre,
     MutationJournal,
     Playlist,
     PlaylistTrack,
     SpotifyCredential,
     SyncEvent,
     Track,
+    TrackFeatures,
     User,
 )
 
 __all__ = [
+    "ApiResponseCache",
     "Artist",
+    "ArtistGenre",
+    "ArtistSimilarity",
+    "ArtistTag",
+    "FeatureCalibration",
+    "FreqBlogBudget",
+    "Genre",
     "MutationJournal",
     "Playlist",
     "PlaylistTrack",
@@ -19,6 +34,7 @@ __all__ = [
     "SyncEvent",
     "TimestampedModel",
     "Track",
+    "TrackFeatures",
     "User",
     "utcnow",
 ]

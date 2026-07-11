@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "isrc": "USSM11912587",
+  "recordings": [
+    {
+      "id": "3f7f47a8-2f6e-4c0c-9d3b-1f7a2b6c5d4e",
+      "title": "Circles",
+      "length": 215280,
+      "video": false,
+      "disambiguation": "",
+      "artist-credit": [
+        {
+          "name": "Post Malone",
+          "joinphrase": "",
+          "artist": {
+            "id": "b1e26560-60e5-4236-bbdb-9aa5a8d5ee19",
+            "name": "Post Malone",
+            "sort-name": "Post Malone",
+            "disambiguation": ""
+          }
+        }
+      ]
+    }
+  ]
+}

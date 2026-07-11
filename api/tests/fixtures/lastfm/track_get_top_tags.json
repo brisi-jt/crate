@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "toptags": {
+    "tag": [
+      { "count": 100, "name": "electronic", "url": "https://www.last.fm/tag/electronic" },
+      { "count": 61, "name": "downtempo", "url": "https://www.last.fm/tag/downtempo" }
+    ],
+    "@attr": { "artist": "Tycho", "track": "Awake" }
+  }
+}
