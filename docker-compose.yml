@@ -1,0 +1,21 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: crate-mysql
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: crate
+      MYSQL_DATABASE: crate
+      MYSQL_USER: crate
+      MYSQL_PASSWORD: crate
+    volumes:
+      - crate-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pcrate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  crate-mysql-data:

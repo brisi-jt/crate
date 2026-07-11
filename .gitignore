@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Local scratch
+*.log
