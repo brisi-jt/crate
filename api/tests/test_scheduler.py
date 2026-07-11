@@ -173,6 +173,60 @@ async def test_digest_pass_failure_is_contained(
     assert any("digest fell over" in (r.exc_text or "") for r in skip_records(caplog))
 
 
+# --- nightly backup pass -----------------------------------------------------------
+
+
+async def test_backup_pass_success_logs_one_line(
+    session: Session, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    calls: list[int] = []
+
+    async def fake_backup() -> None:
+        calls.append(1)
+
+    job = JobRecorder()
+    scheduler = AccountScheduler(
+        session_factory=lambda: session,
+        recent_job=job,
+        nightly_job=job,
+        top_job=job,
+        backup_job=fake_backup,
+        settings=Settings(_env_file=None, backup_dir=str(tmp_path)),  # ty: ignore[unknown-argument]
+    )
+
+    with caplog.at_level(logging.INFO, logger="crate.scheduler"):
+        await scheduler.run_backup_pass()
+
+    assert calls == [1]
+    assert sum("backup completed" in r.getMessage() for r in skip_records(caplog)) == 1
+
+
+async def test_backup_pass_failure_is_contained_and_recorded(
+    session: Session, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    from crate.backup import read_backup_status
+
+    async def broken_backup() -> None:
+        raise RuntimeError("mysqldump fell over")
+
+    job = JobRecorder()
+    scheduler = AccountScheduler(
+        session_factory=lambda: session,
+        recent_job=job,
+        nightly_job=job,
+        top_job=job,
+        backup_job=broken_backup,
+        settings=Settings(_env_file=None, backup_dir=str(tmp_path)),  # ty: ignore[unknown-argument]
+    )
+
+    with caplog.at_level(logging.ERROR, logger="crate.scheduler"):
+        await scheduler.run_backup_pass()  # must not raise
+
+    assert any("mysqldump fell over" in (r.exc_text or "") for r in skip_records(caplog))
+    status = read_backup_status(tmp_path)
+    assert status.backup_ok is False  # failure lands in the status sidecar → /v1/sync/status
+
+
 # --- tick timing ---------------------------------------------------------------
 
 
@@ -184,6 +238,16 @@ def test_seconds_until_daily_before_target() -> None:
 def test_seconds_until_daily_after_target_rolls_to_tomorrow() -> None:
     now = datetime(2026, 7, 12, 4, 30, 0)
     assert seconds_until_daily(now, hour=3) == 22.5 * 3600
+
+
+def test_seconds_until_daily_with_minute_before_target() -> None:
+    now = datetime(2026, 7, 12, 1, 0, 0)
+    assert seconds_until_daily(now, hour=2, minute=30) == 1.5 * 3600
+
+
+def test_seconds_until_daily_with_minute_after_target_rolls_to_tomorrow() -> None:
+    now = datetime(2026, 7, 12, 2, 45, 0)
+    assert seconds_until_daily(now, hour=2, minute=30) == 23.75 * 3600
 
 
 def test_seconds_until_monthly_before_target() -> None:
@@ -232,3 +296,11 @@ def test_scheduler_settings_defaults() -> None:
     assert settings.top_items_hour == 4
     assert settings.digest_weekday == 0
     assert settings.digest_hour == 5
+
+
+def test_backup_settings_defaults() -> None:
+    settings = Settings(_env_file=None)  # ty: ignore[unknown-argument]
+    assert settings.backup_enabled is True
+    assert settings.backup_hour == 2
+    assert settings.backup_minute == 30
+    assert settings.backup_dir == ""

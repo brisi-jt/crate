@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import select
 
+from crate.backup import read_backup_status, resolve_backup_dir
 from crate.deps import CurrentUserDep, SessionDep, SyncRunner, get_sync_runner
 from crate.errors import ProblemDetail
 from crate.model.orm import (
@@ -18,6 +19,7 @@ from crate.model.orm import (
     SyncEvent,
     TopItemsSnapshot,
 )
+from crate.settings import get_settings
 
 router = APIRouter(prefix="/v1/sync", tags=["sync"])
 
@@ -76,6 +78,21 @@ class SyncStatus(BaseModel):
     top_items_captured_at: datetime | None = Field(
         default=None,
         description="When top-items rankings were last snapshotted; null before the first capture.",
+    )
+    last_backup_at: datetime | None = Field(
+        default=None,
+        description=(
+            "Completion time of the most recent successful database backup; "
+            "null before the first backup."
+        ),
+    )
+    backup_ok: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the most recent backup attempt succeeded; null before "
+            "the first attempt. False means the latest nightly backup failed "
+            "and needs attention."
+        ),
     )
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
@@ -149,6 +166,8 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
         select(func.max(TopItemsSnapshot.captured_at)).where(TopItemsSnapshot.user_id == user.id)
     ).one()
 
+    backup_status = read_backup_status(resolve_backup_dir(get_settings()))
+
     needs_reauth = credential is not None and credential.status.requires_reauth
     reauth_reason = credential.status.reauth_reason if credential is not None else None
     links = {
@@ -169,5 +188,7 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
         saved_tracks_captured_at=saved_tracks_captured_at,
         recent_plays_captured_at=recent_plays_captured_at,
         top_items_captured_at=top_items_captured_at,
+        last_backup_at=backup_status.last_backup_at,
+        backup_ok=backup_status.backup_ok,
         links=links,
     )

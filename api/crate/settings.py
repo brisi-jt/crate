@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     digest_weekday: int = 0
     digest_hour: int = 5
 
+    # Nightly logical backup of the live MySQL database (scripts/backup_db.py),
+    # scheduled before the nightly sync so every day gets a pre-mutation
+    # snapshot. Disable when the database has managed backups (e.g. a hosted
+    # MySQL with point-in-time recovery). Times are UTC.
+    backup_enabled: bool = Field(default=True, validation_alias="CRATE_BACKUP_ENABLED")
+    backup_hour: int = 2
+    backup_minute: int = 30
+    # Where dumps, manifests, and the status sidecar live; empty means
+    # backups/crate under the repository root.
+    backup_dir: str = Field(default="", validation_alias="CRATE_BACKUP_DIR")
+
     # Last.fm API key for artist similarity and tags. Optional: without it the
     # enrichment pipeline skips Last.fm and reports that coverage as pending.
     lastfm_api_key: str | None = None

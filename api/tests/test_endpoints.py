@@ -138,6 +138,40 @@ def test_playlist_tracks_404_is_problem_detail(client: TestClient) -> None:
 # --- sync --------------------------------------------------------------------
 
 
+def test_sync_status_backup_fields_null_before_any_backup(
+    client: TestClient, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from crate.settings import Settings
+
+    monkeypatch.setattr(
+        "crate.router.sync.get_settings",
+        lambda: Settings(_env_file=None, backup_dir=str(tmp_path)),  # ty: ignore[unknown-argument]
+    )
+    body = client.get("/v1/sync/status").json()
+    assert body["last_backup_at"] is None
+    assert body["backup_ok"] is None
+
+
+def test_sync_status_reports_latest_backup(
+    client: TestClient, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datetime import datetime
+
+    from crate.backup import write_backup_status
+    from crate.settings import Settings
+
+    write_backup_status(
+        tmp_path, ok=True, dump="20260711T023000Z.sql.gz", now=datetime(2026, 7, 11, 2, 30)
+    )
+    monkeypatch.setattr(
+        "crate.router.sync.get_settings",
+        lambda: Settings(_env_file=None, backup_dir=str(tmp_path)),  # ty: ignore[unknown-argument]
+    )
+    body = client.get("/v1/sync/status").json()
+    assert body["backup_ok"] is True
+    assert body["last_backup_at"] == "2026-07-11T02:30:00"
+
+
 def test_sync_status_before_connection(client: TestClient) -> None:
     response = client.get("/v1/sync/status")
     assert response.status_code == 200

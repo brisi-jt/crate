@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 from sqlmodel import Session, create_engine, select
 
-from crate.model.enums import CandidateSource, CandidateStatus, PlaylistSyncStatus
+from crate.model.enums import CandidateSource, CandidateStatus, CredentialStatus, PlaylistSyncStatus
 from crate.model.orm import (
     AnalyticsSnapshot,
     DiscoveryCandidate,
@@ -27,6 +27,7 @@ from crate.model.orm import (
     OpPreview,
     Playlist,
     PlaylistTrack,
+    SpotifyCredential,
     SuggestionFeedback,
     SyncEvent,
     Track,
@@ -78,7 +79,27 @@ ARTISTS = [
 ]
 
 
-def wipe_user_rows(session: Session, user: User) -> None:
+def has_active_credential(session: Session, user: User) -> bool:
+    credential = session.exec(
+        select(SpotifyCredential).where(SpotifyCredential.user_id == user.id)
+    ).first()
+    return credential is not None and credential.status == CredentialStatus.active
+
+
+def wipe_user_rows(session: Session, user: User, *, force_real_account: bool = False) -> None:
+    """Delete the user's library rows so the demo seed can rebuild them.
+
+    Refuses to touch a user with an active Spotify credential — that is a real
+    synced account, not demo data. Pass ``force_real_account=True`` (the
+    ``--force-real-account`` flag) to wipe one anyway.
+    """
+    if not force_real_account and has_active_credential(session, user):
+        raise RuntimeError(
+            f"Refusing to wipe rows for user {user.clerk_user_id!r}: an active Spotify "
+            "credential is attached, so this is a real synced account, not a demo one. "
+            "Re-run with --force-real-account if you really mean to replace its library "
+            "with demo data."
+        )
     for model in (
         SuggestionFeedback,
         DiscoveryCandidate,
@@ -209,6 +230,11 @@ def seed_discovery(session: Session, rng: random.Random, user: User) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--user", default="jt-dev", help="clerk_user_id of the dev user")
+    parser.add_argument(
+        "--force-real-account",
+        action="store_true",
+        help="wipe and reseed even if the user has an active Spotify credential",
+    )
     args = parser.parse_args()
 
     rng = random.Random(2026)
@@ -220,7 +246,11 @@ def main() -> int:
             session.add(user)
             session.commit()
             session.refresh(user)
-        wipe_user_rows(session, user)
+        try:
+            wipe_user_rows(session, user, force_real_account=args.force_real_account)
+        except RuntimeError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
 
         track_index = 0
         gym_tracks: list[Track] = []

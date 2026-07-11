@@ -26,3 +26,6 @@ next-env.d.ts
 
 # Local scratch
 *.log
+
+# Database backups (local dumps stay local)
+backups/
