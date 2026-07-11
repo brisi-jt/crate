@@ -1,0 +1,26 @@
+name: monthly-contract-check
+
+# Early-warning tripwire for external-API drift: Spotify keeps changing its
+# dev-mode surface on unannounced timelines, and ReccoBeats/Deezer are
+# load-bearing with no SLA. Runs the no-auth live probes monthly and fails
+# loudly so drift shows up as a red run, not a broken map.
+
+on:
+  schedule:
+    - cron: "17 6 1 * *"
+  workflow_dispatch: {}
+
+jobs:
+  no-auth-probes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Run ReccoBeats + Deezer live probes
+        run: uv run scripts/phase0_smoke.py --no-auth-only
+      - name: Surface findings on failure
+        if: failure()
+        run: |
+          echo "::warning::External API contract drift detected — read the probe output above."
+          tail -50 thoughts/shared/research/2026-07-phase0-spotify-smoke.md
