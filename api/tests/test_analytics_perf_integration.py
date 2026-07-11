@@ -11,14 +11,14 @@ from datetime import datetime, timedelta
 
 import pytest
 from alembic import command
-from sqlalchemy import create_engine
+from sqlalchemy import Engine
 from sqlmodel import Session
 
 from crate.model.enums import FeatureSource, FeatureStatus, PlaylistSyncStatus
 from crate.model.orm import Playlist, PlaylistTrack, Track, TrackFeatures, User
 from crate.services.analytics.engine import recompute_all
-from crate.settings import get_settings
-from tests.test_migrations_integration import alembic_config, drop_everything
+from tests.db_guard import drop_all_tables
+from tests.test_migrations_integration import alembic_config
 
 pytestmark = pytest.mark.integration
 
@@ -35,10 +35,10 @@ def _rng(seed: int):
 
 
 @pytest.fixture(scope="module")
-def seeded_engine():
-    drop_everything()
+def seeded_engine(integration_engine: Engine):
+    drop_all_tables(integration_engine)
     command.upgrade(alembic_config(), "head")
-    engine = create_engine(get_settings().database_url)
+    engine = integration_engine
 
     rng = _rng(2026)
     base_added = datetime(2023, 1, 1)
@@ -111,7 +111,6 @@ def seeded_engine():
         user_id = user.id
 
     yield engine, user_id
-    engine.dispose()
 
 
 def test_full_recompute_within_budget(seeded_engine) -> None:

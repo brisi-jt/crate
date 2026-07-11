@@ -9,7 +9,7 @@ from datetime import datetime
 
 import pytest
 from alembic import command
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine
 from sqlmodel import Session
 
 from crate.model.enums import (
@@ -51,19 +51,17 @@ from crate.model.orm import (
     TrackFeatures,
     User,
 )
-from crate.settings import get_settings
-from tests.test_migrations_integration import alembic_config, drop_everything
+from tests.db_guard import drop_all_tables
+from tests.test_migrations_integration import alembic_config
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(scope="module")
-def migrated_engine():
-    drop_everything()
+def migrated_engine(integration_engine: Engine):
+    drop_all_tables(integration_engine)
     command.upgrade(alembic_config(), "head")
-    engine = create_engine(get_settings().database_url)
-    yield engine
-    engine.dispose()
+    return integration_engine
 
 
 def persist_and_reload(engine: Engine, instance):

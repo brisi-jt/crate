@@ -34,4 +34,16 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
+      # The integration suite runs against an isolated crate_test database it
+      # creates itself; the crate user needs privileges on it first.
+      - name: Grant crate user access to the test database
+        run: |
+          uv run python -c "
+          import pymysql
+          conn = pymysql.connect(host='127.0.0.1', port=3308, user='root', password='crate')
+          with conn.cursor() as cur:
+              cur.execute('GRANT ALL PRIVILEGES ON \`crate_test\`.* TO \'crate\'@\'%\'')
+              cur.execute('FLUSH PRIVILEGES')
+          conn.commit()
+          "
       - run: uv run pytest -m integration

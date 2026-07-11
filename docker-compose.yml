@@ -11,6 +11,7 @@ services:
       MYSQL_PASSWORD: crate
     volumes:
       - crate-mysql-data:/var/lib/mysql
+      - ./scripts/mysql-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pcrate"]
       interval: 5s

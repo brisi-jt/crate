@@ -14,7 +14,7 @@ import httpx
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import Engine
 from sqlmodel import Session, select
 
 from crate.app import create_app
@@ -32,9 +32,9 @@ from crate.model.orm import (
 )
 from crate.services.mutations.writer import ClientWriter
 from crate.services.spotify.client import SpotifyClient
-from crate.settings import get_settings
+from tests.db_guard import drop_all_tables
 from tests.mutation_fakes import spotify_reorder
-from tests.test_migrations_integration import alembic_config, drop_everything
+from tests.test_migrations_integration import alembic_config
 
 pytestmark = pytest.mark.integration
 
@@ -116,12 +116,10 @@ class MockSpotifyServer:
 
 
 @pytest.fixture(scope="module")
-def migrated_engine():
-    drop_everything()
+def migrated_engine(integration_engine: Engine):
+    drop_all_tables(integration_engine)
     command.upgrade(alembic_config(), "head")
-    engine = create_engine(get_settings().database_url)
-    yield engine
-    engine.dispose()
+    return integration_engine
 
 
 @pytest.fixture
