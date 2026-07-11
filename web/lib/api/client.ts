@@ -3,6 +3,19 @@ import { ApiError, type ProblemDetail } from "./errors";
 const BASE_URL =
   process.env.NEXT_PUBLIC_CRATE_API_URL ?? "http://localhost:8200";
 
+/**
+ * Optional bearer-token source for API requests. The Clerk auth root
+ * registers its session-token getter here; in dev auth mode nothing is
+ * registered and requests go out bare (the API resolves its dev user).
+ */
+type AuthTokenProvider = () => Promise<string | null>;
+
+let authTokenProvider: AuthTokenProvider | null = null;
+
+export function setAuthTokenProvider(provider: AuthTokenProvider | null) {
+  authTokenProvider = provider;
+}
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RequestOptions {
@@ -56,11 +69,19 @@ export async function request<T>(
 ): Promise<T> {
   const url = buildUrl(`${BASE_URL}${endpoint}`, options?.params);
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (authTokenProvider) {
+    const token = await authTokenProvider();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: options?.body ? JSON.stringify(options.body) : undefined,
       signal: options?.signal,
     });

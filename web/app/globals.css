@@ -1,82 +1,91 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
+/*
+ * crate design tokens — observatory night.
+ * Single dark theme, derived not defaulted: every neutral is tinted toward
+ * the indigo canvas hue (265). Source of truth for values:
+ * thoughts/shared/mockups/2026-07-11-design-tokens.md
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  /* Surfaces — depth is lightness, not shadow */
+  --canvas: oklch(0.13 0.015 265);
+  --surface-1: oklch(0.16 0.016 265);
+  --surface-2: oklch(0.19 0.017 265);
+  --surface-3: oklch(0.22 0.018 265);
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Borders */
+  --border-subtle: oklch(0.26 0.018 265);
+  --border-strong: oklch(0.33 0.02 265);
+
+  /* Text */
+  --text-primary: oklch(0.91 0.012 265);
+  --text-secondary: oklch(0.71 0.015 265);
+  --text-muted: oklch(0.6 0.015 265);
+
+  /* Accent + semantic signals. Instrument amber appears in at most three
+   * places per screen: keyboard focus, the single primary action, an armed
+   * bulk op. It never decorates. */
+  --accent-amber: oklch(0.76 0.13 65);
+  --accent-press: oklch(0.68 0.12 65);
+  --accent-ink: oklch(0.18 0.03 65);
+  --signal-danger: oklch(0.63 0.17 25);
+  --signal-success: oklch(0.7 0.12 150);
+
+  /* Grey out-of-gamut state: enrichment-incomplete entities. Below the data
+   * ramp's lightness and chroma floors so "unknown" can't read as "calm". */
+  --grey-node: oklch(0.42 0.012 265);
+
+  /* Motion — exact in hand: zero bounce, transform + opacity only */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+
+  /* shadcn semantic variables, remapped onto crate tokens so the ui/
+   * primitives render on-theme without per-component overrides. */
+  --radius: 0.375rem;
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+  --card: var(--surface-1);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-3);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--accent-amber);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--signal-danger);
+  --border: var(--border-subtle);
+  --input: var(--border-strong);
+  --ring: var(--accent-amber);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Colors */
+  --color-canvas: var(--canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-amber: var(--accent-amber);
+  --color-amber-press: var(--accent-press);
+  --color-amber-ink: var(--accent-ink);
+  --color-danger: var(--signal-danger);
+  --color-success: var(--signal-success);
+  --color-grey-node: var(--grey-node);
+
+  /* shadcn color bridge */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -95,28 +104,88 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Type — space-age field manual: Michroma display, B612 text, B612 Mono data */
+  --font-display: var(--font-michroma), sans-serif;
+  --font-text: var(--font-b612), sans-serif;
+  --font-data: var(--font-b612-mono), monospace;
+  --font-sans: var(--font-b612), sans-serif;
+  --font-mono: var(--font-b612-mono), monospace;
+
+  /* Type scale (fixed rem; 16→20→25→32 hierarchy ladder, 11/13 density utils) */
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.4;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.4;
+  --text-xl: 1.5625rem;
+  --text-xl--line-height: 1.3;
+  --text-display: 2rem;
+  --text-display--line-height: 1.15;
+
+  /* Spacing — 4pt semantic scale */
+  --spacing-2xs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  --spacing-3xl: 64px;
+  --spacing-4xl: 96px;
+
+  /* Radii — instrument-grade, small */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-full: 9999px;
+
+  /* Easings */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-quart: cubic-bezier(0.5, 0, 0.75, 0);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border-subtle);
+  }
+  html {
+    background: var(--canvas);
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--canvas);
+    color: var(--text-primary);
+    font-family: var(--font-b612), sans-serif;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent-amber);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Field-manual micro caps: chrome labels, panel titles, table headers */
+  .micro-caps {
+    font-family: var(--font-b612-mono), monospace;
+    font-size: var(--text-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  /* Numeric readouts: fixed-width digits, column-true */
+  .data-readout {
+    font-family: var(--font-b612-mono), monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Michroma panel/section titles */
+  .display-caps {
+    font-family: var(--font-michroma), sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
   }
 }

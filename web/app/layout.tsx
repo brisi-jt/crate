@@ -1,15 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { B612, B612_Mono, Michroma } from "next/font/google";
+import { AuthRoot } from "@/components/auth/auth-root";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Space-age field manual: Michroma for display lettering, B612 (the Airbus
+// cockpit face) for everything readable, B612 Mono for numeric readouts.
+const michroma = Michroma({
+  variable: "--font-michroma",
+  weight: "400",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const b612 = B612({
+  variable: "--font-b612",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+});
+
+const b612Mono = B612_Mono({
+  variable: "--font-b612-mono",
+  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
@@ -26,10 +38,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${michroma.variable} ${b612.variable} ${b612Mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <Providers>{children}</Providers>
+      <body className="min-h-full">
+        <AuthRoot>
+          <Providers>{children}</Providers>
+        </AuthRoot>
       </body>
     </html>
   );
