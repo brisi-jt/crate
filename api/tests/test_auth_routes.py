@@ -139,3 +139,36 @@ def test_callback_user_denied_is_rejected(client: TestClient) -> None:
     response = client.get("/v1/auth/spotify/callback", params={"error": "access_denied"})
     assert response.status_code == 400
     assert response.json()["error_code"] == "SPOTIFY_AUTH_DENIED"
+
+
+def test_playback_token_requires_connection(client: TestClient) -> None:
+    response = client.get("/v1/auth/spotify/token")
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "SPOTIFY_NOT_CONNECTED"
+
+
+def test_playback_token_serves_fresh_stored_token(
+    client: TestClient, session: Session, user: User
+) -> None:
+    from datetime import timedelta
+
+    from crate.model.orm.base import utcnow
+    from crate.services.crypto import get_cipher
+
+    cipher = get_cipher()
+    session.add(
+        SpotifyCredential(
+            user_id=user.id,
+            refresh_token_encrypted=cipher.encrypt("refresh-token"),
+            access_token_encrypted=cipher.encrypt("live-access-token"),
+            access_token_expires_at=utcnow() + timedelta(minutes=30),
+        )
+    )
+    session.commit()
+
+    response = client.get("/v1/auth/spotify/token")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["access_token"] == "live-access-token"
+    assert body["expires_at"] is not None
+    assert body["_links"]["self"]["href"] == "/v1/auth/spotify/token"

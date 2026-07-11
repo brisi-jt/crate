@@ -212,3 +212,32 @@ async def test_exchange_code_posts_pkce_form() -> None:
     assert tokens.access_token.startswith("BQD")
     assert tokens.refresh_token is not None
     assert tokens.expires_in == 3600
+
+
+async def test_search_tracks_parses_items() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=fixture("search_tracks.json"))
+
+    client = make_client(handler)
+    tracks = await client.search_tracks('track:"Dayvan Cowboy" artist:"Boards of Canada"')
+    await client.aclose()
+
+    assert [t.id for t in tracks] == ["2CvOqDpQIMw69cCzWqr5yr", "7x8dCjCr0x6x2lXKujYD34"]
+    assert tracks[0].external_ids.isrc == "GBAFL0500202"
+    assert tracks[0].artists[0].name == "Boards of Canada"
+    params = requests[0].url.params
+    assert params["type"] == "track"
+    assert params["limit"] == "5"
+    assert params["q"] == 'track:"Dayvan Cowboy" artist:"Boards of Canada"'
+
+
+async def test_search_tracks_empty_result() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"tracks": {"items": [], "total": 0}})
+
+    client = make_client(handler)
+    assert await client.search_tracks("isrc:ZZZ00000000") == []
+    await client.aclose()

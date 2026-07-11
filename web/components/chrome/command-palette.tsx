@@ -12,6 +12,7 @@ import {
 import { useTriggerSync } from "@/hooks/api/use-sync";
 import type { GraphNode } from "@/lib/api/schemas";
 import { acousticColor, GREY_NODE, oklchString } from "@/lib/color/acoustic";
+import { openListeningDeck } from "@/lib/store/deck";
 import { useUiStore } from "@/lib/store/ui";
 
 /**
@@ -28,6 +29,7 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const openOpsLog = useUiStore((s) => s.openOpsLog);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const rightPanel = useUiStore((s) => s.rightPanel);
+  const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const sync = useTriggerSync();
 
   if (!paletteOpen) return null;
@@ -93,6 +95,14 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
             >
               Open operations log
             </CommandItem>
+            {selectedPlaylistId !== null && (
+              <CommandItem
+                onSelect={() => openListeningDeck(selectedPlaylistId)}
+                className="data-[selected=true]:bg-surface-2"
+              >
+                Audition suggestions
+              </CommandItem>
+            )}
             {rightPanel && (
               <CommandItem
                 onSelect={() => {

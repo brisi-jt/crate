@@ -10,13 +10,16 @@ from typing import Any
 import httpx
 
 from crate.services.enrichment.cache import ResponseCache
-from crate.services.enrichment.models import AudioFeatures
+from crate.services.enrichment.models import AudioFeatures, RecommendedTrack
 from crate.services.enrichment.throttle import RateLimiter, Sleep, request_with_backoff
 
 BASE_URL = "https://api.reccobeats.com"
 
 # Documented maximum ids per audio-features request.
 BATCH_SIZE = 40
+
+# Documented maximum seed tracks per recommendation request.
+MAX_RECOMMENDATION_SEEDS = 5
 
 # Two requests per second.
 MIN_INTERVAL_SECONDS = 0.5
@@ -81,6 +84,31 @@ class ReccoBeatsClient:
                 self._cache.put(f"audio-features:{spotify_id}", item)
                 result[spotify_id] = AudioFeatures.model_validate(item)
         return result
+
+    async def get_track_recommendation(
+        self, seed_spotify_ids: list[str], size: int = 20
+    ) -> list[RecommendedTrack]:
+        """Tracks acoustically similar to the seeds (at most five are sent).
+
+        Recommendations carry Spotify links, so results arrive pre-resolved.
+        """
+        seeds = ",".join(seed_spotify_ids[:MAX_RECOMMENDATION_SEEDS])
+        cache_key = f"recommendation:{seeds}:{size}"
+        cached = self._cache.get(cache_key)
+        if cached is not None:
+            return [RecommendedTrack.model_validate(item) for item in cached.get("content", [])]
+        response = await request_with_backoff(
+            self._http,
+            "GET",
+            f"{self._base_url}/v1/track/recommendation",
+            params={"seeds": seeds, "size": str(size)},
+            limiter=self._limiter,
+            sleep=self._sleep,
+        )
+        response.raise_for_status()
+        payload: dict[str, Any] = response.json()
+        self._cache.put(cache_key, payload)
+        return [RecommendedTrack.model_validate(item) for item in payload.get("content", [])]
 
     async def get_audio_features_by_isrc(self, isrc: str) -> AudioFeatures | None:
         """Single-track lookup by ISRC — the fallback when the Spotify ID misses."""

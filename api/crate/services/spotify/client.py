@@ -15,6 +15,7 @@ from crate.model.orm.base import utcnow
 from crate.services.spotify.models import (
     PlaylistTrackItem,
     SpotifyPlaylistSummary,
+    SpotifyTrack,
     SpotifyUser,
     TokenResponse,
 )
@@ -132,6 +133,18 @@ class SpotifyClient:
             yield page
             url = page.get("next")
 
+    async def ensure_access_token(self, force_refresh: bool = False) -> str:
+        """A currently-valid access token, refreshing when needed.
+
+        The Web Playback SDK runs in the browser and needs the raw token; the
+        token endpoint uses this to hand one over without waiting for an API
+        call to trigger the lazy refresh.
+        """
+        if force_refresh or self._access_token is None:
+            await self._refresh_access_token()
+        assert self._access_token is not None
+        return self._access_token
+
     async def get_current_user(self) -> SpotifyUser:
         response = await self._request("GET", f"{API_BASE_URL}/me")
         return SpotifyUser.model_validate(response.json())
@@ -149,6 +162,20 @@ class SpotifyClient:
         ):
             for item in page.get("items", []):
                 yield PlaylistTrackItem.model_validate(item)
+
+    async def search_tracks(self, query: str, limit: int = 5) -> list[SpotifyTrack]:
+        """Track search — resolves discovery candidates to Spotify tracks.
+
+        The query uses Spotify's search syntax, e.g. `isrc:USUM71703861` or
+        `track:"Dayvan Cowboy" artist:"Boards of Canada"`.
+        """
+        response = await self._request(
+            "GET",
+            f"{API_BASE_URL}/search",
+            params={"q": query, "type": "track", "limit": limit},
+        )
+        items = response.json().get("tracks", {}).get("items", [])
+        return [SpotifyTrack.model_validate(item) for item in items]
 
     # -- writes ------------------------------------------------------------
 

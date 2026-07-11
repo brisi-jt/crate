@@ -116,3 +116,35 @@ class BulkOperation(StrEnum):
     intersect = "intersect"
     dedupe = "dedupe"
     sync_subset_to_parent = "sync_subset_to_parent"
+
+
+class CandidateSource(StrEnum):
+    """Which pipeline proposed a discovery candidate."""
+
+    # Similar artists of the playlist's top artists, then their top tracks.
+    lastfm = "lastfm"
+    # Track recommendations seeded by the playlist's exemplar tracks.
+    reccobeats = "reccobeats"
+
+
+class CandidateStatus(StrEnum):
+    """Lifecycle of a discovery candidate."""
+
+    # Proposed, not yet matched to a Spotify track.
+    pending = "pending"
+    # Matched to a Spotify track — eligible for the suggestion queue.
+    resolved = "resolved"
+    # Spotify search found no match; kept so it is never re-proposed.
+    unresolvable = "unresolvable"
+    # Reviewed and added to the playlist.
+    accepted = "accepted"
+    # Reviewed and declined; excluded from every future generation pass.
+    rejected = "rejected"
+
+
+class FeedbackAction(StrEnum):
+    """A review decision on a suggested track."""
+
+    accept = "accept"
+    reject = "reject"
+    skip = "skip"

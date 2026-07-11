@@ -32,6 +32,8 @@ EXPECTED_TABLES = {
     "api_response_cache",
     "analytics_snapshots",
     "op_previews",
+    "discovery_candidates",
+    "suggestion_feedback",
 }
 
 

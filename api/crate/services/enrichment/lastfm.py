@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from crate.services.enrichment.cache import ResponseCache
-from crate.services.enrichment.models import ArtistTagView, SimilarArtist
+from crate.services.enrichment.models import ArtistTagView, ArtistTopTrack, SimilarArtist
 from crate.services.enrichment.throttle import RateLimiter, Sleep, request_with_backoff
 
 BASE_URL = "https://ws.audioscrobbler.com/2.0/"
@@ -76,6 +76,26 @@ class LastFmClient:
         )
         entries = payload.get("toptags", {}).get("tag", [])
         return [ArtistTagView.model_validate(entry) for entry in entries]
+
+    async def get_artist_top_tracks(
+        self, artist_name: str, limit: int = 10
+    ) -> list[ArtistTopTrack]:
+        """The artist's most-listened tracks — discovery's candidate pool."""
+        payload = await self._call(
+            "artist.getTopTracks",
+            f"artist.getTopTracks:{artist_name.lower()}:{limit}",
+            artist=artist_name,
+            limit=str(limit),
+        )
+        entries = payload.get("toptracks", {}).get("track", [])
+        tracks = []
+        for entry in entries:
+            parsed = ArtistTopTrack.model_validate(entry)
+            parsed.artist_name = str(entry.get("artist", {}).get("name", "")) or artist_name
+            if not parsed.mbid:  # Last.fm sends "" for tracks without an MBID
+                parsed.mbid = None
+            tracks.append(parsed)
+        return tracks
 
     async def get_track_top_tags(self, artist_name: str, track_name: str) -> list[ArtistTagView]:
         payload = await self._call(

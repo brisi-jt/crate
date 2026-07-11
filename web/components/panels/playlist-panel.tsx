@@ -28,6 +28,7 @@ import {
   usePlaylistTracks,
 } from "@/hooks/api/use-playlist-tracks";
 import type { GraphNode, PlaylistTrack } from "@/lib/api/schemas";
+import { openListeningDeck } from "@/lib/store/deck";
 import { useUiStore } from "@/lib/store/ui";
 
 function formatDuration(ms: number | null): string {
@@ -142,7 +143,7 @@ export function PlaylistPanelContent({
 
   return (
     <>
-      <div className="flex gap-xl">
+      <div className="flex items-end gap-xl">
         <Readout label="Tracks" value={String(total)} />
         <Readout
           label="Cohesion"
@@ -153,6 +154,14 @@ export function PlaylistPanelContent({
           value={a?.flow ? String(Math.round(a.flow.score)) : "—"}
         />
         <Readout label="Outliers" value={a ? String(a.outliers.length) : "—"} />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => openListeningDeck(playlistId)}
+          className="micro-caps ml-auto border-border-subtle text-text-secondary"
+        >
+          Audition
+        </Button>
       </div>
 
       <Tabs defaultValue="tracks" className="flex min-h-0 flex-1 flex-col">

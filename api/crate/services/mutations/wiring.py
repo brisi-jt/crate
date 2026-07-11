@@ -90,12 +90,15 @@ def _reauth_conflict() -> AppError:
 
 
 @asynccontextmanager
-async def spotify_writer_for_user(session: Session, user: User) -> AsyncIterator[SpotifyWriter]:
-    settings = get_settings()
-    if settings.fake_spotify:
-        yield LocalEchoWriter(session)
-        return
+async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator[SpotifyClient]:
+    """An authenticated SpotifyClient for the user's stored credential.
 
+    Raises 409 when no usable credential exists, flips the credential to
+    needs_reauth when Spotify rejects the refresh token, and persists rotated
+    tokens (re-encrypted) on the way out. Writes and discovery resolution
+    both build on this.
+    """
+    settings = get_settings()
     credential = session.exec(
         select(SpotifyCredential).where(SpotifyCredential.user_id == user.id)
     ).first()
@@ -126,7 +129,7 @@ async def spotify_writer_for_user(session: Session, user: User) -> AsyncIterator
         on_tokens=persist_refresh_token,
     )
     try:
-        yield ClientWriter(client)
+        yield client
     except SpotifyReauthRequired:
         credential.status = CredentialStatus.needs_reauth
         session.add(credential)
@@ -140,3 +143,13 @@ async def spotify_writer_for_user(session: Session, user: User) -> AsyncIterator
             session.add(credential)
             session.commit()
         await client.aclose()
+
+
+@asynccontextmanager
+async def spotify_writer_for_user(session: Session, user: User) -> AsyncIterator[SpotifyWriter]:
+    settings = get_settings()
+    if settings.fake_spotify:
+        yield LocalEchoWriter(session)
+        return
+    async with spotify_client_for_user(session, user) as client:
+        yield ClientWriter(client)

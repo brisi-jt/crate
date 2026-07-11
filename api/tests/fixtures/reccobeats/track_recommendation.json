@@ -1,0 +1,41 @@
+{
+  "synthetic": true,
+  "content": [
+    {
+      "id": "3e2c1b64-8a3f-4a11-9a67-3f1f2f5f9d01",
+      "trackTitle": "Innerbloom",
+      "artists": [
+        {
+          "id": "8d1a2c3b-1111-4222-8333-944445555601",
+          "name": "RÜFÜS DU SOL",
+          "href": "https://open.spotify.com/artist/5Pb27ujIyYb33zBqVysBkj"
+        }
+      ],
+      "durationMs": 577000,
+      "isrc": "AUUM71500123",
+      "ean": null,
+      "upc": null,
+      "href": "https://open.spotify.com/track/2GLDGkTOStFCCJDKlEBnMs",
+      "availableCountries": "US,GB,DE,AU",
+      "popularity": 71
+    },
+    {
+      "id": "5f4d3e2a-9b8c-4d7e-8f60-1a2b3c4d5e02",
+      "trackTitle": "Opus",
+      "artists": [
+        {
+          "id": "7c6b5a49-2222-4333-9444-055556666702",
+          "name": "Eric Prydz",
+          "href": "https://open.spotify.com/artist/5sm0jDx6rWLXC9BXpOilRz"
+        }
+      ],
+      "durationMs": 540000,
+      "isrc": "GBCEJ1500083",
+      "ean": null,
+      "upc": null,
+      "href": "https://open.spotify.com/track/2GKkFXmUYUgVAIVMYVwzZe",
+      "availableCountries": "US,GB,DE,SE",
+      "popularity": 68
+    }
+  ]
+}

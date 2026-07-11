@@ -50,6 +50,8 @@ ignore = [
 "tests/**" = ["ARG001", "ARG002", "S101"]
 # LocalEchoWriter conforms to the SpotifyWriter protocol but ignores most inputs.
 "crate/services/mutations/wiring.py" = ["ARG002"]
+# FakeSpotifyResolver conforms to the TrackSearch protocol but ignores limit.
+"crate/services/discovery/resolution.py" = ["ARG002"]
 
 [tool.ty.src]
 include = ["crate", "tests"]

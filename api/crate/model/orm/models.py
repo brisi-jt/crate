@@ -13,9 +13,12 @@ from sqlmodel import Field
 
 from crate.model.enums import (
     BulkOperation,
+    CandidateSource,
+    CandidateStatus,
     CredentialStatus,
     FeatureSource,
     FeatureStatus,
+    FeedbackAction,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
@@ -310,6 +313,64 @@ class AnalyticsSnapshot(TimestampedModel, table=True):
     playlist_id: int | None = Field(default=None, foreign_key="playlists.id")
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     computed_at: datetime = Field(default_factory=utcnow)
+
+
+class DiscoveryCandidate(TimestampedModel, table=True):
+    """A track proposed for one playlist by the discovery pipeline.
+
+    Candidates arrive as (title, artist) pairs or Spotify-linked
+    recommendations, get resolved to Spotify tracks, and are then ranked into
+    the playlist's suggestion queue. Rejected candidates stay on file so the
+    same track is never proposed again.
+    """
+
+    __tablename__ = "discovery_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "playlist_id", "dedup_key", name="uq_discovery_candidates_identity"
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    playlist_id: int = Field(foreign_key="playlists.id", index=True)
+    source: CandidateSource = Field(sa_column=enum_column(CandidateSource, nullable=False))
+    status: CandidateStatus = Field(
+        default=CandidateStatus.pending,
+        sa_column=enum_column(CandidateStatus, nullable=False),
+    )
+    title: str = Field(max_length=512)
+    artist: str = Field(max_length=512)
+    # Case-folded "artist|title" — one proposal per track per playlist.
+    dedup_key: str = Field(max_length=255)
+    # The library artist whose similarity/seed produced this candidate.
+    seed_artist: str | None = Field(default=None, max_length=512)
+    spotify_id: str | None = Field(default=None, max_length=64)
+    isrc: str | None = Field(default=None, max_length=16)
+    album_name: str | None = Field(default=None, max_length=512)
+    duration_ms: int | None = Field(default=None)
+    # Deezer 30-second preview, resolved after the Spotify match.
+    preview_url: str | None = Field(default=None, sa_column=Column(Text))
+    # Raw audio features (ReccoBeats), fetched post-resolution; percentile
+    # ranking happens at read time against the current library space.
+    features: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+
+
+class SuggestionFeedback(TimestampedModel, table=True):
+    """One review decision on a candidate — the ranker's training signal.
+
+    The artist is denormalized so per-artist accept/reject tallies (which
+    re-weight future rankings) are one aggregate query.
+    """
+
+    __tablename__ = "suggestion_feedback"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    candidate_id: int = Field(foreign_key="discovery_candidates.id", index=True)
+    playlist_id: int = Field(foreign_key="playlists.id", index=True)
+    artist: str = Field(index=True, max_length=512)
+    action: FeedbackAction = Field(sa_column=enum_column(FeedbackAction, nullable=False))
 
 
 class MutationJournal(TimestampedModel, table=True):

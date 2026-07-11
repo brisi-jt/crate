@@ -2,11 +2,16 @@
 
 import { useReducedMotion } from "motion/react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/chrome/command-palette";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
+import { ListeningDeck } from "@/components/deck/listening-deck";
+import type {
+  FlyToRequest,
+  GhostRender,
+} from "@/components/graph/graph-canvas";
 import {
   type ContextMenuState,
   NodeContextMenu,
@@ -26,6 +31,8 @@ import {
 import { useGraph } from "@/hooks/api/use-graph";
 import { useSyncStatus, useTriggerSync } from "@/hooks/api/use-sync";
 import { acousticColor, GREY_NODE, oklchString } from "@/lib/color/acoustic";
+import { nodeRadius } from "@/lib/graph/geometry";
+import { useDeckStore } from "@/lib/store/deck";
 import { useUiStore } from "@/lib/store/ui";
 
 // The force graph needs the DOM — client-only, and all camera/ref logic
@@ -48,8 +55,23 @@ export default function MapPage() {
   const popLayer = useUiStore((s) => s.popLayer);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
+  const deckPlaylistId = useDeckStore((s) => s.playlistId);
+  const closeDeck = useDeckStore((s) => s.close);
+  const [ghost, setGhost] = useState<GhostRender | null>(null);
+  const [flyTo, setFlyTo] = useState<FlyToRequest | null>(null);
+
+  const flyToNode = useCallback((nodeId: number) => {
+    setFlyTo((previous) => ({ nodeId, nonce: (previous?.nonce ?? 0) + 1 }));
+  }, []);
+
+  // Opening the deck flies the camera to the target playlist so the node and
+  // its ghost stay visible above the deck card.
+  useEffect(() => {
+    if (deckPlaylistId !== null) flyToNode(deckPlaylistId);
+  }, [deckPlaylistId, flyToNode]);
+
   // Keyboard layer control: ⌘K opens the palette, Escape pops one layer
-  // top-down (context menu → palette → right panel → the map, alone).
+  // top-down (context menu → palette → deck → right panel → the map, alone).
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
@@ -58,6 +80,10 @@ export default function MapPage() {
       } else if (event.key === "Escape") {
         if (contextMenu) {
           setContextMenu(null);
+        } else if (useUiStore.getState().paletteOpen) {
+          setPaletteOpen(false);
+        } else if (useDeckStore.getState().playlistId !== null) {
+          closeDeck();
         } else {
           popLayer();
         }
@@ -65,7 +91,7 @@ export default function MapPage() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setPaletteOpen, popLayer, contextMenu]);
+  }, [setPaletteOpen, popLayer, contextMenu, closeDeck]);
 
   const nodes = useMemo(() => graph.data?.nodes ?? [], [graph.data]);
   const selectedNode = useMemo(
@@ -85,6 +111,16 @@ export default function MapPage() {
       ? 640
       : 440
     : 0;
+
+  const deckNode = useMemo(
+    () => nodes.find((n) => n.id === deckPlaylistId) ?? null,
+    [nodes, deckPlaylistId],
+  );
+  const deckSwatch = deckNode
+    ? oklchString(
+        deckNode.centroid ? acousticColor(deckNode.centroid) : GREY_NODE,
+      )
+    : null;
 
   const showConnectBeacon =
     !graph.data && status.data && !status.data.spotify_connected;
@@ -110,6 +146,12 @@ export default function MapPage() {
             }
             rightInset={rightInset}
             reducedMotion={reducedMotion}
+            dim={
+              deckPlaylistId !== null
+                ? { targetId: deckPlaylistId, ghost }
+                : null
+            }
+            flyTo={flyTo}
           />
         ) : graph.isPending || sync.isPending ? (
           <SyncInProgress />
@@ -197,7 +239,18 @@ export default function MapPage() {
         />
       )}
 
-      <TransportStrip />
+      {deckPlaylistId !== null && deckNode && (
+        <ListeningDeck
+          playlistId={deckPlaylistId}
+          playlistName={deckNode.name}
+          playlistSwatch={deckSwatch}
+          targetRadius={nodeRadius(deckNode.track_count)}
+          onGhostChange={setGhost}
+          onClose={closeDeck}
+        />
+      )}
+
+      <TransportStrip onArtworkClick={flyToNode} />
 
       <CommandPalette nodes={nodes} />
 

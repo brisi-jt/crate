@@ -159,3 +159,58 @@ async def test_batch_calls_are_paced(session: Session) -> None:
 
     assert sleeps == [pytest.approx(0.5)]
     await client.aclose()
+
+
+# -- track recommendations ------------------------------------------------------
+
+RECOMMENDATION_FIXTURE = json.loads(
+    (Path(__file__).parent / "fixtures/reccobeats/track_recommendation.json").read_text()
+)
+
+
+def make_recommendation_handler(request_log: list[httpx.Request]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_log.append(request)
+        assert request.url.path == "/v1/track/recommendation"
+        return httpx.Response(200, json=RECOMMENDATION_FIXTURE)
+
+    return handler
+
+
+async def test_track_recommendation_parses_titles_and_spotify_ids(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_recommendation_handler(requests))
+
+    tracks = await client.get_track_recommendation(["seedA", "seedB"], size=20)
+
+    assert [t.title for t in tracks] == ["Innerbloom", "Opus"]
+    assert tracks[0].spotify_id == "2GLDGkTOStFCCJDKlEBnMs"
+    assert tracks[0].artist_names == ["RÜFÜS DU SOL"]
+    assert tracks[0].isrc == "AUUM71500123"
+    assert tracks[1].duration_ms == 540000
+    params = requests[0].url.params
+    assert params["seeds"] == "seedA,seedB"
+    assert params["size"] == "20"
+    await client.aclose()
+
+
+async def test_track_recommendation_caps_seeds_at_five(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_recommendation_handler(requests))
+
+    await client.get_track_recommendation([f"s{i}" for i in range(9)], size=10)
+
+    assert requests[0].url.params["seeds"] == "s0,s1,s2,s3,s4"
+    await client.aclose()
+
+
+async def test_track_recommendation_cached_per_seed_set(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_recommendation_handler(requests))
+
+    await client.get_track_recommendation(["seedA"], size=10)
+    await client.get_track_recommendation(["seedA"], size=10)
+    await client.get_track_recommendation(["seedA"], size=20)  # different size = new call
+
+    assert len(requests) == 2
+    await client.aclose()

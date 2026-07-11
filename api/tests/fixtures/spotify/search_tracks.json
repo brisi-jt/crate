@@ -1,0 +1,39 @@
+{
+  "synthetic": true,
+  "tracks": {
+    "href": "https://api.spotify.com/v1/search?query=track%3ADayvan%2BCowboy%2Bartist%3ABoards%2Bof%2BCanada&type=track&limit=5&offset=0",
+    "items": [
+      {
+        "id": "2CvOqDpQIMw69cCzWqr5yr",
+        "name": "Dayvan Cowboy",
+        "duration_ms": 300773,
+        "is_local": false,
+        "external_ids": { "isrc": "GBAFL0500202" },
+        "artists": [
+          { "id": "2VAvhf61GgLYmC6C8anyX1", "name": "Boards of Canada" }
+        ],
+        "album": { "id": "1vWnB0hYmluskQuzxwo25a", "name": "The Campfire Headphase" },
+        "uri": "spotify:track:2CvOqDpQIMw69cCzWqr5yr",
+        "popularity": 55
+      },
+      {
+        "id": "7x8dCjCr0x6x2lXKujYD34",
+        "name": "Dayvan Cowboy - Remastered",
+        "duration_ms": 300000,
+        "is_local": false,
+        "external_ids": { "isrc": "GBAFL0500203" },
+        "artists": [
+          { "id": "2VAvhf61GgLYmC6C8anyX1", "name": "Boards of Canada" }
+        ],
+        "album": { "id": "3faGdyHhNyNGSDdMWuRuuT", "name": "Anthology" },
+        "uri": "spotify:track:7x8dCjCr0x6x2lXKujYD34",
+        "popularity": 40
+      }
+    ],
+    "limit": 5,
+    "offset": 0,
+    "total": 2,
+    "next": null,
+    "previous": null
+  }
+}

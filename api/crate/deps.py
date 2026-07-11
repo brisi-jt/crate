@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 from crate.db import get_session
 from crate.errors import AppError
 from crate.model.orm import User
+from crate.services.discovery.wiring import DiscoveryReport, run_discovery
 from crate.services.enrichment.orchestrator import EnrichmentReport, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
 from crate.services.mutations.writer import SpotifyWriter
@@ -58,6 +59,20 @@ EnrichmentRunner = Callable[[Session, int], Awaitable[EnrichmentReport]]
 
 def get_enrichment_runner() -> EnrichmentRunner:
     return run_enrichment
+
+
+# (session, user, playlist_id, limit) -> report. Tests override with a fake.
+DiscoveryRunner = Callable[[Session, User, int | None, int], Awaitable[DiscoveryReport]]
+
+
+async def _discovery_runner(
+    session: Session, user: User, playlist_id: int | None, limit: int
+) -> DiscoveryReport:
+    return await run_discovery(session, user, playlist_id=playlist_id, limit=limit)
+
+
+def get_discovery_runner() -> DiscoveryRunner:
+    return _discovery_runner
 
 
 # Async context manager yielding a write-capable Spotify surface for a user.

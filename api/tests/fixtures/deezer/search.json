@@ -1,0 +1,89 @@
+{
+  "synthetic": false,
+  "data": [
+    {
+      "id": 908604612,
+      "readable": true,
+      "title": "Blinding Lights",
+      "title_short": "Blinding Lights",
+      "title_version": "",
+      "isrc": "USUG11904206",
+      "link": "https://www.deezer.com/track/908604612",
+      "duration": 200,
+      "rank": 984833,
+      "explicit_lyrics": false,
+      "explicit_content_lyrics": 0,
+      "explicit_content_cover": 0,
+      "preview": "https://cdnt-preview.dzcdn.net/api/1/1/1/b/2/0/1b27825bf63c36edcdc7fac9f920214e.mp3?hdnea=exp=1783759882~acl=/api/1/1/1/b/2/0/1b27825bf63c36edcdc7fac9f920214e.mp3*~data=user_id=0,application_id=42~hmac=af0338ff8467efa40f89eebb4e2b88abcb38402ce85823395dfaf0bf93d7601f",
+      "md5_image": "fd00ebd6d30d7253f813dba3bb1c66a9",
+      "artist": {
+        "id": 4050205,
+        "name": "The Weeknd",
+        "link": "https://www.deezer.com/artist/4050205",
+        "picture": "https://api.deezer.com/artist/4050205/image",
+        "picture_small": "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/56x56-000000-80-0-0.jpg",
+        "picture_medium": "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/250x250-000000-80-0-0.jpg",
+        "picture_big": "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/500x500-000000-80-0-0.jpg",
+        "picture_xl": "https://cdn-images.dzcdn.net/images/artist/581693b4724a7fcfa754455101e13a44/1000x1000-000000-80-0-0.jpg",
+        "tracklist": "https://api.deezer.com/artist/4050205/top?limit=50",
+        "type": "artist"
+      },
+      "album": {
+        "id": 137217782,
+        "title": "After Hours",
+        "cover": "https://api.deezer.com/album/137217782/image",
+        "cover_small": "https://cdn-images.dzcdn.net/images/cover/fd00ebd6d30d7253f813dba3bb1c66a9/56x56-000000-80-0-0.jpg",
+        "cover_medium": "https://cdn-images.dzcdn.net/images/cover/fd00ebd6d30d7253f813dba3bb1c66a9/250x250-000000-80-0-0.jpg",
+        "cover_big": "https://cdn-images.dzcdn.net/images/cover/fd00ebd6d30d7253f813dba3bb1c66a9/500x500-000000-80-0-0.jpg",
+        "cover_xl": "https://cdn-images.dzcdn.net/images/cover/fd00ebd6d30d7253f813dba3bb1c66a9/1000x1000-000000-80-0-0.jpg",
+        "md5_image": "fd00ebd6d30d7253f813dba3bb1c66a9",
+        "tracklist": "https://api.deezer.com/album/137217782/tracks",
+        "type": "album"
+      },
+      "type": "track"
+    },
+    {
+      "id": 2282985187,
+      "readable": true,
+      "title": "Blinding Lights The Weeknd",
+      "title_short": "Blinding Lights The Weeknd",
+      "title_version": "",
+      "isrc": "QM3DF2209090",
+      "link": "https://www.deezer.com/track/2282985187",
+      "duration": 185,
+      "rank": 373518,
+      "explicit_lyrics": false,
+      "explicit_content_lyrics": 0,
+      "explicit_content_cover": 2,
+      "preview": "https://cdnt-preview.dzcdn.net/api/1/1/1/c/f/0/1cfca0761a375929ceb6e6998d0aa784.mp3?hdnea=exp=1783759882~acl=/api/1/1/1/c/f/0/1cfca0761a375929ceb6e6998d0aa784.mp3*~data=user_id=0,application_id=42~hmac=200e62a9efc54626bce5516b2ea276c920e2f93c011481eecc535444faa39847",
+      "md5_image": "fe2c5c88f84c9812428ea0fa558625f3",
+      "artist": {
+        "id": 164098067,
+        "name": "Pancad\u00e3o GD Som",
+        "link": "https://www.deezer.com/artist/164098067",
+        "picture": "https://api.deezer.com/artist/164098067/image",
+        "picture_small": "https://cdn-images.dzcdn.net/images/artist/fe2c5c88f84c9812428ea0fa558625f3/56x56-000000-80-0-0.jpg",
+        "picture_medium": "https://cdn-images.dzcdn.net/images/artist/fe2c5c88f84c9812428ea0fa558625f3/250x250-000000-80-0-0.jpg",
+        "picture_big": "https://cdn-images.dzcdn.net/images/artist/fe2c5c88f84c9812428ea0fa558625f3/500x500-000000-80-0-0.jpg",
+        "picture_xl": "https://cdn-images.dzcdn.net/images/artist/fe2c5c88f84c9812428ea0fa558625f3/1000x1000-000000-80-0-0.jpg",
+        "tracklist": "https://api.deezer.com/artist/164098067/top?limit=50",
+        "type": "artist"
+      },
+      "album": {
+        "id": 441197957,
+        "title": "Sele\u00e7\u00e3o 26",
+        "cover": "https://api.deezer.com/album/441197957/image",
+        "cover_small": "https://cdn-images.dzcdn.net/images/cover/fe2c5c88f84c9812428ea0fa558625f3/56x56-000000-80-0-0.jpg",
+        "cover_medium": "https://cdn-images.dzcdn.net/images/cover/fe2c5c88f84c9812428ea0fa558625f3/250x250-000000-80-0-0.jpg",
+        "cover_big": "https://cdn-images.dzcdn.net/images/cover/fe2c5c88f84c9812428ea0fa558625f3/500x500-000000-80-0-0.jpg",
+        "cover_xl": "https://cdn-images.dzcdn.net/images/cover/fe2c5c88f84c9812428ea0fa558625f3/1000x1000-000000-80-0-0.jpg",
+        "md5_image": "fe2c5c88f84c9812428ea0fa558625f3",
+        "tracklist": "https://api.deezer.com/album/441197957/tracks",
+        "type": "album"
+      },
+      "type": "track"
+    }
+  ],
+  "total": 65,
+  "next": "https://api.deezer.com/search?q=Blinding%20Lights%20The%20Weeknd&index=25"
+}

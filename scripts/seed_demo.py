@@ -19,13 +19,15 @@ from datetime import datetime, timedelta
 
 from sqlmodel import Session, create_engine, select
 
-from crate.model.enums import PlaylistSyncStatus
+from crate.model.enums import CandidateSource, CandidateStatus, PlaylistSyncStatus
 from crate.model.orm import (
     AnalyticsSnapshot,
+    DiscoveryCandidate,
     MutationJournal,
     OpPreview,
     Playlist,
     PlaylistTrack,
+    SuggestionFeedback,
     SyncEvent,
     Track,
     TrackFeatures,
@@ -77,7 +79,15 @@ ARTISTS = [
 
 
 def wipe_user_rows(session: Session, user: User) -> None:
-    for model in (AnalyticsSnapshot, MutationJournal, OpPreview, SyncEvent, PlaylistTrack):
+    for model in (
+        SuggestionFeedback,
+        DiscoveryCandidate,
+        AnalyticsSnapshot,
+        MutationJournal,
+        OpPreview,
+        SyncEvent,
+        PlaylistTrack,
+    ):
         for row in session.exec(select(model).where(model.user_id == user.id)).all():
             session.delete(row)
     for row in session.exec(select(Playlist).where(Playlist.user_id == user.id)).all():
@@ -121,6 +131,79 @@ def make_track(session: Session, rng: random.Random, index: int, profile: str) -
         )
     )
     return track
+
+
+# Discovery fixtures: (title, artist, profile, seed_artist). Real songs are
+# deliberately mixed in so a live discovery run can resolve genuine Deezer
+# previews for them; the rest exercise the no-preview deck state.
+DISCOVERY_CANDIDATES: dict[str, list[tuple[str, str, str, str]]] = {
+    "Gym": [
+        ("Hyperwave", "Cassian", "electronic-hard", "KREAM"),
+        ("Blinding Lights", "The Weeknd", "electronic-hard", "KREAM"),
+        ("Innerbloom", "RÜFÜS DU SOL", "electronic-mid", "KREAM"),
+        ("Opus", "Eric Prydz", "electronic-hard", "Overmono"),
+        ("Cold Little Heart", "Michael Kiwanuka", "acoustic", "Bon Iver"),
+        ("Static Bloom", "Overmono", "electronic-mid", "Overmono"),
+        ("Night Harbor", "Peggy Gou", "electronic-hard", "Peggy Gou"),
+        ("Says", "Nils Frahm", "acoustic-dark", "Nils Frahm"),
+    ],
+    "Chill Acoustic": [
+        ("Holocene", "Bon Iver", "acoustic", "Bon Iver"),
+        ("Re: Stacks", "Bon Iver", "acoustic", "Bon Iver"),
+        ("Velvet Ring", "Big Thief", "band", "Big Thief"),
+    ],
+}
+
+
+def seed_discovery(session: Session, rng: random.Random, user: User) -> int:
+    """Resolved discovery candidates so the listening deck works offline.
+
+    Spotify IDs use the fake- prefix (the LocalEchoWriter accepts them on
+    accept); preview URLs stay empty so a discovery run against live Deezer
+    fills them for the real songs.
+    """
+    playlists = {
+        p.name: p for p in session.exec(select(Playlist).where(Playlist.user_id == user.id)).all()
+    }
+    seeded = 0
+    for playlist_name, candidates in DISCOVERY_CANDIDATES.items():
+        playlist = playlists.get(playlist_name)
+        if playlist is None:
+            continue
+        for title, artist, profile, seed_artist in candidates:
+            base = PROFILES[profile]
+            features = {
+                "energy": min(1, max(0, base["energy"] + rng.uniform(-0.08, 0.08))),
+                "valence": min(1, max(0, base["valence"] + rng.uniform(-0.08, 0.08))),
+                "danceability": min(1, max(0, base["energy"] + rng.uniform(-0.12, 0.05))),
+                "acousticness": min(1, max(0, base["acousticness"] + rng.uniform(-0.05, 0.05))),
+                "instrumentalness": rng.uniform(0, 0.9),
+                "liveness": rng.uniform(0.05, 0.4),
+                "speechiness": rng.uniform(0.02, 0.3),
+                "tempo": rng.uniform(90, 150),
+                "loudness": rng.uniform(-14, -4),
+            }
+            session.add(
+                DiscoveryCandidate(
+                    user_id=user.id,
+                    playlist_id=playlist.id,
+                    source=CandidateSource.lastfm
+                    if seeded % 2 == 0
+                    else CandidateSource.reccobeats,
+                    status=CandidateStatus.resolved,
+                    title=title,
+                    artist=artist,
+                    dedup_key=f"{artist.casefold()}|{title.casefold()}",
+                    seed_artist=seed_artist,
+                    spotify_id=f"fake-demo-{playlist_name.lower().replace(' ', '-')}-{seeded}",
+                    album_name=f"{title} — Single",
+                    duration_ms=rng.randint(160_000, 340_000),
+                    features=features,
+                )
+            )
+            seeded += 1
+    session.commit()
+    return seeded
 
 
 def main() -> int:
@@ -182,9 +265,16 @@ def main() -> int:
                     )
                 )
         session.commit()
+        candidate_count = seed_discovery(session, rng, user)
         print(f"Seeded {len(PLAYLISTS)} playlists for user '{args.user}'.")
-        print("Run with the API in fake-Spotify mode: CRATE_FAKE_SPOTIFY=1 CRATE_DEV_USER="
-              f"{args.user} uv run uvicorn crate.app:app --port 8200")
+        print(
+            f"Seeded {candidate_count} discovery candidates (listening deck fodder); "
+            "POST /v1/discovery/run resolves live Deezer previews for the real songs."
+        )
+        print(
+            "Run with the API in fake-Spotify mode: CRATE_FAKE_SPOTIFY=1 CRATE_DEV_USER="
+            f"{args.user} uv run uvicorn crate.app:app --port 8200"
+        )
     return 0
 
 

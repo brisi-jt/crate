@@ -147,6 +147,58 @@ async def spotify_callback(
     return response
 
 
+@router.get(
+    "/token",
+    summary="A playback token for the Web Playback SDK",
+    description=(
+        "A currently-valid Spotify access token for the browser's Web "
+        "Playback SDK player, refreshed server-side when the stored one is "
+        "near expiry. Requires a connected Spotify account with the "
+        "streaming scope."
+    ),
+    responses={
+        409: {
+            "model": ProblemDetail,
+            "description": "Spotify is not connected, or the credential needs re-consent.",
+        },
+    },
+)
+async def spotify_playback_token(session: SessionDep, user: CurrentUserDep) -> dict[str, Any]:
+    from crate.services.mutations.wiring import spotify_client_for_user
+
+    credential = session.exec(
+        select(SpotifyCredential).where(SpotifyCredential.user_id == user.id)
+    ).first()
+    cipher = get_cipher()
+    now = utcnow()
+    links = {"_links": {"self": {"href": "/v1/auth/spotify/token"}}}
+
+    fresh_until = credential.access_token_expires_at if credential else None
+    if (
+        credential is not None
+        and credential.status == CredentialStatus.active
+        and credential.access_token_encrypted
+        and fresh_until is not None
+        and fresh_until > now + timedelta(seconds=60)
+    ):
+        return {
+            "access_token": cipher.decrypt(credential.access_token_encrypted),
+            "expires_at": fresh_until.isoformat(),
+            **links,
+        }
+
+    # Stale or absent access token: refresh through the stored credential
+    # (raises the standard 409 problems when no usable credential exists).
+    async with spotify_client_for_user(session, user) as client:
+        token = await client.ensure_access_token(force_refresh=True)
+        expires_at = client.access_token_expires_at
+    return {
+        "access_token": token,
+        "expires_at": expires_at.isoformat() if expires_at else None,
+        **links,
+    }
+
+
 def _read_auth_cookie(request: Request) -> dict[str, Any]:
     cookie = request.cookies.get(AUTH_COOKIE)
     if not cookie:

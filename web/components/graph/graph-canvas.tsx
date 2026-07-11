@@ -13,6 +13,7 @@ import {
   oklchString,
   selectionRing,
 } from "@/lib/color/acoustic";
+import { edgeWidth, nodeRadius } from "@/lib/graph/geometry";
 import { GraphHoverCard } from "./hover-card";
 
 /** Node payload carried through the force simulation. */
@@ -37,15 +38,8 @@ interface MapLinkData {
 type MapNode = NodeObject<MapNodeData>;
 type MapLink = LinkObject<MapNodeData, MapLinkData>;
 
-/** Track count → radius, sqrt scale (graph rendering spec §1). */
-export function nodeRadius(trackCount: number): number {
-  return Math.min(30, Math.max(7, 4 + 1.5 * Math.sqrt(trackCount)));
-}
-
-/** Shared-track count → edge width (graph rendering spec §3). */
-export function edgeWidth(shared: number): number {
-  return 0.75 + 2.25 * Math.min(1, shared / 40);
-}
+// Radius/width formulas live in lib/graph/geometry so non-canvas modules
+// (deck ghost placement) share them without importing the force-graph lib.
 
 const LABEL_THRESHOLD_PX = 8;
 const LABEL_FADE_MS = 150;
@@ -59,6 +53,7 @@ interface CanvasTokens {
   borderSubtle: string;
   borderStrong: string;
   fontText: string;
+  canvas: string;
 }
 
 function readCanvasTokens(): CanvasTokens {
@@ -71,8 +66,37 @@ function readCanvasTokens(): CanvasTokens {
     borderSubtle: v("--border-subtle"),
     borderStrong: v("--border-strong"),
     fontText: v("--font-b612") || "sans-serif",
+    canvas: v("--canvas") || "oklch(0.13 0.015 265)",
   };
 }
+
+/** The auditioning candidate, rendered as a ghost near its target playlist. */
+export interface GhostRender {
+  title: string;
+  /** Candidate acoustic color (dashed stroke + pulse halo). */
+  stroke: string;
+  /** Solid fill, pre-mixed 25% toward the canvas. */
+  fill: string;
+  /** Graph-space offset from the target node's center. */
+  offset: { dx: number; dy: number };
+  playing: boolean;
+}
+
+/** Dimmed-map state while the listening deck is open. */
+export interface DimState {
+  targetId: number;
+  ghost: GhostRender | null;
+}
+
+/** Camera move request; bump nonce to re-fire for the same node. */
+export interface FlyToRequest {
+  nodeId: number;
+  nonce: number;
+}
+
+const FLY_TO_MS = 650;
+const GHOST_RADIUS = 7;
+const PULSE_PERIOD_MS = 2800;
 
 interface GraphCanvasProps {
   graph: GraphResponse;
@@ -83,6 +107,10 @@ interface GraphCanvasProps {
   /** Right-dock width in px — fit and camera moves respect the inset. */
   rightInset: number;
   reducedMotion: boolean;
+  /** Deck-open dimming: everything but the target and ghost recedes. */
+  dim?: DimState | null;
+  /** Fly the camera to a node (transport artwork click). */
+  flyTo?: FlyToRequest | null;
 }
 
 export default function GraphCanvas({
@@ -92,6 +120,8 @@ export default function GraphCanvas({
   onNodeContextMenu,
   rightInset,
   reducedMotion,
+  dim = null,
+  flyTo = null,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods<MapNode, MapLink> | undefined>(
@@ -266,6 +296,22 @@ export default function GraphCanvas({
     }
   }, [rightInset, reducedMotion]);
 
+  // Fly-to (transport artwork click / deck open): 650ms glide, capped zoom.
+  const lastFlyNonce = useRef(0);
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || !flyTo || flyTo.nonce === lastFlyNonce.current) return;
+    lastFlyNonce.current = flyTo.nonce;
+    const node = graphData.nodes.find((n) => n.id === flyTo.nodeId);
+    if (!node || node.x === undefined || node.y === undefined) return;
+    const duration = reducedMotion ? 0 : FLY_TO_MS;
+    // While the deck occupies the bottom-center, land the target in the
+    // upper map area instead of behind the deck card.
+    const yOffset = dim ? 140 / Math.max(fg.zoom(), 0.1) : 0;
+    fg.centerAt(node.x, node.y + yOffset, duration);
+    if (fg.zoom() < 1.0) fg.zoom(1.0, duration);
+  }, [flyTo, graphData, reducedMotion, dim]);
+
   const isIncident = useCallback(
     (link: MapLink, id: number | null): boolean => {
       if (id === null) return false;
@@ -330,6 +376,8 @@ export default function GraphCanvas({
     selected: boolean,
   ) {
     if (!tokens || node.x === undefined || node.y === undefined) return;
+    // Dimmed map: labels vanish except the target's (repainted post-frame).
+    if (dim && node.id !== dim.targetId) return;
     const now = performance.now();
     const dt = Math.min(now - lastFrameAt.current, 100);
 
@@ -385,6 +433,119 @@ export default function GraphCanvas({
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Dimmed-map state (deck open): a canvas-color veil over the whole frame,
+   * then the target playlist and the auditioning ghost repainted at full
+   * strength on top — draw-time dimming, not a DOM scrim.
+   */
+  function paintDimOverlay(ctx: CanvasRenderingContext2D) {
+    if (!dim || !tokens) return;
+    const fg = fgRef.current;
+    if (!fg) return;
+    const topLeft = fg.screen2GraphCoords(0, 0);
+    const bottomRight = fg.screen2GraphCoords(size.width, size.height);
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = tokens.canvas;
+    ctx.fillRect(
+      topLeft.x,
+      topLeft.y,
+      bottomRight.x - topLeft.x,
+      bottomRight.y - topLeft.y,
+    );
+    ctx.restore();
+
+    const target = graphData.nodes.find((n) => n.id === dim.targetId);
+    if (!target || target.x === undefined || target.y === undefined) return;
+    const r = nodeRadius(target.trackCount);
+
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = target.fill;
+    ctx.fill();
+    if (target.id === selectedId) {
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, r + 1, 0, 2 * Math.PI);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = target.ring;
+      ctx.stroke();
+    }
+    if (target.isSubset) {
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, r + 3, 0, 2 * Math.PI);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = tokens.borderStrong;
+      ctx.stroke();
+    }
+    ctx.font = `700 12px ${tokens.fontText}`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    ctx.fillStyle = tokens.textPrimary;
+    ctx.fillText(target.name, target.x + r + 8, target.y);
+
+    const ghost = dim.ghost;
+    if (!ghost) return;
+    const gx = target.x + ghost.offset.dx;
+    const gy = target.y + ghost.offset.dy;
+
+    // Tether: dotted 1-3 hairline (provisional ≠ the subset dash).
+    const angle = Math.atan2(target.y - gy, target.x - gx);
+    ctx.save();
+    ctx.setLineDash([1, 3]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = tokens.borderSubtle;
+    ctx.beginPath();
+    ctx.moveTo(
+      gx + Math.cos(angle) * GHOST_RADIUS,
+      gy + Math.sin(angle) * GHOST_RADIUS,
+    );
+    ctx.lineTo(target.x - Math.cos(angle) * r, target.y - Math.sin(angle) * r);
+    ctx.stroke();
+    ctx.restore();
+
+    // Playing pulse (spec §4): 2.8s sine; static double-ring under reduced
+    // motion. The halo exists only while auditioning — never decoration.
+    let discScale = 1;
+    if (ghost.playing) {
+      let haloOffset = 8;
+      let haloOpacity = 0.25;
+      if (!reducedMotion) {
+        const phase = (performance.now() % PULSE_PERIOD_MS) / PULSE_PERIOD_MS;
+        const wave = 0.5 - 0.5 * Math.cos(2 * Math.PI * phase);
+        haloOffset = 6 + 4 * wave;
+        haloOpacity = 0.12 + 0.18 * wave;
+        discScale = 1 + 0.045 * wave;
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(gx, gy, GHOST_RADIUS + haloOffset, 0, 2 * Math.PI);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = ghost.stroke;
+      ctx.globalAlpha = haloOpacity;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(gx, gy, GHOST_RADIUS * discScale, 0, 2 * Math.PI);
+    ctx.fillStyle = ghost.fill;
+    ctx.fill();
+    ctx.setLineDash([3, 2]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = ghost.stroke;
+    ctx.stroke();
+    ctx.restore();
+
+    // Ghost label: always visible while the deck is open.
+    ctx.font = `400 13px ${tokens.fontText}`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "right";
+    ctx.fillStyle = tokens.textSecondary;
+    ctx.fillText(ghost.title, gx - GHOST_RADIUS - 8, gy);
+    ctx.textAlign = "left";
+  }
+
   const paintPointerArea = useCallback(
     (node: MapNode, color: string, ctx: CanvasRenderingContext2D) => {
       if (node.x === undefined || node.y === undefined) return;
@@ -396,21 +557,29 @@ export default function GraphCanvas({
     [],
   );
 
-  const handleHover = useCallback((node: MapNode | null) => {
-    setHoveredId(node ? node.id : null);
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    if (!node) {
-      setHoverCard(null);
-      return;
-    }
-    // Hover card appears after a 220ms dwell (graph spec §1).
-    hoverTimer.current = setTimeout(() => {
-      const fg = fgRef.current;
-      if (!fg || node.x === undefined || node.y === undefined) return;
-      const screen = fg.graph2ScreenCoords(node.x, node.y);
-      setHoverCard({ nodeId: node.id, x: screen.x, y: screen.y });
-    }, HOVER_CARD_DELAY_MS);
-  }, []);
+  const handleHover = useCallback(
+    (hoveredNode: MapNode | null) => {
+      // While the deck dims the map, only the target playlist stays hoverable.
+      const node =
+        dim && hoveredNode && hoveredNode.id !== dim.targetId
+          ? null
+          : hoveredNode;
+      setHoveredId(node ? node.id : null);
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      if (!node) {
+        setHoverCard(null);
+        return;
+      }
+      // Hover card appears after a 220ms dwell (graph spec §1).
+      hoverTimer.current = setTimeout(() => {
+        const fg = fgRef.current;
+        if (!fg || node.x === undefined || node.y === undefined) return;
+        const screen = fg.graph2ScreenCoords(node.x, node.y);
+        setHoverCard({ nodeId: node.id, x: screen.x, y: screen.y });
+      }, HOVER_CARD_DELAY_MS);
+    },
+    [dim],
+  );
 
   const hoveredNode = hoverCard
     ? (graph.nodes.find((n) => n.id === hoverCard.nodeId) ?? null)
@@ -429,16 +598,25 @@ export default function GraphCanvas({
           nodePointerAreaPaint={paintPointerArea}
           nodeLabel={() => ""}
           onNodeHover={handleHover}
-          onNodeClick={(node) => onSelect(node.id)}
+          onNodeClick={(node) => {
+            // Guard against misfiles mid-audition: only the target reacts.
+            if (dim && node.id !== dim.targetId) return;
+            onSelect(node.id);
+          }}
           onNodeRightClick={(node, event) => {
+            if (dim && node.id !== dim.targetId) return;
             event.preventDefault();
             onNodeContextMenu?.(node.id, event.clientX, event.clientY);
           }}
-          onBackgroundClick={() => onSelect(null)}
+          onBackgroundClick={() => {
+            if (dim) return;
+            onSelect(null);
+          }}
           onRenderFramePre={() => {
             placedLabels.current = [];
           }}
-          onRenderFramePost={() => {
+          onRenderFramePost={(ctx) => {
+            paintDimOverlay(ctx);
             lastFrameAt.current = performance.now();
           }}
           linkWidth={(link) => (link.subset ? 1.25 : edgeWidth(link.shared))}

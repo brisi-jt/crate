@@ -6,6 +6,8 @@ export const queryKeys = {
     ["playlists", playlistId, "tracks", { offset }] as const,
   playlistAnalytics: (playlistId: number) =>
     ["playlists", playlistId, "analytics"] as const,
+  suggestions: (playlistId: number) =>
+    ["playlists", playlistId, "suggestions"] as const,
   syncStatus: ["sync", "status"] as const,
   libraryStats: ["library", "stats"] as const,
   journal: ["journal"] as const,

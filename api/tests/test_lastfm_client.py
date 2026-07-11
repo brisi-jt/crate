@@ -25,6 +25,7 @@ def make_handler(request_log: list[httpx.Request]):
         "artist.getsimilar": load("artist_get_similar.json"),
         "artist.gettoptags": load("artist_get_top_tags.json"),
         "track.gettoptags": load("track_get_top_tags.json"),
+        "artist.gettoptracks": load("artist_get_top_tracks.json"),
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -85,6 +86,33 @@ async def test_track_top_tags_parsed(session: Session) -> None:
     client = make_client(session, make_handler([]))
     tags = await client.get_track_top_tags("Tycho", "Awake")
     assert [t.name for t in tags] == ["electronic", "downtempo"]
+    await client.aclose()
+
+
+async def test_artist_top_tracks_parsed(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_handler(requests))
+
+    tracks = await client.get_artist_top_tracks("Boards of Canada")
+
+    assert [t.name for t in tracks] == ["Dayvan Cowboy", "Roygbiv", "Olson"]
+    assert tracks[0].artist_name == "Boards of Canada"
+    assert tracks[0].mbid == "3a94a17c-937a-4c15-8c48-b8a7b3f1a5b2"
+    assert tracks[1].mbid is None  # empty-string mbid normalized away
+    params = requests[0].url.params
+    assert params["method"] == "artist.getTopTracks"
+    assert params["limit"] == "10"
+    await client.aclose()
+
+
+async def test_artist_top_tracks_cached(session: Session) -> None:
+    requests: list[httpx.Request] = []
+    client = make_client(session, make_handler(requests))
+
+    await client.get_artist_top_tracks("Boards of Canada")
+    await client.get_artist_top_tracks("Boards of Canada")
+
+    assert len(requests) == 1
     await client.aclose()
 
 

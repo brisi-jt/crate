@@ -1,0 +1,56 @@
+{
+  "synthetic": true,
+  "toptracks": {
+    "track": [
+      {
+        "name": "Dayvan Cowboy",
+        "playcount": "4276598",
+        "listeners": "701223",
+        "mbid": "3a94a17c-937a-4c15-8c48-b8a7b3f1a5b2",
+        "url": "https://www.last.fm/music/Boards+of+Canada/_/Dayvan+Cowboy",
+        "streamable": "0",
+        "artist": {
+          "name": "Boards of Canada",
+          "mbid": "69158f97-4c07-4c4e-baf8-4e4ab1ed666e",
+          "url": "https://www.last.fm/music/Boards+of+Canada"
+        },
+        "@attr": { "rank": "1" }
+      },
+      {
+        "name": "Roygbiv",
+        "playcount": "3898211",
+        "listeners": "652109",
+        "mbid": "",
+        "url": "https://www.last.fm/music/Boards+of+Canada/_/Roygbiv",
+        "streamable": "0",
+        "artist": {
+          "name": "Boards of Canada",
+          "mbid": "69158f97-4c07-4c4e-baf8-4e4ab1ed666e",
+          "url": "https://www.last.fm/music/Boards+of+Canada"
+        },
+        "@attr": { "rank": "2" }
+      },
+      {
+        "name": "Olson",
+        "playcount": "2731004",
+        "listeners": "540338",
+        "mbid": "",
+        "url": "https://www.last.fm/music/Boards+of+Canada/_/Olson",
+        "streamable": "0",
+        "artist": {
+          "name": "Boards of Canada",
+          "mbid": "69158f97-4c07-4c4e-baf8-4e4ab1ed666e",
+          "url": "https://www.last.fm/music/Boards+of+Canada"
+        },
+        "@attr": { "rank": "3" }
+      }
+    ],
+    "@attr": {
+      "artist": "Boards of Canada",
+      "page": "1",
+      "perPage": "50",
+      "totalPages": "10",
+      "total": "500"
+    }
+  }
+}

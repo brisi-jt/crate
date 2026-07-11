@@ -283,6 +283,74 @@ export const undoResultSchema = z.object({
   _links: halLinksSchema,
 });
 
+// ------------------------------------------------- discovery (Phase 8 live)
+
+/** How a suggestion's fit score decomposes — the deck's readout. */
+export const fitBreakdownSchema = z.object({
+  proximity: z.number(),
+  affinity: z.number(),
+  novelty: z.number(),
+  feedback: z.number(),
+  fit: z.number(),
+});
+
+/** One feature compared between the candidate and the playlist (percentiles). */
+export const fingerprintPointSchema = z.object({
+  feature: z.string(),
+  candidate: z.number(),
+  playlist: z.number(),
+});
+
+export const suggestionSchema = z.object({
+  id: z.number(),
+  title: z.string(),
+  artist: z.string(),
+  album_name: z.string().nullable(),
+  duration_ms: z.number().nullable(),
+  source: z.string(),
+  seed_artist: z.string().nullable(),
+  spotify_id: z.string().nullable(),
+  /** 30s audio; null = no preview found (deck offers the Spotify link). */
+  preview_url: z.string().nullable(),
+  fit: z.number(),
+  breakdown: fitBreakdownSchema,
+  fingerprint: z.array(fingerprintPointSchema),
+  _links: halLinksSchema,
+});
+
+export const suggestionQueueSchema = z.object({
+  playlist_id: z.number(),
+  playlist_name: z.string(),
+  total: z.number(),
+  items: z.array(suggestionSchema),
+  _links: halLinksSchema,
+});
+
+export const feedbackResultSchema = z.object({
+  candidate_id: z.number(),
+  action: z.string(),
+  status: z.string(),
+  /** Set on accept: the journal entry for the playlist add (undo target). */
+  journal_id: z.number().nullable(),
+  mutation_status: z.string().nullable(),
+  _links: halLinksSchema,
+});
+
+export const discoveryRunResultSchema = z.object({
+  playlists_processed: z.number(),
+  generated_lastfm: z.number(),
+  generated_reccobeats: z.number(),
+  excluded: z.number(),
+  resolved: z.number(),
+  unresolvable: z.number(),
+  features_fetched: z.number(),
+  previews_resolved: z.number(),
+  lastfm_skipped: z.boolean(),
+  /** Per-step failures the pass survived (source outages skip, never abort). */
+  errors: z.array(z.string()).optional(),
+  _links: halLinksSchema,
+});
+
 export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistCollection = z.infer<typeof playlistCollectionSchema>;
 export type PlaylistTrack = z.infer<typeof playlistTrackSchema>;
@@ -306,3 +374,9 @@ export type OpPreview = z.infer<typeof opPreviewSchema>;
 export type ApplyResult = z.infer<typeof applyResultSchema>;
 export type JournalEntry = z.infer<typeof journalEntrySchema>;
 export type JournalCollection = z.infer<typeof journalCollectionSchema>;
+export type FitBreakdown = z.infer<typeof fitBreakdownSchema>;
+export type FingerprintPoint = z.infer<typeof fingerprintPointSchema>;
+export type Suggestion = z.infer<typeof suggestionSchema>;
+export type SuggestionQueue = z.infer<typeof suggestionQueueSchema>;
+export type FeedbackResult = z.infer<typeof feedbackResultSchema>;
+export type DiscoveryRunResult = z.infer<typeof discoveryRunResultSchema>;

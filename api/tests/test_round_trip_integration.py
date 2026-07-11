@@ -14,9 +14,12 @@ from sqlmodel import Session
 
 from crate.model.enums import (
     BulkOperation,
+    CandidateSource,
+    CandidateStatus,
     CredentialStatus,
     FeatureSource,
     FeatureStatus,
+    FeedbackAction,
     MutationOpType,
     MutationStatus,
     PlaylistSyncStatus,
@@ -33,6 +36,7 @@ from crate.model.orm import (
     ArtistGenre,
     ArtistSimilarity,
     ArtistTag,
+    DiscoveryCandidate,
     FeatureCalibration,
     FreqBlogBudget,
     Genre,
@@ -41,6 +45,7 @@ from crate.model.orm import (
     Playlist,
     PlaylistTrack,
     SpotifyCredential,
+    SuggestionFeedback,
     SyncEvent,
     Track,
     TrackFeatures,
@@ -545,3 +550,117 @@ def test_created_at_microseconds_survive(migrated_engine: Engine) -> None:
         ),
     )
     assert row.created_at == datetime(2026, 7, 11, 1, 2, 3, 999999)
+
+
+def test_discovery_candidate_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-cand")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-cand", name="Discovery Target"),
+    )
+    features = {"energy": 0.91, "valence": 0.6, "tempo": 128.5, "key": 7}
+    row = persist_and_reload(
+        migrated_engine,
+        DiscoveryCandidate(
+            user_id=user.id,
+            playlist_id=playlist.id,
+            source=CandidateSource.reccobeats,
+            status=CandidateStatus.resolved,
+            title="Innerbloom",
+            artist="RÜFÜS DU SOL",
+            dedup_key="rüfüs du sol|innerbloom",
+            seed_artist="KREAM",
+            spotify_id="2GLDGkTOStFCCJDKlEBnMs",
+            isrc="AUUM71500123",
+            album_name="Bloom",
+            duration_ms=577000,
+            preview_url="https://cdnt-preview.dzcdn.net/api/1/x.mp3?hdnea=exp",
+            features=features,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert isinstance(row.playlist_id, int) and row.playlist_id == playlist.id
+    assert row.source == CandidateSource.reccobeats
+    assert isinstance(row.source, CandidateSource)
+    assert row.status == CandidateStatus.resolved
+    assert isinstance(row.status, CandidateStatus)
+    assert row.title == "Innerbloom"
+    assert row.artist == "RÜFÜS DU SOL"
+    assert row.dedup_key == "rüfüs du sol|innerbloom"
+    assert row.seed_artist == "KREAM"
+    assert row.spotify_id == "2GLDGkTOStFCCJDKlEBnMs"
+    assert row.isrc == "AUUM71500123"
+    assert row.album_name == "Bloom"
+    assert row.duration_ms == 577000
+    assert isinstance(row.duration_ms, int)
+    assert row.preview_url == "https://cdnt-preview.dzcdn.net/api/1/x.mp3?hdnea=exp"
+    assert row.features == features
+    assert isinstance(row.features["energy"], float)
+    assert isinstance(row.features["key"], int)
+    assert_timestamps(row)
+
+
+def test_discovery_candidate_nullable_fields_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-cand-null")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-cand-null", name="Sparse"),
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        DiscoveryCandidate(
+            user_id=user.id,
+            playlist_id=playlist.id,
+            source=CandidateSource.lastfm,
+            status=CandidateStatus.pending,
+            title="Unmatched",
+            artist="Unknown",
+            dedup_key="unknown|unmatched",
+        ),
+    )
+    assert row.seed_artist is None
+    assert row.spotify_id is None
+    assert row.isrc is None
+    assert row.album_name is None
+    assert row.duration_ms is None
+    assert row.preview_url is None
+    assert row.features is None
+
+
+def test_suggestion_feedback_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-fb")
+    playlist = persist_and_reload(
+        migrated_engine,
+        Playlist(user_id=user.id, spotify_id="pl-rt-fb", name="Feedback Target"),
+    )
+    candidate = persist_and_reload(
+        migrated_engine,
+        DiscoveryCandidate(
+            user_id=user.id,
+            playlist_id=playlist.id,
+            source=CandidateSource.lastfm,
+            status=CandidateStatus.rejected,
+            title="Nope",
+            artist="Cassian",
+            dedup_key="cassian|nope",
+        ),
+    )
+    row = persist_and_reload(
+        migrated_engine,
+        SuggestionFeedback(
+            user_id=user.id,
+            candidate_id=candidate.id,
+            playlist_id=playlist.id,
+            artist="Cassian",
+            action=FeedbackAction.reject,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert isinstance(row.user_id, int) and row.user_id == user.id
+    assert isinstance(row.candidate_id, int) and row.candidate_id == candidate.id
+    assert isinstance(row.playlist_id, int) and row.playlist_id == playlist.id
+    assert row.artist == "Cassian"
+    assert row.action == FeedbackAction.reject
+    assert isinstance(row.action, FeedbackAction)
+    assert_timestamps(row)
