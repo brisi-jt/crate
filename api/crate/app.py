@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from crate.errors import register_error_handlers
+from crate.router import auth, playlists, sync
 from crate.settings import get_settings
 
 
@@ -16,6 +18,11 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    register_error_handlers(app)
+    app.include_router(auth.router)
+    app.include_router(sync.router)
+    app.include_router(playlists.router)
 
     @app.get("/healthz", tags=["ops"], summary="Liveness probe")
     def healthz() -> dict[str, str]:

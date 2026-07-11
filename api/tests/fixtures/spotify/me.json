@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "country": "GB",
+  "display_name": "JT",
+  "email": "jt@example.com",
+  "external_urls": { "spotify": "https://open.spotify.com/user/spotify-jt" },
+  "href": "https://api.spotify.com/v1/users/spotify-jt",
+  "id": "spotify-jt",
+  "images": [],
+  "product": "premium",
+  "type": "user",
+  "uri": "spotify:user:spotify-jt"
+}

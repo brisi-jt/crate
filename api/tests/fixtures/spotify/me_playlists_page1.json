@@ -1,0 +1,57 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/playlists?offset=0&limit=2",
+  "items": [
+    {
+      "collaborative": false,
+      "description": "Late-night deep cuts",
+      "external_urls": { "spotify": "https://open.spotify.com/playlist/3cEYpjA9oz9GiPac4AsH4n" },
+      "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n",
+      "id": "3cEYpjA9oz9GiPac4AsH4n",
+      "images": [
+        { "url": "https://i.scdn.co/image/ab67706c0000da84fcb8b9fcfecfc73bb6cba9bd", "height": 300, "width": 300 }
+      ],
+      "name": "night drives",
+      "owner": {
+        "external_urls": { "spotify": "https://open.spotify.com/user/spotify-jt" },
+        "href": "https://api.spotify.com/v1/users/spotify-jt",
+        "id": "spotify-jt",
+        "type": "user",
+        "uri": "spotify:user:spotify-jt",
+        "display_name": "JT"
+      },
+      "public": false,
+      "snapshot_id": "MTgsZWFmMWU0OGVjNzVjZmVhMWQxZTk5ZTk3ZDU2ZTk2MmNkM2VjMTQ1Yg==",
+      "tracks": { "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks", "total": 42 },
+      "type": "playlist",
+      "uri": "spotify:playlist:3cEYpjA9oz9GiPac4AsH4n"
+    },
+    {
+      "collaborative": false,
+      "description": "",
+      "external_urls": { "spotify": "https://open.spotify.com/playlist/1AVZz0mBuGbCEoNRQdYQju" },
+      "href": "https://api.spotify.com/v1/playlists/1AVZz0mBuGbCEoNRQdYQju",
+      "id": "1AVZz0mBuGbCEoNRQdYQju",
+      "images": [],
+      "name": "morning coffee",
+      "owner": {
+        "external_urls": { "spotify": "https://open.spotify.com/user/spotify-jt" },
+        "href": "https://api.spotify.com/v1/users/spotify-jt",
+        "id": "spotify-jt",
+        "type": "user",
+        "uri": "spotify:user:spotify-jt",
+        "display_name": "JT"
+      },
+      "public": true,
+      "snapshot_id": "OSxhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAx",
+      "tracks": { "href": "https://api.spotify.com/v1/playlists/1AVZz0mBuGbCEoNRQdYQju/tracks", "total": 17 },
+      "type": "playlist",
+      "uri": "spotify:playlist:1AVZz0mBuGbCEoNRQdYQju"
+    }
+  ],
+  "limit": 2,
+  "next": "https://api.spotify.com/v1/me/playlists?offset=2&limit=2",
+  "offset": 0,
+  "previous": null,
+  "total": 3
+}

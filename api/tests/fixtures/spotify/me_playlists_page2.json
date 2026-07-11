@@ -1,0 +1,33 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/me/playlists?offset=2&limit=2",
+  "items": [
+    {
+      "collaborative": false,
+      "description": "Followed, not owned",
+      "external_urls": { "spotify": "https://open.spotify.com/playlist/5W1cKzKqdzEjHeSbHrGNUf" },
+      "href": "https://api.spotify.com/v1/playlists/5W1cKzKqdzEjHeSbHrGNUf",
+      "id": "5W1cKzKqdzEjHeSbHrGNUf",
+      "images": [],
+      "name": "someone else's mix",
+      "owner": {
+        "external_urls": { "spotify": "https://open.spotify.com/user/other-user" },
+        "href": "https://api.spotify.com/v1/users/other-user",
+        "id": "other-user",
+        "type": "user",
+        "uri": "spotify:user:other-user",
+        "display_name": "Other User"
+      },
+      "public": true,
+      "snapshot_id": "MyxmZWRjYmE5ODc2NTQzMjEwZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4",
+      "tracks": { "href": "https://api.spotify.com/v1/playlists/5W1cKzKqdzEjHeSbHrGNUf/tracks", "total": 5 },
+      "type": "playlist",
+      "uri": "spotify:playlist:5W1cKzKqdzEjHeSbHrGNUf"
+    }
+  ],
+  "limit": 2,
+  "next": null,
+  "offset": 2,
+  "previous": "https://api.spotify.com/v1/me/playlists?offset=0&limit=2",
+  "total": 3
+}

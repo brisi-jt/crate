@@ -13,6 +13,7 @@ dependencies = [
     # Sync MySQL driver used by Alembic. Migrations run at deploy time, so this
     # belongs in the runtime image.
     "pymysql>=1.1",
+    "cryptography>=48.0.0",
 ]
 
 [dependency-groups]

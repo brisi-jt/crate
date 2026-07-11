@@ -6,11 +6,17 @@ reads the environment directly.
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
 
     app_env: str = "local"
 
@@ -25,6 +31,23 @@ class Settings(BaseSettings):
         "https://crate.vercel.app",
         "https://crate-web.vercel.app",
     ]
+
+    # Fernet key encrypting stored Spotify tokens. The default only exists so
+    # local development works out of the box — deployed environments must set
+    # CRATE_ENCRYPTION_KEY to their own key (rotating it invalidates stored
+    # credentials, which then need a reconnect).
+    encryption_key: str = Field(
+        default="aMel8p7-qylscKapRvm4wiNQZjEwHzj2UIfsbN_88Uw=",
+        validation_alias="CRATE_ENCRYPTION_KEY",
+    )
+
+    # Local-development auth bypass: when set, every request is attributed to
+    # the user with this clerk_user_id (created on first use). Unset in
+    # deployed environments; Clerk JWT verification replaces the bypass.
+    dev_user: str | None = Field(default=None, validation_alias="CRATE_DEV_USER")
+
+    spotify_client_id: str = ""
+    spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
 
 
 @lru_cache

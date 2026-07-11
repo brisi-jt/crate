@@ -1,0 +1,45 @@
+{
+  "synthetic": true,
+  "href": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks?offset=2&limit=2",
+  "items": [
+    {
+      "added_at": "2026-01-15T19:30:11Z",
+      "added_by": { "id": "spotify-jt", "type": "user", "uri": "spotify:user:spotify-jt" },
+      "is_local": false,
+      "track": {
+        "album": {
+          "album_type": "album",
+          "id": "6akEvsycLGftJxYudPjmqK",
+          "name": "Third Rail",
+          "release_date": "2023-09-01",
+          "type": "album",
+          "uri": "spotify:album:6akEvsycLGftJxYudPjmqK"
+        },
+        "artists": [
+          {
+            "external_urls": { "spotify": "https://open.spotify.com/artist/4Z8W4fKeB5YxbusRsdQVPb" },
+            "href": "https://api.spotify.com/v1/artists/4Z8W4fKeB5YxbusRsdQVPb",
+            "id": "4Z8W4fKeB5YxbusRsdQVPb",
+            "name": "Night Artist",
+            "type": "artist",
+            "uri": "spotify:artist:4Z8W4fKeB5YxbusRsdQVPb"
+          }
+        ],
+        "duration_ms": 243210,
+        "explicit": false,
+        "external_ids": { "isrc": "GBAYE2300789" },
+        "id": "5CQ30WqJwcep0pYcV4AMNc",
+        "is_local": false,
+        "name": "Third Rail",
+        "popularity": 55,
+        "type": "track",
+        "uri": "spotify:track:5CQ30WqJwcep0pYcV4AMNc"
+      }
+    }
+  ],
+  "limit": 2,
+  "next": null,
+  "offset": 2,
+  "previous": "https://api.spotify.com/v1/playlists/3cEYpjA9oz9GiPac4AsH4n/tracks?offset=0&limit=2",
+  "total": 3
+}
