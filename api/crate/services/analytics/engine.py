@@ -359,6 +359,12 @@ def compute_track_map_payload(
             "layout_hash": None,
         }
 
+    # track id -> the playlists (in scope) that hold it, for per-point membership.
+    track_playlists: dict[int, list[int]] = {}
+    for playlist_id in sorted(library.memberships):
+        for track_id in library.memberships[playlist_id]:
+            track_playlists.setdefault(track_id, []).append(playlist_id)
+
     return {
         "points": [
             {
@@ -368,6 +374,11 @@ def compute_track_map_payload(
                 "x": round(point.x, 4),
                 "y": round(point.y, 4),
                 "cluster": point.cluster,
+                # The three color features per track (matches the web zod
+                # `features` optional shape), so the field colors each node from
+                # its own sound rather than deriving it client-side.
+                "features": _centroid({point.track_id}, vectors),
+                "playlist_ids": track_playlists.get(point.track_id, []),
             }
             for point in result.points
         ],

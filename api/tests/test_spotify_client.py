@@ -422,6 +422,51 @@ async def test_search_tracks_empty_result() -> None:
     await client.aclose()
 
 
+async def test_get_albums_requests_ids_and_filters_missing() -> None:
+    """/albums?ids=... returns album dicts; null entries (unknown ids) drop out."""
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "albums": [
+                    {"id": "alb1", "release_date": "1998-06-30", "release_date_precision": "day"},
+                    None,
+                    {"id": "alb3", "release_date": "2011", "release_date_precision": "year"},
+                ]
+            },
+        )
+
+    client = make_client(handler)
+    albums = await client.get_albums(["alb1", "alb2", "alb3"])
+    await client.aclose()
+
+    assert requests[0].url.params["ids"] == "alb1,alb2,alb3"
+    assert [a["id"] for a in albums] == ["alb1", "alb3"]
+
+
+async def test_get_albums_empty_list_makes_no_request() -> None:
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"albums": []})
+
+    client = make_client(handler)
+    assert await client.get_albums([]) == []
+    await client.aclose()
+    assert calls == []
+
+
+async def test_get_albums_rejects_over_batch_cap() -> None:
+    client = make_client(lambda _request: httpx.Response(200, json={"albums": []}))
+    with pytest.raises(ValueError):
+        await client.get_albums([f"a{i}" for i in range(21)])
+    await client.aclose()
+
+
 def test_playlist_item_parses_local_file_with_null_artist_fields() -> None:
     """Local files come back with null artist id AND name; parsing must not raise.
 

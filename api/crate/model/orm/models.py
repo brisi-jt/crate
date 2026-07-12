@@ -43,6 +43,10 @@ class User(TimestampedModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     clerk_user_id: str | None = Field(default=None, unique=True, max_length=64)
     spotify_user_id: str | None = Field(default=None, unique=True, max_length=64)
+    # Supplied by the user (not from Spotify) to personalize the taste-freeze
+    # reading — the 16-24 coming-of-age band overlays the era profile only when
+    # this is set. Validated 1900..(current year - 13) at the API boundary.
+    birth_year: int | None = Field(default=None)
 
 
 class SpotifyCredential(TimestampedModel, table=True):
@@ -99,6 +103,13 @@ class Track(TimestampedModel, table=True):
     album_spotify_id: str | None = Field(default=None, max_length=64)
     album_name: str | None = Field(default=None, max_length=512)
     duration_ms: int | None = Field(default=None)
+    # Album release date as Spotify reports it, backfilled from /v1/albums.
+    # Precision records how much of the date Spotify knew: a "year" release
+    # stores "1998", a "day" release "1998-06-30". release_year is the parsed
+    # leading year, the spine of every decade / era / taste-freeze analytic.
+    release_date: str | None = Field(default=None, max_length=10)
+    release_date_precision: str | None = Field(default=None, max_length=5)
+    release_year: int | None = Field(default=None, index=True)
 
 
 class Artist(TimestampedModel, table=True):
@@ -563,6 +574,37 @@ class RadioItem(TimestampedModel, table=True):
     )
     # Set when a kept candidate was added to a playlist (undo target).
     journal_id: int | None = Field(default=None, foreign_key="mutation_journal.id")
+
+
+class InsightEdition(TimestampedModel, table=True):
+    """One frozen weekly reading of the insights survey — the field journal.
+
+    Each edition snapshots the headline metrics at compile time and the
+    generated narrative lines (diffs vs the previous edition). Keyed by the
+    Monday the week starts on and the playlist scope, so recompiling a week
+    rebuilds the same row. edition_number is the human-facing sequence
+    (edition 1 = baseline reading, no deltas).
+    """
+
+    __tablename__ = "insight_editions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "week_start", "owned_only", name="uq_insight_editions_week"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # Monday 00:00 UTC of the week the edition covers.
+    week_start: datetime = Field()
+    edition_number: int = Field()
+    owned_only: bool = Field(default=True)
+    generated_at: datetime = Field(default_factory=utcnow)
+    # Headline metric readings frozen at compile time (the delta source for the
+    # next edition): entropy, effective genres, GS-score, fingerprint, etc.
+    headline: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # Generated field-manual lines describing what moved since last edition.
+    narrative: list[dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False)
+    )
 
 
 class MutationJournal(TimestampedModel, table=True):

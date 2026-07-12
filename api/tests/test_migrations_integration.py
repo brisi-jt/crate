@@ -46,6 +46,7 @@ EXPECTED_TABLES = {
     "digest_items",
     "radio_sessions",
     "radio_items",
+    "insight_editions",
 }
 
 

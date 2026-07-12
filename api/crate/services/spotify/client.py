@@ -307,6 +307,25 @@ class SpotifyClient:
         items = response.json().get("tracks", {}).get("items", [])
         return [SpotifyTrack.model_validate(item) for item in items]
 
+    # Several albums per call — Spotify caps /albums at 20 ids.
+    _ALBUMS_BATCH = 20
+
+    async def get_albums(self, album_ids: list[str]) -> list[dict[str, Any]]:
+        """Album objects for up to 20 ids, in request order.
+
+        Returns the raw album dicts (id, release_date, release_date_precision,
+        ...); missing ids yield None entries which are filtered out. Used by
+        the release-date backfill to date every track through its album.
+        """
+        if not album_ids:
+            return []
+        if len(album_ids) > self._ALBUMS_BATCH:
+            raise ValueError(f"get_albums accepts at most {self._ALBUMS_BATCH} ids")
+        response = await self._request(
+            "GET", f"{API_BASE_URL}/albums", params={"ids": ",".join(album_ids)}
+        )
+        return [album for album in response.json().get("albums", []) if album]
+
     # -- writes ------------------------------------------------------------
 
     _WRITE_CHUNK = 100  # Spotify's per-call cap on playlist item operations

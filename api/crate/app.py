@@ -12,6 +12,8 @@ from crate.router import (
     digests,
     discovery,
     enrichment,
+    insights,
+    me,
     mutations,
     playlists,
     radio,
@@ -56,6 +58,8 @@ def create_app() -> FastAPI:
     app.include_router(discovery.router)
     app.include_router(digests.router)
     app.include_router(radio.router)
+    app.include_router(insights.router)
+    app.include_router(me.router)
 
     @app.get("/healthz", tags=["ops"], summary="Liveness probe")
     def healthz() -> dict[str, str]:

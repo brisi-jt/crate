@@ -48,6 +48,7 @@ from crate.model.orm import (
     FeatureCalibration,
     FreqBlogBudget,
     Genre,
+    InsightEdition,
     LocalDspCalibration,
     MutationJournal,
     OpPreview,
@@ -105,7 +106,17 @@ def test_user_round_trip(migrated_engine: Engine) -> None:
     assert isinstance(row.id, int)
     assert row.clerk_user_id == "clerk-rt-user"
     assert row.spotify_user_id == "spotify-rt-user"
+    assert row.birth_year is None
     assert_timestamps(row)
+
+
+def test_user_birth_year_round_trip(migrated_engine: Engine) -> None:
+    row = persist_and_reload(
+        migrated_engine,
+        User(clerk_user_id="clerk-rt-birth", spotify_user_id="spotify-rt-birth", birth_year=1992),
+    )
+    assert row.birth_year == 1992
+    assert isinstance(row.birth_year, int)
 
 
 def test_spotify_credential_round_trip(migrated_engine: Engine) -> None:
@@ -181,6 +192,9 @@ def test_track_round_trip(migrated_engine: Engine) -> None:
             album_spotify_id="2up3OPMp9Tb4dAKM2erWXQ",
             album_name="Night Bus",
             duration_ms=214693,
+            release_date="2019-06-30",
+            release_date_precision="day",
+            release_year=2019,
         ),
     )
     assert isinstance(row.id, int)
@@ -192,6 +206,10 @@ def test_track_round_trip(migrated_engine: Engine) -> None:
     assert row.album_name == "Night Bus"
     assert row.duration_ms == 214693
     assert isinstance(row.duration_ms, int)
+    assert row.release_date == "2019-06-30"
+    assert row.release_date_precision == "day"
+    assert row.release_year == 2019
+    assert isinstance(row.release_year, int)
     assert_timestamps(row)
 
 
@@ -1098,4 +1116,41 @@ def test_radio_item_nullable_fields_round_trip(migrated_engine: Engine) -> None:
     assert row.camelot is None
     assert row.feedback is None
     assert row.journal_id is None
+    assert_timestamps(row)
+
+
+def test_insight_edition_round_trip(migrated_engine: Engine) -> None:
+    user = make_user(migrated_engine, "rt-edition")
+    week = datetime(2026, 7, 6, 0, 0, 0)
+    headline = {
+        "entropy_bits": 3.14,
+        "effective_genres": 8.8,
+        "gs_score": 0.42,
+        "archetype": "omnivore",
+        "fingerprint": {"energy": 0.61},
+    }
+    narrative = [
+        {"kind": "baseline", "text": "Baseline reading."},
+        {"kind": "entropy", "text": "Genre spread widened."},
+    ]
+    row = persist_and_reload(
+        migrated_engine,
+        InsightEdition(
+            user_id=user.id,
+            week_start=week,
+            edition_number=3,
+            owned_only=True,
+            headline=headline,
+            narrative=narrative,
+        ),
+    )
+    assert isinstance(row.id, int)
+    assert row.user_id == user.id
+    assert row.week_start == week
+    assert row.edition_number == 3
+    assert isinstance(row.edition_number, int)
+    assert row.owned_only is True
+    assert row.headline == headline  # nested JSON preserved
+    assert row.narrative == narrative
+    assert isinstance(row.narrative, list)
     assert_timestamps(row)

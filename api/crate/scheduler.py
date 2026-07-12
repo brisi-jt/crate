@@ -37,6 +37,7 @@ from crate.services.account.wiring import (
     run_top_items_for_user,
 )
 from crate.services.digest.service import run_weekly_digest_for_user
+from crate.services.insights.editions import compile_edition_for_user
 from crate.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class AccountScheduler:
         nightly_job: JobFn = run_nightly_for_user,
         top_job: JobFn = run_top_items_for_user,
         digest_job: JobFn = run_weekly_digest_for_user,
+        edition_job: JobFn = compile_edition_for_user,
         backup_job: Callable[[], Awaitable[None]] = run_backup_script,
         settings: Settings | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -116,6 +118,7 @@ class AccountScheduler:
         self._nightly_job = nightly_job
         self._top_job = top_job
         self._digest_job = digest_job
+        self._edition_job = edition_job
         self._backup_job = backup_job
         self._settings = settings or get_settings()
         self._sleep = sleep
@@ -211,7 +214,13 @@ class AccountScheduler:
     # -- passes ---------------------------------------------------------------
 
     async def run_digest_pass(self) -> None:
-        """Weekly digests for every user — local data only, no credential gate."""
+        """Weekly digests + insight editions for every user — local data only.
+
+        The edition compile joins here (right after the digest), so the field
+        journal advances on the same weekly cadence. Both read only the local
+        database, so no credential gate applies. A failure in one job never
+        skips the other or the remaining users.
+        """
         with self._session_factory() as session:
             for user in session.exec(select(User)).all():
                 assert user.id is not None
@@ -219,6 +228,10 @@ class AccountScheduler:
                     await self._digest_job(session, user)
                 except Exception:
                     logger.exception("weekly_digest failed for user %d", user.id)
+                try:
+                    await self._edition_job(session, user)
+                except Exception:
+                    logger.exception("insight_edition failed for user %d", user.id)
 
     async def run_backup_pass(self) -> None:
         """Nightly database backup — one log line either way, failure never kills the loop."""

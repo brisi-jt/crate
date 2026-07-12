@@ -139,17 +139,21 @@ async def test_job_failure_is_contained_and_logged(
 async def test_digest_pass_runs_without_a_spotify_credential(session: Session, user: User) -> None:
     """Digest generation is database-local — it must not gate on a credential."""
     job = JobRecorder()
+    edition = JobRecorder()
     scheduler = AccountScheduler(
         session_factory=lambda: session,
         recent_job=job,
         nightly_job=job,
         top_job=job,
         digest_job=job,
+        edition_job=edition,
     )
 
     await scheduler.run_digest_pass()
 
     assert job.calls == [user.id]
+    # the edition compile joins the same pass, right after the digest.
+    assert edition.calls == [user.id]
 
 
 async def test_digest_pass_failure_is_contained(
@@ -159,18 +163,22 @@ async def test_digest_pass_failure_is_contained(
         raise RuntimeError("digest fell over")
 
     job = JobRecorder()
+    edition = JobRecorder()
     scheduler = AccountScheduler(
         session_factory=lambda: session,
         recent_job=job,
         nightly_job=job,
         top_job=job,
         digest_job=broken_job,
+        edition_job=edition,
     )
 
     with caplog.at_level(logging.ERROR, logger="crate.scheduler"):
         await scheduler.run_digest_pass()  # must not raise
 
     assert any("digest fell over" in (r.exc_text or "") for r in skip_records(caplog))
+    # a failing digest must not skip the edition compile.
+    assert edition.calls == [user.id]
 
 
 # --- nightly backup pass -----------------------------------------------------------

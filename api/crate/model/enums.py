@@ -116,6 +116,8 @@ class SnapshotKind(StrEnum):
     flow = "flow"
     artist_galaxy = "artist_galaxy"
     frontier = "frontier"
+    insights = "insights"
+    insight_pins = "insight_pins"
 
 
 class MutationOpType(StrEnum):

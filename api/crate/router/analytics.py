@@ -157,6 +157,15 @@ class MapPointResource(BaseModel):
     x: float
     y: float
     cluster: int = Field(description="Density cluster label; -1 means no cluster (noise).")
+    features: AcousticCentroid | None = Field(
+        default=None,
+        description="The track's three color-feature percentiles; null until "
+        "enrichment reaches it. Drives the node's exact acoustic color.",
+    )
+    playlist_ids: list[int] = Field(
+        default_factory=list,
+        description="Playlists in scope that hold this track — the membership join, server-side.",
+    )
 
 
 class SplitClusterShare(BaseModel):
