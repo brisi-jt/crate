@@ -608,12 +608,20 @@ export default function GraphCanvas({
             isIncident(link, hoveredId) ||
             isIncident(link, selectedId)
           }
-          // Engine stays alive so the breath force keeps ticking; under
-          // reduced motion the default cooldown lets the layout settle fully.
+          // Ambient breath: d3-force stops ticking when alpha decays below its
+          // internal alphaMin (~0.001). Setting alphaTarget above that floor
+          // makes the simulation perpetually converge *toward* the target —
+          // it never fully decays, so the "breath" custom force fires every
+          // tick and nodes drift at the intended sub-pixel amplitude.
+          // Under reduced motion we zero the target so the layout settles.
           // Warmup pre-runs the layout so the first paint is already spread
           // out and the initial fit frames the real constellation.
           warmupTicks={150}
           d3VelocityDecay={0.55}
+          {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<
+            string,
+            unknown
+          >)}
           cooldownTime={reducedMotion ? 15_000 : Infinity}
         />
       )}

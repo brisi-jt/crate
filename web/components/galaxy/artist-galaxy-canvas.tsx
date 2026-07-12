@@ -443,6 +443,10 @@ export default function ArtistGalaxyCanvas({
           }
           warmupTicks={150}
           d3VelocityDecay={0.55}
+          {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<
+            string,
+            unknown
+          >)}
           cooldownTime={reducedMotion ? 15_000 : Infinity}
         />
       )}
