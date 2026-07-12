@@ -21,7 +21,13 @@ def run_calls() -> list[int]:
 
 @pytest.fixture
 def client(session: Session, user: User, run_calls: list[int]) -> TestClient:
-    async def fake_runner(_session: Session, batch_size: int) -> EnrichmentReport:
+    async def fake_runner(
+        _session: Session,
+        batch_size: int,
+        *,
+        time_budget_seconds: float = 240.0,
+        stage: str = "feature",
+    ) -> EnrichmentReport:
         run_calls.append(batch_size)
         return EnrichmentReport(
             tracks_processed=3,
@@ -96,6 +102,153 @@ class TestRunEndpoint:
         response = client.post("/v1/enrichment/run", params={"batch_size": 0})
         assert response.status_code == 422
         assert response.headers["content-type"].startswith("application/problem+json")
+
+
+class TestRunParams:
+    def test_stage_param_is_passed_through(self, session: Session, user: User) -> None:
+        seen: dict = {}
+
+        async def runner(
+            _session: Session,
+            batch_size: int,
+            *,
+            time_budget_seconds: float,
+            stage: str,
+        ) -> EnrichmentReport:
+            seen["batch_size"] = batch_size
+            seen["time_budget_seconds"] = time_budget_seconds
+            seen["stage"] = stage
+            return EnrichmentReport()
+
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_enrichment_runner] = lambda: runner
+        resp = TestClient(app).post(
+            "/v1/enrichment/run", params={"stage": "identity", "time_budget_seconds": 120}
+        )
+
+        assert resp.status_code == 200
+        assert seen["stage"] == "identity"
+        assert seen["time_budget_seconds"] == 120
+
+    def test_default_stage_is_feature_and_budget_default_applied(
+        self, session: Session, user: User
+    ) -> None:
+        seen: dict = {}
+
+        async def runner(
+            _session: Session, batch_size: int, *, time_budget_seconds: float, stage: str
+        ) -> EnrichmentReport:
+            seen["stage"] = stage
+            seen["time_budget_seconds"] = time_budget_seconds
+            return EnrichmentReport()
+
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_enrichment_runner] = lambda: runner
+        resp = TestClient(app).post("/v1/enrichment/run")
+
+        assert resp.status_code == 200
+        assert seen["stage"] == "feature"
+        assert seen["time_budget_seconds"] == 240
+
+    def test_invalid_stage_is_rejected(self, session: Session, user: User) -> None:
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        resp = TestClient(app).post("/v1/enrichment/run", params={"stage": "bogus"})
+        assert resp.status_code == 422
+
+    def test_budget_over_cap_is_rejected(self, session: Session, user: User) -> None:
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        resp = TestClient(app).post("/v1/enrichment/run", params={"time_budget_seconds": 9999})
+        assert resp.status_code == 422
+
+    def test_report_exposes_budget_and_stage_timing(self, session: Session, user: User) -> None:
+        async def runner(
+            _session: Session, batch_size: int, *, time_budget_seconds: float, stage: str
+        ) -> EnrichmentReport:
+            return EnrichmentReport(
+                budget_exhausted=True,
+                stage_seconds={"reccobeats": 1.5, "isrc_fallback": 12.0},
+            )
+
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_enrichment_runner] = lambda: runner
+        body = TestClient(app).post("/v1/enrichment/run").json()
+
+        assert body["budget_exhausted"] is True
+        assert body["stage_seconds"]["isrc_fallback"] == 12.0
+
+
+class TestSingleFlight:
+    def test_concurrent_run_returns_409(self, session: Session, user: User) -> None:
+        import anyio
+
+        from crate.router import enrichment as enrichment_router
+
+        # Reset the process-wide guard so the test is order-independent.
+        enrichment_router.reset_active_passes()
+
+        release = anyio.Event()
+        entered = anyio.Event()
+
+        async def blocking_runner(
+            _session: Session, batch_size: int, *, time_budget_seconds: float, stage: str
+        ) -> EnrichmentReport:
+            entered.set()
+            await release.wait()
+            return EnrichmentReport()
+
+        app = create_app()
+        app.dependency_overrides[get_session] = lambda: session
+        app.dependency_overrides[get_current_user] = lambda: user
+        app.dependency_overrides[get_enrichment_runner] = lambda: blocking_runner
+
+        from httpx import ASGITransport, AsyncClient
+
+        async def scenario() -> tuple[int, int]:
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://t") as ac:
+                async with anyio.create_task_group() as tg:
+                    first_status: list[int] = []
+
+                    async def first() -> None:
+                        r = await ac.post("/v1/enrichment/run")
+                        first_status.append(r.status_code)
+
+                    tg.start_soon(first)
+                    await entered.wait()  # first pass is now holding the lock
+                    second = await ac.post("/v1/enrichment/run")
+                    release.set()
+                return first_status[0], second.status_code
+
+        first_code, second_code = anyio.run(scenario)
+        assert first_code == 200
+        assert second_code == 409
+
+    def test_409_carries_problem_json_and_code(self, session: Session, user: User) -> None:
+        from crate.router import enrichment as enrichment_router
+
+        enrichment_router.reset_active_passes()
+        assert user.id is not None
+        enrichment_router.mark_active(user.id)  # simulate an in-flight pass
+        try:
+            app = create_app()
+            app.dependency_overrides[get_session] = lambda: session
+            app.dependency_overrides[get_current_user] = lambda: user
+            resp = TestClient(app).post("/v1/enrichment/run")
+            assert resp.status_code == 409
+            assert resp.headers["content-type"].startswith("application/problem+json")
+            assert resp.json()["error_code"] == "ENRICHMENT_PASS_ACTIVE"
+        finally:
+            enrichment_router.reset_active_passes()
 
 
 class TestStatusEndpoint:
@@ -194,7 +347,13 @@ class TestRunEndpointLocalDsp:
     def test_run_reports_localdsp_counts(
         self, session: Session, user: User, run_calls: list[int]
     ) -> None:
-        async def runner(_session: Session, batch_size: int) -> EnrichmentReport:
+        async def runner(
+            _session: Session,
+            batch_size: int,
+            *,
+            time_budget_seconds: float = 240.0,
+            stage: str = "feature",
+        ) -> EnrichmentReport:
             run_calls.append(batch_size)
             return EnrichmentReport(
                 tracks_processed=2,

@@ -1,5 +1,6 @@
 """Enrichment orchestrator: fallback ladder, budget, degradation, calibration."""
 
+import httpx
 import pytest
 from sqlmodel import Session, select
 
@@ -35,9 +36,11 @@ class FakeRecco:
         self,
         by_id: dict[str, AudioFeatures] | None = None,
         by_isrc: dict[str, AudioFeatures] | None = None,
+        explode_on_isrc: set[str] | None = None,
     ) -> None:
         self.by_id = by_id or {}
         self.by_isrc = by_isrc or {}
+        self.explode_on_isrc = explode_on_isrc or set()
         self.batch_calls: list[list[str]] = []
         self.isrc_calls: list[str] = []
 
@@ -47,16 +50,25 @@ class FakeRecco:
 
     async def get_audio_features_by_isrc(self, isrc: str) -> AudioFeatures | None:
         self.isrc_calls.append(isrc)
+        if isrc in self.explode_on_isrc:
+            raise httpx.ReadError("connection reset mid-read")
         return self.by_isrc.get(isrc)
 
 
 class FakeFreqBlog:
-    def __init__(self, by_id: dict[str, AudioFeatures] | None = None) -> None:
+    def __init__(
+        self,
+        by_id: dict[str, AudioFeatures] | None = None,
+        explode_on: set[str] | None = None,
+    ) -> None:
         self.by_id = by_id or {}
+        self.explode_on = explode_on or set()
         self.calls: list[str] = []
 
     async def get_audio_features(self, spotify_id: str) -> AudioFeatures | None:
         self.calls.append(spotify_id)
+        if spotify_id in self.explode_on:
+            raise httpx.ReadError("connection reset mid-read")
         return self.by_id.get(spotify_id)
 
 
@@ -77,13 +89,33 @@ class FakeLastFm:
 
 
 class FakeMusicBrainz:
-    def __init__(self, by_isrc: dict[str, IsrcRecording] | None = None) -> None:
+    def __init__(
+        self,
+        by_isrc: dict[str, IsrcRecording] | None = None,
+        explode_on: set[str] | None = None,
+    ) -> None:
         self.by_isrc = by_isrc or {}
+        self.explode_on = explode_on or set()
         self.calls: list[str] = []
 
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None:
         self.calls.append(isrc)
+        if isrc in self.explode_on:
+            raise httpx.ReadError("connection reset mid-read")
         return self.by_isrc.get(isrc)
+
+
+class FakeClock:
+    """Manual monotonic clock — advance() is the only way time moves."""
+
+    def __init__(self, start: float = 0.0) -> None:
+        self.now = start
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
 
 
 def add_track(session: Session, spotify_id: str, isrc: str | None = None, artists=None) -> Track:
@@ -400,7 +432,7 @@ class TestArtistEnrichment:
         )
         svc = service(lastfm=lastfm)
 
-        report = await svc.run(session, batch_size=10)
+        report = await svc.run(session, batch_size=10, stage="all")
 
         edges = session.exec(
             select(ArtistSimilarity).where(ArtistSimilarity.artist_id == artist.id)
@@ -428,8 +460,8 @@ class TestArtistEnrichment:
         )
         svc = service(lastfm=lastfm)
 
-        await svc.run(session, batch_size=10)
-        await svc.run(session, batch_size=10)
+        await svc.run(session, batch_size=10, stage="all")
+        await svc.run(session, batch_size=10, stage="all")
 
         assert len(session.exec(select(ArtistSimilarity)).all()) == 1
         assert len(session.exec(select(ArtistTag)).all()) == 1
@@ -438,7 +470,7 @@ class TestArtistEnrichment:
         add_artist(session, "a1", "Tycho")
         svc = service(lastfm=None)
 
-        report = await svc.run(session, batch_size=10)
+        report = await svc.run(session, batch_size=10, stage="all")
 
         assert session.exec(select(ArtistSimilarity)).all() == []
         assert report.lastfm_skipped is True
@@ -464,7 +496,7 @@ class TestArtistEnrichment:
             musicbrainz=mb,
         )
 
-        report = await svc.run(session, batch_size=10)
+        report = await svc.run(session, batch_size=10, stage="all")
 
         session.refresh(artist)
         assert artist.mbid == "mbid-post-malone"
@@ -488,7 +520,157 @@ class TestArtistEnrichment:
         )
         svc = service(reccobeats=FakeRecco(by_id={"t1": features()}), musicbrainz=mb)
 
-        await svc.run(session, batch_size=10)
+        await svc.run(session, batch_size=10, stage="all")
 
         session.refresh(artist)
         assert artist.mbid is None
+
+
+class TestStageSelection:
+    """MBID resolution is decoupled from the feature pass via the stage param."""
+
+    async def test_default_feature_stage_skips_mbid_resolution(self, session: Session) -> None:
+        artist = add_artist(session, "a1", "Post Malone")
+        add_track(session, "t1", isrc="US1", artists=[{"spotify_id": "a1", "name": "Post Malone"}])
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "US1": IsrcRecording(recording_mbid="r", artist_credits=[("Post Malone", "m")])
+            }
+        )
+        svc = service(reccobeats=FakeRecco(by_id={"t1": features()}), musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10)  # default stage = feature
+
+        session.refresh(artist)
+        assert artist.mbid is None  # identity stage did not run
+        assert mb.calls == []
+        assert report.tracks_processed == 1  # feature work still happened
+
+    async def test_identity_stage_resolves_mbids_without_touching_features(
+        self, session: Session
+    ) -> None:
+        artist = add_artist(session, "a1", "Post Malone")
+        add_track(session, "t1", isrc="US1", artists=[{"spotify_id": "a1", "name": "Post Malone"}])
+        recco = FakeRecco(by_id={"t1": features()})
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "US1": IsrcRecording(recording_mbid="r", artist_credits=[("Post Malone", "m")])
+            }
+        )
+        svc = service(reccobeats=recco, musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(artist)
+        assert artist.mbid == "m"
+        assert report.artists_mbid_resolved == 1
+        # Feature pass was NOT run in identity stage.
+        assert recco.batch_calls == []
+        assert report.tracks_processed == 0
+        # The feature row was never created — that is the feature stage's job.
+        assert session.exec(select(TrackFeatures)).all() == []
+
+    async def test_all_stage_runs_both(self, session: Session) -> None:
+        artist = add_artist(session, "a1", "Post Malone")
+        add_track(session, "t1", isrc="US1", artists=[{"spotify_id": "a1", "name": "Post Malone"}])
+        recco = FakeRecco(by_id={"t1": features()})
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "US1": IsrcRecording(recording_mbid="r", artist_credits=[("Post Malone", "m")])
+            }
+        )
+        svc = service(reccobeats=recco, musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="all")
+
+        session.refresh(artist)
+        assert artist.mbid == "m"
+        assert report.tracks_processed == 1
+        assert recco.batch_calls != []
+
+
+class TestTimeBudget:
+    """A pass honours a wall-clock deadline and reports partial progress."""
+
+    async def test_deadline_stops_the_feature_pass_between_tracks(self, session: Session) -> None:
+        # Three misses that each fall through to the ISRC fallback; the fake
+        # clock advances 100s per ISRC lookup, so a 150s budget clears exactly
+        # one track then trips the deadline before the second.
+        for i in range(3):
+            add_track(session, f"m{i}", isrc=f"IS{i}")
+        clock = FakeClock()
+
+        class SlowRecco(FakeRecco):
+            async def get_audio_features_by_isrc(self, isrc: str):
+                clock.advance(100.0)
+                return await super().get_audio_features_by_isrc(isrc)
+
+        recco = SlowRecco(by_isrc={f"IS{i}": features() for i in range(3)})
+        svc = service(reccobeats=recco)
+
+        report = await svc.run(session, batch_size=10, time_budget_seconds=150.0, clock=clock)
+
+        assert report.budget_exhausted is True
+        # Only the tracks reached before the deadline were persisted.
+        persisted = session.exec(select(TrackFeatures)).all()
+        assert 1 <= len(persisted) < 3
+        assert report.stage_seconds["isrc_fallback"] >= 100.0
+
+    async def test_pass_within_budget_is_not_flagged(self, session: Session) -> None:
+        add_track(session, "quick")
+        clock = FakeClock()
+        svc = service(reccobeats=FakeRecco(by_id={"quick": features()}))
+
+        report = await svc.run(session, batch_size=10, time_budget_seconds=240.0, clock=clock)
+
+        assert report.budget_exhausted is False
+        assert report.tracks_processed == 1
+        assert "reccobeats" in report.stage_seconds
+
+    async def test_stage_seconds_records_per_stage_timing(self, session: Session) -> None:
+        add_track(session, "t")
+        clock = FakeClock()
+        svc = service(reccobeats=FakeRecco(by_id={"t": features()}))
+
+        report = await svc.run(session, batch_size=10, clock=clock)
+
+        for key in ("reccobeats", "isrc_fallback", "localdsp", "musicbrainz"):
+            assert key in report.stage_seconds
+
+
+class TestTransientErrorIsolation:
+    """A network read error on one track is recorded and skipped, never fatal."""
+
+    async def test_isrc_read_error_skips_one_track(self, session: Session) -> None:
+        ok = add_track(session, "ok", isrc="OK")
+        bad = add_track(session, "bad", isrc="BAD")
+        recco = FakeRecco(by_isrc={"OK": features(0.7)}, explode_on_isrc={"BAD"})
+        svc = service(reccobeats=recco)
+
+        report = await svc.run(session, batch_size=10)
+
+        assert stored_features(session, ok).status == FeatureStatus.present
+        # The exploding track ends missing, not crashing the pass.
+        assert stored_features(session, bad).status == FeatureStatus.missing
+        assert any("bad" in e.lower() for e in report.errors)
+
+    async def test_mbid_read_error_skips_one_artist(self, session: Session) -> None:
+        good = add_artist(session, "g", "Good Artist")
+        bad = add_artist(session, "b", "Bad Artist")
+        add_track(session, "tg", isrc="GISRC", artists=[{"spotify_id": "g", "name": "Good Artist"}])
+        add_track(session, "tb", isrc="BISRC", artists=[{"spotify_id": "b", "name": "Bad Artist"}])
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "GISRC": IsrcRecording(recording_mbid="r", artist_credits=[("Good Artist", "gm")])
+            },
+            explode_on={"BISRC"},
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(good)
+        session.refresh(bad)
+        assert good.mbid == "gm"
+        assert bad.mbid is None  # skipped, not fatal
+        assert any("BISRC" in e or "Bad Artist" in e for e in report.errors)

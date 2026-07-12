@@ -2,7 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
-from typing import Annotated
+from typing import Annotated, Protocol
 
 from fastapi import Depends
 from sqlmodel import Session, select
@@ -12,7 +12,7 @@ from crate.errors import AppError
 from crate.model.orm import RadioSession, User
 from crate.services.account.wiring import AccountSyncReport, run_account_sync_for_user
 from crate.services.discovery.wiring import DiscoveryReport, run_discovery
-from crate.services.enrichment.orchestrator import EnrichmentReport, run_enrichment
+from crate.services.enrichment.orchestrator import EnrichmentReport, Stage, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
 from crate.services.mutations.writer import SpotifyWriter
 from crate.services.radio.wiring import build_radio_for_user
@@ -63,7 +63,17 @@ def get_account_sync_runner() -> AccountSyncRunner:
     return run_account_sync_for_user
 
 
-EnrichmentRunner = Callable[[Session, int], Awaitable[EnrichmentReport]]
+# (session, batch_size, *, time_budget_seconds, stage) -> report. Tests
+# override with a fake honouring the same keyword-only signature.
+class EnrichmentRunner(Protocol):
+    async def __call__(
+        self,
+        session: Session,
+        batch_size: int,
+        *,
+        time_budget_seconds: float = ...,
+        stage: Stage = ...,
+    ) -> EnrichmentReport: ...
 
 
 def get_enrichment_runner() -> EnrichmentRunner:

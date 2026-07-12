@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from crate.deps import CurrentUserDep, EnrichmentRunner, SessionDep, get_enrichment_runner
+from crate.errors import AppError
 from crate.model.enums import FeatureSource, FeatureStatus
 from crate.model.orm import (
     Artist,
@@ -23,6 +24,38 @@ from crate.settings import get_settings
 router = APIRouter(prefix="/v1/enrichment", tags=["enrichment"])
 
 EnrichmentRunnerDep = Annotated[EnrichmentRunner, Depends(get_enrichment_runner)]
+
+# Enrichment pass slice. "feature" (the map's blocker) is the default and never
+# waits behind the 1 req/s MusicBrainz "identity" work; "all" runs both.
+EnrichmentStage = Literal["feature", "identity", "all"]
+
+# Wall-clock budget bounds. No pass may run longer than the cap — a request that
+# blocks for an hour is exactly the failure this replaces.
+MAX_TIME_BUDGET_SECONDS = 600
+DEFAULT_TIME_BUDGET_SECONDS = 240
+
+# Single-flight guard: one active pass per user. A second concurrent run for the
+# same user is refused with 409 rather than overlapping the in-flight one (the
+# overlap that let the old grinder double-process the library). In-process only,
+# which suffices for the single-instance deployment.
+_active_passes: set[int] = set()
+
+
+def mark_active(user_id: int) -> None:
+    _active_passes.add(user_id)
+
+
+def clear_active(user_id: int) -> None:
+    _active_passes.discard(user_id)
+
+
+def is_active(user_id: int) -> bool:
+    return user_id in _active_passes
+
+
+def reset_active_passes() -> None:
+    """Clear the guard — for tests that need an order-independent starting state."""
+    _active_passes.clear()
 
 
 class HalLink(BaseModel):
@@ -72,6 +105,17 @@ class EnrichmentRunResult(BaseModel):
         description="True when locally-computed values were stored without "
         "cross-source calibration because too few tracks carry both a "
         "ReccoBeats value and a usable preview."
+    )
+    budget_exhausted: bool = Field(
+        default=False,
+        description="True when the pass hit its wall-clock budget before "
+        "draining its work; the counts are honest partial progress and the "
+        "next pass resumes where this one stopped.",
+    )
+    stage_seconds: dict[str, float] = Field(
+        default_factory=dict,
+        description="Wall-clock seconds spent in each stage this pass "
+        "(reccobeats, isrc_fallback, localdsp, musicbrainz).",
     )
     errors: list[str] = Field(
         description="Per-track failures the pass survived (a bad download or "
@@ -152,19 +196,58 @@ def _pct(part: int, whole: int) -> float:
         "then FreqBlog while its monthly allowance lasts, then local analysis "
         "of the track's 30-second preview. Only tracks every rung misses are "
         "recorded as missing. Feature calibration percentiles are refreshed "
-        "at the end. Runs synchronously and returns the pass's counts."
+        "at the end. The pass honours a wall-clock budget (default 240s, cap "
+        "600s) and returns honest partial progress once it trips, so no run "
+        "blocks unbounded. stage=feature (the default) skips the slow "
+        "MusicBrainz identity work so feature coverage never waits behind it; "
+        "stage=identity resolves artist identifiers and similarity; stage=all "
+        "does both. A second run while one is already active for the same user "
+        "is refused with 409 ENRICHMENT_PASS_ACTIVE."
     ),
 )
 async def trigger_enrichment(
     session: SessionDep,
-    _user: CurrentUserDep,
+    user: CurrentUserDep,
     runner: EnrichmentRunnerDep,
     batch_size: Annotated[
         int,
         Query(ge=1, le=1000, description="Maximum tracks (and artists) processed this pass."),
     ] = 100,
+    stage: Annotated[
+        EnrichmentStage,
+        Query(
+            description="Pipeline slice to run: feature (audio features, the "
+            "default), identity (artist MBIDs + Last.fm similarity/tags), or all."
+        ),
+    ] = "feature",
+    time_budget_seconds: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=MAX_TIME_BUDGET_SECONDS,
+            description="Wall-clock budget for the pass; it returns partial "
+            "progress once this trips.",
+        ),
+    ] = DEFAULT_TIME_BUDGET_SECONDS,
 ) -> EnrichmentRunResult:
-    report = await runner(session, batch_size)
+    assert user.id is not None
+    if is_active(user.id):
+        raise AppError(
+            409,
+            "An enrichment pass is already running",
+            detail="Wait for the active pass to finish before starting another.",
+            error_code="ENRICHMENT_PASS_ACTIVE",
+        )
+    mark_active(user.id)
+    try:
+        report = await runner(
+            session,
+            batch_size,
+            time_budget_seconds=float(time_budget_seconds),
+            stage=stage,
+        )
+    finally:
+        clear_active(user.id)
     return EnrichmentRunResult(
         tracks_processed=report.tracks_processed,
         features_from_reccobeats=report.features_from_reccobeats,
@@ -181,6 +264,8 @@ async def trigger_enrichment(
         freqblog_exhausted=report.freqblog_exhausted,
         localdsp_skipped=report.localdsp_skipped,
         localdsp_uncalibrated=report.localdsp_uncalibrated,
+        budget_exhausted=report.budget_exhausted,
+        stage_seconds=report.stage_seconds,
         errors=report.errors,
         links={
             "status": HalLink(href="/v1/enrichment/status"),

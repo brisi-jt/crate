@@ -6,9 +6,12 @@ analysis of the track's preview → marked missing), persists results, and
 refreshes the feature calibration percentiles.
 """
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Literal, Protocol
 
+import httpx
 from sqlmodel import Session, select
 
 from crate.model.enums import FeatureSource, FeatureStatus, SimilaritySource, TagSource
@@ -42,6 +45,63 @@ from crate.services.enrichment.models import (
 # ISRC lookups attempted per artist when resolving an MBID; each costs a
 # paced MusicBrainz request, so the ladder stays short.
 MAX_MBID_LOOKUPS_PER_ARTIST = 2
+
+# Which slice of the pipeline one pass runs. "feature" is the map's blocker and
+# the default — it must never wait behind 1 req/s MusicBrainz lookups, so MBID
+# resolution lives in "identity". "all" runs both, for backfills that can spend
+# a longer budget.
+Stage = Literal["feature", "identity", "all"]
+
+# Default wall-clock budget for a pass. Passes check the deadline between
+# per-track (and per-artist) units and return partial progress once it trips,
+# so no single request runs unbounded.
+DEFAULT_TIME_BUDGET_SECONDS = 240.0
+
+Clock = Callable[[], float]
+
+# Transient network faults on a single unit (a read reset mid-stream, a
+# connect/read timeout) are isolated per-track: recorded and skipped, never
+# fatal to the pass. Programming errors are not swallowed.
+_TRANSIENT_ERRORS = (httpx.TransportError, httpx.TimeoutException)
+
+
+class _BudgetExhausted(Exception):
+    """Raised internally to unwind a stage once its deadline trips."""
+
+
+class _Deadline:
+    """Wall-clock budget tracker with per-stage timing.
+
+    ``check`` is called between per-track/artist units; it raises
+    ``_BudgetExhausted`` once the clock passes the deadline. ``timed``
+    attributes the elapsed wall-clock of a block to a named stage so the
+    report can show where a pass spent its budget.
+    """
+
+    STAGES = ("reccobeats", "isrc_fallback", "localdsp", "musicbrainz")
+
+    def __init__(self, clock: Clock, deadline: float) -> None:
+        self._clock = clock
+        self._deadline = deadline
+        self.stage_seconds: dict[str, float] = dict.fromkeys(self.STAGES, 0.0)
+
+    def expired(self) -> bool:
+        return self._clock() >= self._deadline
+
+    def check(self) -> None:
+        if self.expired():
+            raise _BudgetExhausted
+
+    def add(self, stage: str, seconds: float) -> None:
+        self.stage_seconds[stage] = self.stage_seconds.get(stage, 0.0) + seconds
+
+    async def timed(self, stage: str, awaitable):
+        """Await ``awaitable``, attributing its wall-clock to ``stage``."""
+        start = self._clock()
+        try:
+            return await awaitable
+        finally:
+            self.add(stage, self._clock() - start)
 
 
 def _primary_artist_name(track: Track) -> str:
@@ -106,6 +166,12 @@ class EnrichmentReport:
     # True when local values were stored raw because the overlap set was too
     # small to fit the quantile map into the ReccoBeats space.
     localdsp_uncalibrated: bool = False
+    # True when the wall-clock budget tripped before the pass drained its work;
+    # the counts above are honest partial progress, and another pass resumes.
+    budget_exhausted: bool = False
+    # Wall-clock seconds spent in each stage, so the grinder can see where a
+    # pass's time went (reccobeats, isrc_fallback, localdsp, musicbrainz).
+    stage_seconds: dict[str, float] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
 
@@ -144,17 +210,37 @@ class EnrichmentService:
         self._freqblog_budget_limit = freqblog_budget_limit
         self._month = month
 
-    async def run(self, session: Session, *, batch_size: int = 100) -> EnrichmentReport:
+    async def run(
+        self,
+        session: Session,
+        *,
+        batch_size: int = 100,
+        time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
+        stage: Stage = "feature",
+        clock: Clock = time.monotonic,
+    ) -> EnrichmentReport:
         report = EnrichmentReport(
             lastfm_skipped=self._lastfm is None,
             localdsp_skipped=self._localdsp is None,
         )
-        await self._enrich_track_features(session, batch_size, report)
-        if self._localdsp is not None:
-            await self._analyze_missing_locally(session, batch_size, report)
-        await self._resolve_artist_mbids(session, batch_size, report)
-        if self._lastfm is not None:
-            await self._enrich_artists_from_lastfm(session, batch_size, report)
+        deadline = _Deadline(clock, clock() + time_budget_seconds)
+        run_feature = stage in ("feature", "all")
+        run_identity = stage in ("identity", "all")
+
+        try:
+            if run_feature:
+                await self._enrich_track_features(session, batch_size, report, deadline)
+                if self._localdsp is not None:
+                    await self._analyze_missing_locally(session, batch_size, report, deadline)
+            if run_identity:
+                await self._resolve_artist_mbids(session, batch_size, report, deadline)
+                if self._lastfm is not None:
+                    await self._enrich_artists_from_lastfm(session, batch_size, report, deadline)
+        except _BudgetExhausted:
+            report.budget_exhausted = True
+            session.commit()
+
+        report.stage_seconds = dict(deadline.stage_seconds)
         recompute_calibration(session)
         # New feature values shift the percentile space itself, so cached
         # analytics for every user are stale, not just one library's.
@@ -166,7 +252,11 @@ class EnrichmentService:
     # -- track features -----------------------------------------------------
 
     async def _enrich_track_features(
-        self, session: Session, batch_size: int, report: EnrichmentReport
+        self,
+        session: Session,
+        batch_size: int,
+        report: EnrichmentReport,
+        deadline: _Deadline,
     ) -> None:
         candidates = session.exec(
             select(Track)
@@ -176,28 +266,43 @@ class EnrichmentService:
         ).all()
         if not candidates:
             return
-        report.tracks_processed = len(candidates)
 
-        batch = await self._reccobeats.get_audio_features_batch(
-            [track.spotify_id for track in candidates]
+        batch = await deadline.timed(
+            "reccobeats",
+            self._reccobeats.get_audio_features_batch([track.spotify_id for track in candidates]),
         )
         month = self._month or utcnow().strftime("%Y-%m")
 
         for track in candidates:
+            deadline.check()  # honour the budget between per-track units
             features = batch.get(track.spotify_id)
             if features is not None:
                 report.features_from_reccobeats += 1
                 source: FeatureSource | None = FeatureSource.reccobeats
             else:
-                features, source = await self._feature_fallbacks(session, track, month, report)
+                try:
+                    features, source = await self._feature_fallbacks(
+                        session, track, month, report, deadline
+                    )
+                except _TRANSIENT_ERRORS as exc:  # one bad read never voids the pass
+                    report.errors.append(f"features {track.name}: {exc!r}")
+                    features, source = None, None
             session.add(self._build_features_row(track, features, source, report))
+            report.tracks_processed += 1
         session.commit()
 
     async def _feature_fallbacks(
-        self, session: Session, track: Track, month: str, report: EnrichmentReport
+        self,
+        session: Session,
+        track: Track,
+        month: str,
+        report: EnrichmentReport,
+        deadline: _Deadline,
     ) -> tuple[AudioFeatures | None, FeatureSource | None]:
         if track.isrc:
-            features = await self._reccobeats.get_audio_features_by_isrc(track.isrc)
+            features = await deadline.timed(
+                "isrc_fallback", self._reccobeats.get_audio_features_by_isrc(track.isrc)
+            )
             if features is not None:
                 report.features_from_isrc_fallback += 1
                 return features, FeatureSource.reccobeats
@@ -229,7 +334,11 @@ class EnrichmentService:
     # -- local audio analysis -------------------------------------------------
 
     async def _analyze_missing_locally(
-        self, session: Session, batch_size: int, report: EnrichmentReport
+        self,
+        session: Session,
+        batch_size: int,
+        report: EnrichmentReport,
+        deadline: _Deadline,
     ) -> None:
         """Final rung: analyze the Deezer previews of remote-missed tracks.
 
@@ -250,8 +359,12 @@ class EnrichmentService:
         maps = await self._ensure_localdsp_calibration(session, report)
 
         for features_row, track in rows:
+            deadline.check()  # honour the budget between per-track units
             try:
-                analysis = await self._localdsp.analyze(track.name, _primary_artist_name(track))
+                analysis = await deadline.timed(
+                    "localdsp",
+                    self._localdsp.analyze(track.name, _primary_artist_name(track)),
+                )
             except Exception as exc:  # one bad preview never voids the pass
                 report.errors.append(f"localdsp {track.name}: {exc}")
                 continue
@@ -352,7 +465,11 @@ class EnrichmentService:
     # -- artist mbids --------------------------------------------------------
 
     async def _resolve_artist_mbids(
-        self, session: Session, batch_size: int, report: EnrichmentReport
+        self,
+        session: Session,
+        batch_size: int,
+        report: EnrichmentReport,
+        deadline: _Deadline,
     ) -> None:
         candidates = session.exec(
             select(Artist).where(Artist.mbid == None).limit(batch_size)  # noqa: E711
@@ -362,17 +479,33 @@ class EnrichmentService:
 
         isrcs_by_artist = self._isrcs_by_artist_spotify_id(session)
         for artist in candidates:
-            for isrc in isrcs_by_artist.get(artist.spotify_id, [])[:MAX_MBID_LOOKUPS_PER_ARTIST]:
-                recording = await self._musicbrainz.lookup_isrc(isrc)
-                if recording is None:
-                    continue
-                mbid = self._match_credit(artist.name, recording)
-                if mbid is not None:
-                    artist.mbid = mbid
-                    session.add(artist)
-                    report.artists_mbid_resolved += 1
-                    break
+            deadline.check()  # honour the budget between per-artist units
+            try:
+                await self._resolve_one_artist_mbid(
+                    session, artist, isrcs_by_artist, report, deadline
+                )
+            except _TRANSIENT_ERRORS as exc:  # one bad read never voids the pass
+                report.errors.append(f"musicbrainz {artist.name}: {exc!r}")
         session.commit()
+
+    async def _resolve_one_artist_mbid(
+        self,
+        session: Session,
+        artist: Artist,
+        isrcs_by_artist: dict[str, list[str]],
+        report: EnrichmentReport,
+        deadline: _Deadline,
+    ) -> None:
+        for isrc in isrcs_by_artist.get(artist.spotify_id, [])[:MAX_MBID_LOOKUPS_PER_ARTIST]:
+            recording = await deadline.timed("musicbrainz", self._musicbrainz.lookup_isrc(isrc))
+            if recording is None:
+                continue
+            mbid = self._match_credit(artist.name, recording)
+            if mbid is not None:
+                artist.mbid = mbid
+                session.add(artist)
+                report.artists_mbid_resolved += 1
+                break
 
     @staticmethod
     def _isrcs_by_artist_spotify_id(session: Session) -> dict[str, list[str]]:
@@ -396,7 +529,11 @@ class EnrichmentService:
     # -- artist similarity + tags ---------------------------------------------
 
     async def _enrich_artists_from_lastfm(
-        self, session: Session, batch_size: int, report: EnrichmentReport
+        self,
+        session: Session,
+        batch_size: int,
+        report: EnrichmentReport,
+        deadline: _Deadline,
     ) -> None:
         assert self._lastfm is not None
         candidates = session.exec(
@@ -407,10 +544,11 @@ class EnrichmentService:
         ).all()
         if not candidates:
             return
-        report.artists_processed = len(candidates)
 
         artists_by_name = {row.name.lower(): row for row in session.exec(select(Artist)).all()}
         for artist in candidates:
+            deadline.check()  # honour the budget between per-artist units
+            report.artists_processed += 1
             similar = await self._lastfm.get_similar_artists(artist.name)
             for entry in similar:
                 if self._similarity_exists(session, artist, entry.name):
@@ -468,8 +606,14 @@ class EnrichmentService:
         )
 
 
-async def run_enrichment(session: Session, batch_size: int) -> EnrichmentReport:
-    """Production wiring: build clients from settings and run one pass."""
+async def run_enrichment(
+    session: Session,
+    batch_size: int,
+    *,
+    time_budget_seconds: float = DEFAULT_TIME_BUDGET_SECONDS,
+    stage: Stage = "feature",
+) -> EnrichmentReport:
+    """Production wiring: build clients from settings and run one budgeted pass."""
     from pathlib import Path
 
     from crate.services.enrichment.cache import ResponseCache
@@ -531,7 +675,12 @@ async def run_enrichment(session: Session, batch_size: int) -> EnrichmentReport:
             localdsp=localdsp,
             freqblog_budget_limit=settings.freqblog_monthly_budget,
         )
-        return await service.run(session, batch_size=batch_size)
+        return await service.run(
+            session,
+            batch_size=batch_size,
+            time_budget_seconds=time_budget_seconds,
+            stage=stage,
+        )
     finally:
         for client in clients:
             await client.aclose()
