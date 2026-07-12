@@ -60,17 +60,22 @@ export function panDelta(screenDelta: number, k: number): number {
 }
 
 /**
+ * Sensitivity per pixel for pinch-to-zoom. At 0.004 px⁻¹, a 200 px gesture
+ * spans about 2.2× zoom — comparable to Maps / VS Code trackpad feel.
+ * Increase toward 0.008 for faster zooming; decrease for finer control.
+ */
+export const PINCH_ZOOM_SENSITIVITY = 0.004;
+
+/**
  * Compute a multiplicative zoom factor from a wheel deltaY.
  *
- * Uses the same exponential curve as Figma / most canvas editors.
+ * Uses an exponential curve (identical semantics to Figma / most canvas
+ * editors) so equal-pixel deltas produce equal percentage zoom steps.
  * Positive deltaY (scroll down / pinch open) → factor < 1 (zoom out).
  * Negative deltaY (scroll up / pinch close) → factor > 1 (zoom in).
- *
- * The magic constant 0.001 gives a smooth ~10% zoom per 100px of delta,
- * matching the feel of native map applications.
  *
  * @param deltaY - Normalised pixel deltaY from the wheel event.
  */
 export function zoomFactor(deltaY: number): number {
-  return 1.001 ** -deltaY;
+  return Math.exp(-deltaY * PINCH_ZOOM_SENSITIVITY);
 }

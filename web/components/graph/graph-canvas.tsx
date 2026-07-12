@@ -237,8 +237,13 @@ export default function GraphCanvas({
   }, [graphMounted]);
 
   // Ambient breath (graph spec §7): the simulation never fully freezes. A
-  // custom force adds sub-pixel velocity jitter each tick — a tide you sense
-  // rather than see — while high velocity decay keeps aimed-at nodes still.
+  // custom force adds gentle velocity jitter each tick — a drift visible at a
+  // glance, calm while reading — while high velocity decay keeps aimed-at
+  // nodes still. d3-force's inner alpha decays toward zero even with
+  // cooldownTime=Infinity, so a periodic reheat (via d3ReheatSimulation)
+  // restores simulation energy before motion becomes imperceptible.
+  // Amplitude 0.08 per axis gives terminal drift ≈ 11 px/s at zoom=1 with
+  // velocityDecay=0.55, which is visibly subtle without being distracting.
   // Reduced motion: no force, default cooldown, the map is a still chart.
   useEffect(() => {
     const fg = fgRef.current;
@@ -249,12 +254,20 @@ export default function GraphCanvas({
     }
     const breath = () => {
       for (const node of graphData.nodes) {
-        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.03;
-        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.03;
+        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.08;
+        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.08;
       }
     };
     fg.d3Force("breath", breath);
+    // Periodically reheat the inner simulation so alpha never decays to zero.
+    // d3AlphaTarget on the outer wrapper does not propagate to the inner
+    // kapsule, so without this the breath force fires but produces
+    // imperceptible motion once the simulation cools (~5 s after load).
+    const reheatId = setInterval(() => {
+      fgRef.current?.d3ReheatSimulation();
+    }, 8_000);
     return () => {
+      clearInterval(reheatId);
       fgRef.current?.d3Force("breath", null);
     };
   }, [reducedMotion, graphData, graphMounted]);
@@ -614,14 +627,11 @@ export default function GraphCanvas({
             isIncident(link, hoveredId) ||
             isIncident(link, selectedId)
           }
-          // Ambient breath: d3-force stops ticking when alpha decays below its
-          // internal alphaMin (~0.001). Setting alphaTarget above that floor
-          // makes the simulation perpetually converge *toward* the target —
-          // it never fully decays, so the "breath" custom force fires every
-          // tick and nodes drift at the intended sub-pixel amplitude.
-          // Under reduced motion we zero the target so the layout settles.
-          // Warmup pre-runs the layout so the first paint is already spread
-          // out and the initial fit frames the real constellation.
+          // cooldownTime=Infinity keeps the engine loop running so the breath
+          // force fires every tick. The periodic d3ReheatSimulation() call in
+          // the breath effect restores inner-sim alpha before it decays to zero.
+          // Under reduced motion we let the layout settle (finite cooldown).
+          // Warmup pre-runs the layout so the first paint is already spread.
           enableZoomInteraction={false}
           warmupTicks={150}
           d3VelocityDecay={0.55}

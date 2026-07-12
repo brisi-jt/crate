@@ -184,7 +184,11 @@ export default function ArtistGalaxyCanvas({
     return () => clearTimeout(timer);
   }, [graphMounted]);
 
-  // Ambient breath (graph spec §7) — still under reduced motion.
+  // Ambient breath (graph spec §7): nodes drift visibly but calmly at rest.
+  // Jitter amplitude 0.08 per axis → terminal drift ≈ 11 px/s with
+  // velocityDecay=0.55 — visible at a glance, calm while reading.
+  // Periodic reheat prevents the inner-sim alpha from decaying to zero
+  // (d3AlphaTarget only reaches the outer wrapper, not the inner kapsule).
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg || !graphMounted) return;
@@ -194,12 +198,16 @@ export default function ArtistGalaxyCanvas({
     }
     const breath = () => {
       for (const node of graphData.nodes) {
-        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.03;
-        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.03;
+        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.08;
+        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.08;
       }
     };
     fg.d3Force("breath", breath);
+    const reheatId = setInterval(() => {
+      fgRef.current?.d3ReheatSimulation();
+    }, 8_000);
     return () => {
+      clearInterval(reheatId);
       fgRef.current?.d3Force("breath", null);
     };
   }, [reducedMotion, graphData, graphMounted]);

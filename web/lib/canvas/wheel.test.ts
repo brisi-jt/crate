@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyWheelEvent,
   normaliseDelta,
+  PINCH_ZOOM_SENSITIVITY,
   panDelta,
   zoomFactor,
 } from "./wheel";
@@ -96,14 +97,24 @@ describe("zoomFactor", () => {
   });
 
   it("large positive deltaY gives a very small factor (fast zoom-out)", () => {
-    // 500px scroll: factor ≈ e^(-0.5) ≈ 0.607
+    // 500px scroll at PINCH_ZOOM_SENSITIVITY=0.004: e^(-2.0) ≈ 0.135
     const f = zoomFactor(500);
     expect(f).toBeGreaterThan(0);
-    expect(f).toBeLessThan(0.7);
+    expect(f).toBeLessThan(0.5);
   });
 
   it("large negative deltaY gives a large factor (fast zoom-in)", () => {
+    // 500px at PINCH_ZOOM_SENSITIVITY=0.004: e^(2.0) ≈ 7.39
     const f = zoomFactor(-500);
-    expect(f).toBeGreaterThan(1.4);
+    expect(f).toBeGreaterThan(5);
+  });
+
+  it("200px pinch spans ~2.2× zoom (sensitivity sanity check)", () => {
+    // 200px is a typical large pinch gesture; should give meaningful zoom.
+    // e^(-200 × PINCH_ZOOM_SENSITIVITY) ≈ e^(-0.8) ≈ 0.449 for zoom-out
+    const out = zoomFactor(200);
+    expect(out).toBeCloseTo(Math.exp(-200 * PINCH_ZOOM_SENSITIVITY), 5);
+    expect(out).toBeLessThan(0.6);
+    expect(out).toBeGreaterThan(0.3);
   });
 });
