@@ -6,6 +6,7 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from "react-force-graph-2d";
+import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
 import { type ClusterHull, POINT_RADIUS } from "@/lib/field/layout";
 import { type CanvasTokens, readCanvasTokens } from "@/lib/graph/canvas-tokens";
 
@@ -79,6 +80,8 @@ export default function TrackFieldCanvas({
   const lastFrameAt = useRef(0);
   const placedLabels = useRef<PlacedLabel[]>([]);
   const didFit = useRef(false);
+
+  useCanvasWheel(containerRef, fgRef);
 
   useEffect(() => {
     setTokens(readCanvasTokens());
@@ -365,6 +368,7 @@ export default function TrackFieldCanvas({
           nodePointerAreaPaint={paintPointerArea}
           nodeLabel={() => ""}
           enableNodeDrag={false}
+          enableZoomInteraction={false}
           onNodeHover={(node) => setHoveredId(node ? node.id : null)}
           onNodeClick={(node) => onSelect(node.id)}
           onBackgroundClick={() => onSelect(null)}

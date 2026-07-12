@@ -7,6 +7,7 @@ import ForceGraph2D, {
   type NodeObject,
 } from "react-force-graph-2d";
 import type { GraphResponse } from "@/lib/api/schemas";
+import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
 import {
   acousticColor,
   GREY_NODE,
@@ -118,6 +119,11 @@ export default function GraphCanvas({
   const lastFrameAt = useRef(0);
   const placedLabels = useRef<Array<[number, number, number, number]>>([]);
   const didFit = useRef(false);
+
+  // Two-finger pan / pinch-zoom: intercept wheel events before the library
+  // sees them. enableZoomInteraction={false} disables the default scroll-to-
+  // zoom so this handler is the sole wheel consumer.
+  useCanvasWheel(containerRef, fgRef);
 
   useEffect(() => {
     setTokens(readCanvasTokens());
@@ -616,6 +622,7 @@ export default function GraphCanvas({
           // Under reduced motion we zero the target so the layout settles.
           // Warmup pre-runs the layout so the first paint is already spread
           // out and the initial fit frames the real constellation.
+          enableZoomInteraction={false}
           warmupTicks={150}
           d3VelocityDecay={0.55}
           {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<

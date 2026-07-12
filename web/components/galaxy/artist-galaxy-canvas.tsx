@@ -7,6 +7,7 @@ import ForceGraph2D, {
   type NodeObject,
 } from "react-force-graph-2d";
 import type { GalaxyEdge } from "@/lib/api/schemas";
+import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
 import {
   type GalaxyEdgeKind,
   galaxyEdgeDash,
@@ -87,6 +88,8 @@ export default function ArtistGalaxyCanvas({
   const lastFrameAt = useRef(0);
   const placedLabels = useRef<PlacedLabel[]>([]);
   const didFit = useRef(false);
+
+  useCanvasWheel(containerRef, fgRef);
 
   useEffect(() => {
     setTokens(readCanvasTokens());
@@ -441,6 +444,7 @@ export default function ArtistGalaxyCanvas({
             isIncident(link, hoveredId) ||
             isIncident(link, selectedId)
           }
+          enableZoomInteraction={false}
           warmupTicks={150}
           d3VelocityDecay={0.55}
           {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<
