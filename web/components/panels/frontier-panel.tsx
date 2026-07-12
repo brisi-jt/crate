@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FieldGuideCard } from "@/components/chrome/field-guide-card";
 import { Readout } from "@/components/panels/right-dock";
 import { TargetPicker } from "@/components/panels/target-picker";
 import { Separator } from "@/components/ui/separator";
@@ -71,6 +72,15 @@ export function FrontierPanelContent() {
 
   return (
     <>
+      <FieldGuideCard
+        mode="frontier"
+        variant="inline"
+        stats={{
+          territoryCount: territory.length,
+          frontierCount: frontierGenres.length,
+        }}
+      />
+
       <div className="flex gap-xl">
         <Readout label="Territory" value={`${territory.length} GENRES`} />
         <Readout label="Frontier" value={String(frontierGenres.length)} />

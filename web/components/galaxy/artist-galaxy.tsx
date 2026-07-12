@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FieldGuideCard } from "@/components/chrome/field-guide-card";
 import ArtistGalaxyCanvas, {
   type GalaxyRenderNode,
 } from "@/components/galaxy/artist-galaxy-canvas";
@@ -186,6 +187,18 @@ export default function ArtistGalaxy({
           </span>
         )}
       </div>
+
+      <FieldGuideCard
+        mode="artists"
+        stats={{
+          artistsShown: coverage.artists_shown,
+          artistsTotal: coverage.artists_total,
+          bridgeCount: bridgeMode
+            ? (highlightIds?.size ?? undefined)
+            : undefined,
+        }}
+        position="bottom-left"
+      />
     </div>
   );
 }

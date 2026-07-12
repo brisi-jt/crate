@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FieldGuideCard } from "@/components/chrome/field-guide-card";
 import type { FieldRenderPoint } from "@/components/field/track-field-canvas";
 import TrackFieldCanvas from "@/components/field/track-field-canvas";
 import { useMembershipIndex } from "@/hooks/api/use-membership";
@@ -210,6 +211,16 @@ export default function TrackField({
           </span>
         )}
       </div>
+
+      <FieldGuideCard
+        mode="tracks"
+        stats={{
+          trackCount: trackMap.data.points.length,
+          clusterCount: trackMap.data.cluster_count,
+          ari: trackMap.data.ari,
+        }}
+        position="bottom-left"
+      />
     </div>
   );
 }

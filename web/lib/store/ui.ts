@@ -25,6 +25,12 @@ export type RightPanel =
  */
 export type MapMode = "playlists" | "tracks" | "artists";
 
+/**
+ * Surfaces that carry a field guide: the three canvas modes plus the
+ * frontier panel (a panel, not a map mode — hence the wider union).
+ */
+export type FieldGuideMode = MapMode | "frontier";
+
 /** A track picked in the playlist panel — target of graph context-menu adds. */
 export interface SelectedTrack {
   trackId: number;
@@ -48,6 +54,17 @@ interface UiState {
   selectedPlaylistId: number | null;
   /** Tracks marked in the playlist panel, for "add selection to…" actions. */
   selectedTracks: SelectedTrack[];
+  /**
+   * Per-mode field guide expanded/collapsed state. Keyed by FieldGuideMode.
+   * A mode absent from this record has never been visited — defaults to
+   * expanded on first visit (see fieldGuideFirstVisit).
+   */
+  fieldGuideExpanded: Partial<Record<FieldGuideMode, boolean>>;
+  /**
+   * Tracks whether the user has ever toggled the guide for a mode.
+   * Until toggled, the guide renders expanded.
+   */
+  fieldGuideFirstVisit: Partial<Record<FieldGuideMode, boolean>>;
   openPlaylist: (playlistId: number) => void;
   openTrack: (trackId: number) => void;
   openArtist: (artistId: string) => void;
@@ -65,6 +82,7 @@ interface UiState {
   toggleTrackSelection: (track: SelectedTrack) => void;
   clearTrackSelection: () => void;
   popLayer: () => void;
+  setFieldGuideExpanded: (mode: FieldGuideMode, expanded: boolean) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
@@ -75,6 +93,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   clusterOverlay: false,
   selectedPlaylistId: null,
   selectedTracks: [],
+  fieldGuideExpanded: {},
+  fieldGuideFirstVisit: {},
 
   openTrack: (trackId) =>
     set({ rightPanel: { kind: "track", trackId }, paletteOpen: false }),
@@ -135,5 +155,13 @@ export const useUiStore = create<UiState>((set, get) => ({
     } else if (rightPanel) {
       set({ rightPanel: null, selectedPlaylistId: null, selectedTracks: [] });
     }
+  },
+
+  setFieldGuideExpanded: (mode, expanded) => {
+    const { fieldGuideExpanded, fieldGuideFirstVisit } = get();
+    set({
+      fieldGuideExpanded: { ...fieldGuideExpanded, [mode]: expanded },
+      fieldGuideFirstVisit: { ...fieldGuideFirstVisit, [mode]: true },
+    });
   },
 }));

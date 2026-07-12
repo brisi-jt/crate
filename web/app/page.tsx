@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/chrome/command-palette";
+import { FieldGuideCard } from "@/components/chrome/field-guide-card";
 import { MapModeSwitch } from "@/components/chrome/map-mode-switch";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
@@ -241,6 +242,21 @@ export default function MapPage() {
           <SyncReadout graph={graph.data ?? null} />
           {graph.data && <MapModeSwitch />}
         </div>
+
+        {/* Field guide — bottom-left corner, playlist graph only (track field
+            and artist galaxy render their own guides inside their components
+            where the relevant stats live). */}
+        {graph.data && mapMode === "playlists" && (
+          <FieldGuideCard
+            mode="playlists"
+            stats={{
+              playlistCount: graph.data.nodes.length,
+              edgeCount: graph.data.edges.filter((e) => !e.subset).length,
+              subsetCount: graph.data.edges.filter((e) => e.subset).length,
+            }}
+            position="bottom-left"
+          />
+        )}
         <div className="absolute top-md right-lg z-10 flex items-center gap-md">
           {/* Inbox cue: a 6px amber tick beside the readout while an unread
               digest waits — marker, not alarm (chrome stays whisper-quiet). */}
