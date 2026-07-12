@@ -16,6 +16,9 @@ export interface FieldGuideStats {
   /** Frontier panel */
   territoryCount?: number;
   frontierCount?: number;
+  /** Insights dock */
+  enrichedTracks?: number;
+  archetype?: string;
 }
 
 export interface FieldGuideLine {
@@ -182,6 +185,35 @@ export function fieldGuideContent(
       return {
         title: "Frontier",
         summary: `${territory} territory · ${frontier} frontier`,
+        legend,
+        prompts: [],
+      };
+    }
+
+    case "insights": {
+      const enriched = formatNum(stats.enrichedTracks);
+      const archetype = stats.archetype;
+
+      const legend: FieldGuideLine[] = [
+        {
+          label: "Fingerprint",
+          body: "Your library's mean sound — nine features at their library percentiles. The filled shape is your centroid color.",
+        },
+        {
+          label: "Signatures",
+          body: "Camelot keys, mood field, tempo and feature distributions — all from features crate computes itself, alive here and nowhere else.",
+        },
+        {
+          label: "Archaeology",
+          body: "Your curation history as a geological core, plus the playlists gone dormant.",
+        },
+      ];
+
+      return {
+        title: "Insights",
+        summary: archetype
+          ? `${archetype} · ${enriched} enriched`
+          : `${enriched} enriched`,
         legend,
         prompts: [],
       };

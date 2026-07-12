@@ -16,7 +16,8 @@ export type RightPanel =
   | { kind: "artist"; artistId: string }
   | { kind: "frontier" }
   | { kind: "inbox" }
-  | { kind: "radio" };
+  | { kind: "radio" }
+  | { kind: "insights" };
 
 /**
  * The canvas renders one of three maps: the playlist graph, the track field,
@@ -27,9 +28,10 @@ export type MapMode = "playlists" | "tracks" | "artists";
 
 /**
  * Surfaces that carry a field guide: the three canvas modes plus the
- * frontier panel (a panel, not a map mode — hence the wider union).
+ * frontier and insights panels (panels, not map modes — hence the wider
+ * union).
  */
-export type FieldGuideMode = MapMode | "frontier";
+export type FieldGuideMode = MapMode | "frontier" | "insights";
 
 /** A track picked in the playlist panel — target of graph context-menu adds. */
 export interface SelectedTrack {
@@ -71,6 +73,7 @@ interface UiState {
   openFrontier: () => void;
   openInbox: () => void;
   openRadio: () => void;
+  openInsights: () => void;
   setMapMode: (mode: MapMode) => void;
   setClusterOverlay: (on: boolean) => void;
   openStats: () => void;
@@ -108,6 +111,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   openInbox: () => set({ rightPanel: { kind: "inbox" }, paletteOpen: false }),
 
   openRadio: () => set({ rightPanel: { kind: "radio" }, paletteOpen: false }),
+
+  openInsights: () =>
+    set({ rightPanel: { kind: "insights" }, paletteOpen: false }),
 
   setMapMode: (mode) => set({ mapMode: mode }),
 

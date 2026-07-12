@@ -32,4 +32,16 @@ export const queryKeys = {
   /** One digest with its items; invalidate with the bare `digests` prefix. */
   digest: (digestId: number) => ["digests", digestId] as const,
   radio: (radioId: number) => ["radio", radioId] as const,
+  insights: ["insights"] as const,
+  /** Scope-keyed survey; invalidate with the bare `insights` prefix. */
+  insightsScoped: (ownedOnly: boolean) => ["insights", { ownedOnly }] as const,
+  editions: ["editions"] as const,
+  /** Scope-keyed edition list; invalidate with the bare `editions` prefix. */
+  editionsScoped: (ownedOnly: boolean) => ["editions", { ownedOnly }] as const,
+  /** One frozen edition by id. */
+  edition: (editionId: number) => ["editions", editionId] as const,
+  /** Per-surface insight pins; invalidate with the bare `pins` prefix. */
+  insightPins: (surface: string, ownedOnly: boolean) =>
+    ["insight-pins", surface, { ownedOnly }] as const,
+  me: ["me"] as const,
 };

@@ -568,6 +568,219 @@ export const radioSessionSchema = z.object({
   _links: halLinksSchema,
 });
 
+// ----------------------------------------------- insights (Task 26 survey)
+
+/**
+ * The survey payload — one section-shaped reading of the whole library.
+ * Every field is exact per api/crate/router/insights.py; sub-blocks go null
+ * or empty before enrichment (the page renders honest pending states rather
+ * than hiding sections).
+ */
+
+export const insightsCoverageSchema = z.object({
+  total_tracks: z.number(),
+  enriched_tracks: z.number(),
+  library_artists: z.number(),
+  dated_tracks: z.number(),
+  birth_year_set: z.boolean(),
+});
+
+export const fingerprintAxisSchema = z.object({
+  feature: z.string(),
+  percentile: z.number(),
+});
+
+export const genreEntropySchema = z.object({
+  entropy_bits: z.number(),
+  effective_genres: z.number(),
+});
+
+export const typologySchema = z.object({
+  archetype: z.string(),
+  genre_breadth: z.number(),
+  acoustic_sprawl: z.number(),
+  rarity: z.number(),
+});
+
+export const genreShareSchema = z.object({
+  genre: z.string(),
+  share: z.number(),
+});
+
+export const rarestGenreSchema = z.object({
+  genre: z.string(),
+  enao_rank: z.number(),
+  rarity: z.number(),
+});
+
+export const tasteIdentitySchema = z.object({
+  fingerprint: z.array(fingerprintAxisSchema),
+  genre_entropy: genreEntropySchema,
+  /** Acoustic sprawl 0..1; null under 2 enriched tracks. */
+  gs_score: z.number().nullable(),
+  typology: typologySchema,
+  genre_shares: z.array(genreShareSchema),
+  genre_rarity: z.object({
+    mean_rarity: z.number(),
+    rarest: z.array(rarestGenreSchema),
+  }),
+});
+
+export const camelotSegmentSchema = z.object({
+  code: z.string(),
+  number: z.number(),
+  ring: z.string(),
+  count: z.number(),
+  /** Mean valence tint for the key; null with no enriched tracks in it. */
+  mean_valence: z.number().nullable(),
+});
+
+export const moodSchema = z.object({
+  grid: z.array(z.array(z.number())),
+  size: z.number(),
+  counts: z.record(z.string(), z.number()),
+  shares: z.record(z.string(), z.number()),
+  total: z.number(),
+});
+
+export const tempoBandSchema = z.object({
+  bpm_low: z.number(),
+  bpm_high: z.number(),
+  count: z.number(),
+});
+
+export const ridgelineSchema = z.object({
+  feature: z.string(),
+  buckets: z.array(z.number()),
+});
+
+export const sonicSignaturesSchema = z.object({
+  camelot: z.array(camelotSegmentSchema),
+  mood: moodSchema,
+  tempo: z.array(tempoBandSchema),
+  ridgelines: z.array(ridgelineSchema),
+});
+
+export const addsOverTimeSchema = z.object({
+  month: z.string(),
+  count: z.number(),
+  /** Mean color of that month's enriched adds; null if none enriched. */
+  centroid: centroidSchema.nullable(),
+});
+
+export const abandonedPlaylistSchema = z.object({
+  playlist_id: z.number(),
+  name: z.string(),
+  months_dormant: z.number(),
+});
+
+export const archaeologySchema = z.object({
+  adds_over_time: z.array(addsOverTimeSchema),
+  abandoned_playlists: z.array(abandonedPlaylistSchema),
+});
+
+export const decadeSchema = z.object({
+  decade: z.number(),
+  count: z.number(),
+});
+
+export const comingOfAgeSchema = z.object({
+  band_start_year: z.number(),
+  band_end_year: z.number(),
+  share: z.number(),
+  count: z.number(),
+});
+
+export const erasSchema = z.object({
+  decades: z.array(decadeSchema),
+  center_of_gravity: z.number().nullable(),
+  median_year: z.number().nullable(),
+  /** Populated only when birth_year is set. */
+  coming_of_age: comingOfAgeSchema.nullable(),
+  total: z.number(),
+});
+
+export const extremeSchema = z.object({
+  label: z.string(),
+  track_id: z.number(),
+  name: z.string(),
+  artist: z.string(),
+  value: z.number(),
+  /** "seconds" for duration extremes, "percentile" for feature extremes. */
+  unit: z.string(),
+});
+
+export const insightsSchema = z.object({
+  coverage: insightsCoverageSchema,
+  taste_identity: tasteIdentitySchema,
+  sonic_signatures: sonicSignaturesSchema,
+  archaeology: archaeologySchema,
+  eras: erasSchema,
+  extremes: z.array(extremeSchema),
+  _links: halLinksSchema,
+});
+
+// ----------------------------------------- insight editions (field journal)
+
+export const editionNarrativeSchema = z.object({
+  /** baseline | entropy | sprawl | rarity | archetype | dormancy | fingerprint | steady */
+  kind: z.string(),
+  text: z.string(),
+});
+
+export const editionSchema = z.object({
+  id: z.number(),
+  edition_number: z.number(),
+  week_start: z.string(),
+  generated_at: z.string(),
+  owned_only: z.boolean(),
+  headline: z.record(z.string(), z.unknown()),
+  narrative: z.array(editionNarrativeSchema),
+  _links: halLinksSchema,
+});
+
+export const editionSummarySchema = z.object({
+  id: z.number(),
+  edition_number: z.number(),
+  week_start: z.string(),
+  generated_at: z.string(),
+  owned_only: z.boolean(),
+  line_count: z.number(),
+  _links: halLinksSchema,
+});
+
+export const editionCollectionSchema = z.object({
+  items: z.array(editionSummarySchema),
+  total: z.number(),
+  _links: halLinksSchema,
+});
+
+// -------------------------------------------------- insight pins (surface C)
+
+export const insightPinSchema = z.object({
+  /** node id, "region", or artist key — resolved per surface. */
+  anchor: z.string(),
+  metric_ref: z.string(),
+  line: z.string(),
+  /** Stable identity used to remember a dismissal. */
+  dismissible_id: z.string(),
+  salience: z.number(),
+});
+
+export const insightPinsSchema = z.object({
+  surface: z.string(),
+  pins: z.array(insightPinSchema),
+  _links: halLinksSchema,
+});
+
+// -------------------------------------------------------------- me (Task 26)
+
+export const meSchema = z.object({
+  id: z.number(),
+  birth_year: z.number().nullable(),
+  _links: halLinksSchema,
+});
+
 export type Playlist = z.infer<typeof playlistSchema>;
 export type PlaylistCollection = z.infer<typeof playlistCollectionSchema>;
 export type PlaylistTrack = z.infer<typeof playlistTrackSchema>;
@@ -613,3 +826,29 @@ export type DigestCollection = z.infer<typeof digestCollectionSchema>;
 export type RadioItem = z.infer<typeof radioItemSchema>;
 export type RadioSummary = z.infer<typeof radioSummarySchema>;
 export type RadioSession = z.infer<typeof radioSessionSchema>;
+export type InsightsCoverage = z.infer<typeof insightsCoverageSchema>;
+export type FingerprintAxis = z.infer<typeof fingerprintAxisSchema>;
+export type TasteIdentity = z.infer<typeof tasteIdentitySchema>;
+export type Typology = z.infer<typeof typologySchema>;
+export type GenreShare = z.infer<typeof genreShareSchema>;
+export type RarestGenre = z.infer<typeof rarestGenreSchema>;
+export type CamelotSegment = z.infer<typeof camelotSegmentSchema>;
+export type Mood = z.infer<typeof moodSchema>;
+export type TempoBand = z.infer<typeof tempoBandSchema>;
+export type Ridgeline = z.infer<typeof ridgelineSchema>;
+export type SonicSignatures = z.infer<typeof sonicSignaturesSchema>;
+export type AddsOverTime = z.infer<typeof addsOverTimeSchema>;
+export type AbandonedPlaylist = z.infer<typeof abandonedPlaylistSchema>;
+export type Archaeology = z.infer<typeof archaeologySchema>;
+export type Decade = z.infer<typeof decadeSchema>;
+export type ComingOfAge = z.infer<typeof comingOfAgeSchema>;
+export type Eras = z.infer<typeof erasSchema>;
+export type Extreme = z.infer<typeof extremeSchema>;
+export type Insights = z.infer<typeof insightsSchema>;
+export type EditionNarrative = z.infer<typeof editionNarrativeSchema>;
+export type Edition = z.infer<typeof editionSchema>;
+export type EditionSummary = z.infer<typeof editionSummarySchema>;
+export type EditionCollection = z.infer<typeof editionCollectionSchema>;
+export type InsightPin = z.infer<typeof insightPinSchema>;
+export type InsightPins = z.infer<typeof insightPinsSchema>;
+export type Me = z.infer<typeof meSchema>;

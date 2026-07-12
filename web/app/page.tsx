@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/chrome/command-palette";
 import { FieldGuideCard } from "@/components/chrome/field-guide-card";
 import { MapModeSwitch } from "@/components/chrome/map-mode-switch";
+import { PinsSwitch } from "@/components/chrome/pins-switch";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
 import { ListeningDeck } from "@/components/deck/listening-deck";
@@ -18,10 +19,12 @@ import {
   type ContextMenuState,
   NodeContextMenu,
 } from "@/components/graph/node-context-menu";
+import { InsightPinLayer } from "@/components/insights/insight-pin-layer";
 import { ArtistCardPanelContent } from "@/components/panels/artist-card-panel";
 import { BulkOpsPanelContent } from "@/components/panels/bulk-ops-panel";
 import { FrontierPanelContent } from "@/components/panels/frontier-panel";
 import { InboxPanelContent } from "@/components/panels/inbox-panel";
+import { InsightsPanelContent } from "@/components/panels/insights-panel";
 import { LibraryStatsPanelContent } from "@/components/panels/library-stats-panel";
 import { OpsLogPanelContent } from "@/components/panels/ops-log-panel";
 import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
@@ -69,6 +72,7 @@ export default function MapPage() {
 
   const rightPanel = useUiStore((s) => s.rightPanel);
   const openInbox = useUiStore((s) => s.openInbox);
+  const openInsights = useUiStore((s) => s.openInsights);
   const digests = useDigests();
   const inboxUnread = hasUnread(digests.data?.items ?? []);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
@@ -137,7 +141,8 @@ export default function MapPage() {
     ? rightPanel.kind === "stats" ||
       rightPanel.kind === "bulk-ops" ||
       rightPanel.kind === "frontier" ||
-      rightPanel.kind === "radio"
+      rightPanel.kind === "radio" ||
+      rightPanel.kind === "insights"
       ? 640
       : 440
     : 0;
@@ -238,10 +243,20 @@ export default function MapPage() {
         )}
 
         {/* Chrome woven onto the canvas margin — no bar, no card */}
-        <div className="pointer-events-none absolute top-md left-lg z-10 flex items-center gap-md">
+        <div className="pointer-events-none absolute top-md left-lg z-10 flex max-w-[calc(100%-320px)] flex-wrap items-center gap-md">
           <SyncReadout graph={graph.data ?? null} />
           {graph.data && <MapModeSwitch />}
         </div>
+
+        {/* Insight pins (surface C) — annotations docked onto the active
+            canvas, per map mode. Dismissible, restorable via the PINS switch. */}
+        {graph.data && (
+          <InsightPinLayer
+            mode={mapMode}
+            nodes={nodes}
+            rightInset={rightInset}
+          />
+        )}
 
         {/* Field guide — bottom-left corner, playlist graph only (track field
             and artist galaxy render their own guides inside their components
@@ -258,6 +273,7 @@ export default function MapPage() {
           />
         )}
         <div className="absolute top-md right-lg z-10 flex items-center gap-md">
+          {graph.data && <PinsSwitch />}
           {/* Inbox cue: a 6px amber tick beside the readout while an unread
               digest waits — marker, not alarm (chrome stays whisper-quiet). */}
           <button
@@ -269,6 +285,13 @@ export default function MapPage() {
               <span className="inline-block size-[6px] rounded-full bg-amber" />
             )}
             INBOX
+          </button>
+          <button
+            type="button"
+            onClick={openInsights}
+            className="micro-caps pointer-events-auto cursor-pointer text-text-muted hover:text-text-secondary"
+          >
+            INSIGHTS
           </button>
           <button
             type="button"
@@ -380,6 +403,15 @@ export default function MapPage() {
         onClose={closeRightPanel}
       >
         {rightPanel?.kind === "radio" && <RadioPanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "insights"}
+        wide
+        title="Insights"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "insights" && <InsightsPanelContent />}
       </RightDock>
 
       {contextMenu && (
