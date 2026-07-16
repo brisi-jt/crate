@@ -34,7 +34,16 @@ interface PlayerState {
   volume: number;
   /** Fires when the current audio finishes (deck listens to stop its intent). */
   onEnded: (() => void) | null;
+  /**
+   * Fires when the audio element emits an error (stale 403, network hiccup).
+   * The handler receives the MediaError so it can distinguish a retryable
+   * stale-URL error from a decode error. Set by the deck / radio panel when
+   * they want to attempt a preview refresh; cleared on unmount.
+   */
+  onError: ((error: MediaError | null) => void) | null;
   load: (track: NowPlaying) => void;
+  /** Swap in a fresh URL for the currently-loaded track without stopping. */
+  swapUrl: (url: string) => void;
   play: () => void;
   pause: () => void;
   toggle: () => void;
@@ -42,6 +51,7 @@ interface PlayerState {
   seek: (fraction: number) => void;
   setVolume: (volume: number) => void;
   setOnEnded: (handler: (() => void) | null) => void;
+  setOnError: (handler: ((error: MediaError | null) => void) | null) => void;
 }
 
 let audioElement: HTMLAudioElement | null = null;
@@ -69,6 +79,11 @@ function audio(store: () => PlayerState): HTMLAudioElement | null {
   audioElement.addEventListener("play", () => {
     usePlayerStore.setState({ playing: true });
   });
+  audioElement.addEventListener("error", () => {
+    usePlayerStore.setState({ playing: false });
+    const mediaError = audioElement?.error ?? null;
+    usePlayerStore.getState().onError?.(mediaError);
+  });
   return audioElement;
 }
 
@@ -79,6 +94,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   duration: 0,
   volume: 0.8,
   onEnded: null,
+  onError: null,
 
   load: (track) => {
     const element = audio(get);
@@ -89,6 +105,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } else if (element) {
       element.removeAttribute("src");
     }
+  },
+
+  swapUrl: (url) => {
+    const element = audio(get);
+    if (!element) return;
+    const { current } = get();
+    if (current) set({ current: { ...current, url } });
+    element.src = url;
+    element.volume = get().volume;
+    void element.play().catch(() => set({ playing: false }));
   },
 
   play: () => {
@@ -130,4 +156,5 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setOnEnded: (handler) => set({ onEnded: handler }),
+  setOnError: (handler) => set({ onError: handler }),
 }));

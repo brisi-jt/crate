@@ -29,3 +29,6 @@ next-env.d.ts
 
 # Database backups (local dumps stay local)
 backups/
+
+# Spilled Spotify refresh tokens (encrypted, but never commit secrets)
+api/data/token_spill/

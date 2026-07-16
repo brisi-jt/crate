@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { DeckEmptyState } from "@/components/deck/deck-empty-state";
@@ -11,11 +12,16 @@ import {
   useSuggestionFeedback,
   useSuggestions,
 } from "@/hooks/api/use-suggestions";
-import type { Suggestion } from "@/lib/api/schemas";
+import { queryKeys } from "@/lib/api/keys";
+import type { Suggestion, SuggestionQueue } from "@/lib/api/schemas";
 import { acousticColor, oklchString } from "@/lib/color/acoustic";
 import { deckPhase } from "@/lib/deck/empty-state";
 import { ghostFill, ghostOffset } from "@/lib/deck/ghost";
 import { currentId } from "@/lib/deck/machine";
+import {
+  isPreviewStaleError,
+  refreshPreviewUrl,
+} from "@/lib/playback/preview-refresh";
 import { playbackMode, SpotifyPlayback } from "@/lib/playback/spotify-sdk";
 import { useDeckStore } from "@/lib/store/deck";
 import { usePlayerStore } from "@/lib/store/player";
@@ -73,6 +79,7 @@ export function ListeningDeck({
   const feedback = useSuggestionFeedback(playlistId);
   const run = useDiscoveryRun(playlistId);
   const undo = useUndoJournal();
+  const queryClient = useQueryClient();
 
   const queue = useDeckStore((s) => s.queue);
   const index = useDeckStore((s) => s.index);
@@ -80,6 +87,9 @@ export function ListeningDeck({
   const dispatch = useDeckStore((s) => s.dispatch);
 
   const sdkRef = useRef<SpotifyPlayback | null>(null);
+  // One-shot refresh guard: true once a refresh has been attempted for the
+  // currently-playing candidate. Reset whenever `current` changes.
+  const refreshAttemptedRef = useRef(false);
 
   const items = useMemo(
     () => suggestions.data?.items ?? [],
@@ -101,6 +111,15 @@ export function ListeningDeck({
     const id = currentId({ queue, index, playing });
     return id === null ? null : (byId.get(id) ?? null);
   }, [queue, index, playing, byId]);
+
+  // Reset the one-shot refresh guard whenever the candidate changes.
+  // Using a ref to track previous candidate id avoids an effect dependency.
+  const prevCandidateIdRef = useRef<number | null>(null);
+  const currentIdValue = current?.id ?? null;
+  if (prevCandidateIdRef.current !== currentIdValue) {
+    prevCandidateIdRef.current = currentIdValue;
+    refreshAttemptedRef.current = false;
+  }
 
   const phase = deckPhase({
     pending: suggestions.isPending,
@@ -209,6 +228,80 @@ export function ListeningDeck({
       sdkRef.current?.disconnect();
     };
   }, [dispatch]);
+
+  // Audio error -> attempt a one-shot preview refresh for the current candidate.
+  // Uses a ref snapshot of `current` so the effect is stable (no re-register
+  // per candidate change) while always reading the latest candidate id.
+  const currentRef = useRef<typeof current>(null);
+  currentRef.current = current;
+
+  useEffect(() => {
+    const player = usePlayerStore.getState();
+    player.setOnError(async (mediaError) => {
+      const candidate = currentRef.current;
+      if (!candidate) return;
+      // Only retry stale-URL errors; let other errors fall through.
+      if (!isPreviewStaleError(mediaError)) {
+        dispatch({ type: "AUDIO_ENDED" });
+        return;
+      }
+      // One retry per candidate per play session.
+      if (refreshAttemptedRef.current) {
+        dispatch({ type: "AUDIO_ENDED" });
+        return;
+      }
+      refreshAttemptedRef.current = true;
+
+      try {
+        const freshUrl = await refreshPreviewUrl({
+          candidate_id: candidate.id,
+        });
+        if (!freshUrl) {
+          // PREVIEW_UNRESOLVABLE — patch the cached queue to null so the deck
+          // shows the no-preview / open-in-Spotify treatment.
+          queryClient.setQueryData<SuggestionQueue>(
+            queryKeys.suggestions(playlistId),
+            (old) =>
+              old
+                ? {
+                    ...old,
+                    items: old.items.map((item) =>
+                      item.id === candidate.id
+                        ? { ...item, preview_url: null }
+                        : item,
+                    ),
+                  }
+                : old,
+          );
+          dispatch({ type: "AUDIO_ENDED" });
+          return;
+        }
+        // Patch the cached queue so subsequent plays use the fresh URL.
+        queryClient.setQueryData<SuggestionQueue>(
+          queryKeys.suggestions(playlistId),
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  items: old.items.map((item) =>
+                    item.id === candidate.id
+                      ? { ...item, preview_url: freshUrl }
+                      : item,
+                  ),
+                }
+              : old,
+        );
+        // Swap into the audio element and resume — one shot.
+        usePlayerStore.getState().swapUrl(freshUrl);
+      } catch {
+        // Network / server error — surface no-preview treatment silently.
+        dispatch({ type: "AUDIO_ENDED" });
+      }
+    });
+    return () => {
+      usePlayerStore.getState().setOnError(null);
+    };
+  }, [dispatch, playlistId, queryClient]);
 
   const accept = useCallback(
     (suggestion: Suggestion) => {

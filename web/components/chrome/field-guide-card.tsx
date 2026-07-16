@@ -52,15 +52,22 @@ export function FieldGuideCard({
   const content = fieldGuideContent(mode, stats);
 
   // Escape closes the guide when expanded.
+  // stopImmediatePropagation prevents the page-level popLayer handler from
+  // also firing on the same keydown — in the frontier panel this would
+  // otherwise collapse the guide AND pop the panel in one keystroke.
+  // The listener is registered with `capture: true` so it runs before the
+  // page-level bubble-phase listener and can suppress it reliably.
   useEffect(() => {
     if (!expanded) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        event.stopImmediatePropagation();
         setFieldGuideExpanded(mode, false);
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, [expanded, mode, setFieldGuideExpanded]);
 
   const wrapperClass =

@@ -14,8 +14,13 @@ import {
   useRadio,
   useRadioItemFeedback,
 } from "@/hooks/api/use-radio";
+import { ApiError } from "@/lib/api/errors";
 import { queryKeys } from "@/lib/api/keys";
 import type { RadioItem, RadioSession } from "@/lib/api/schemas";
+import {
+  isPreviewStaleError,
+  refreshPreviewUrl,
+} from "@/lib/playback/preview-refresh";
 import {
   itemReadout,
   nextPlayableIndex,
@@ -206,6 +211,7 @@ function SessionView({
   onNewSeed: () => void;
 }) {
   const player = usePlayerStore();
+  const queryClient = useQueryClient();
   const summary = sessionSummary(session.items);
   const complete = sessionComplete(session.items);
 
@@ -214,6 +220,13 @@ function SessionView({
   itemsRef.current = session.items;
   const activeRef = useRef(activeIndex);
   activeRef.current = activeIndex;
+  // One-shot refresh guard per active item; reset inline when activeIndex changes.
+  const refreshAttemptedRef = useRef(false);
+  const prevActiveIndexRef = useRef<number | null>(null);
+  if (prevActiveIndexRef.current !== activeIndex) {
+    prevActiveIndexRef.current = activeIndex;
+    refreshAttemptedRef.current = false;
+  }
 
   const playIndex = useMemo(() => {
     return (index: number) => {
@@ -246,6 +259,53 @@ function SessionView({
     });
     return () => usePlayerStore.getState().setOnEnded(null);
   }, [playIndex]);
+
+  // Audio error -> one-shot preview refresh for the active radio item.
+  useEffect(() => {
+    usePlayerStore.getState().setOnError(async (mediaError) => {
+      const activeIdx = activeRef.current;
+      if (activeIdx === null) return;
+      const item = itemsRef.current[activeIdx];
+      if (!item) return;
+      if (!isPreviewStaleError(mediaError)) {
+        // Not a stale-URL error — advance to the next playable item.
+        playIndex(activeIdx + 1);
+        return;
+      }
+      if (refreshAttemptedRef.current) {
+        playIndex(activeIdx + 1);
+        return;
+      }
+      refreshAttemptedRef.current = true;
+
+      try {
+        const freshUrl = await refreshPreviewUrl({ radio_item_id: item.id });
+        if (!freshUrl) {
+          // Advance past this unresolvable item.
+          playIndex(activeIdx + 1);
+          return;
+        }
+        // Patch the cached radio session so subsequent plays use the fresh URL.
+        queryClient.setQueryData<RadioSession>(
+          queryKeys.radio(session.id),
+          (old) =>
+            old
+              ? {
+                  ...old,
+                  items: old.items.map((it) =>
+                    it.id === item.id ? { ...it, preview_url: freshUrl } : it,
+                  ),
+                }
+              : old,
+        );
+        usePlayerStore.getState().swapUrl(freshUrl);
+      } catch {
+        // Network / server error — advance silently.
+        playIndex(activeIdx + 1);
+      }
+    });
+    return () => usePlayerStore.getState().setOnError(null);
+  }, [playIndex, queryClient, session.id]);
 
   return (
     <>
@@ -331,6 +391,21 @@ function RadioItemRow({
               action: { label: "UNDO", onClick: () => undo.mutate(journalId) },
             });
           }
+        },
+        onError: (error) => {
+          if (error instanceof ApiError) {
+            const code = error.problem?.error_code;
+            if (
+              code === "SPOTIFY_SESSION_EXPIRED" ||
+              code === "REAUTH_REQUIRED"
+            ) {
+              toast.error(
+                "Spotify session expired — reconnect Spotify then try again.",
+              );
+              return;
+            }
+          }
+          toast.error(error instanceof Error ? error.message : "+ADD failed");
         },
       },
     );
