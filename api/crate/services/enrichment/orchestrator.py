@@ -62,7 +62,9 @@ Clock = Callable[[], float]
 # Transient network faults on a single unit (a read reset mid-stream, a
 # connect/read timeout) are isolated per-track: recorded and skipped, never
 # fatal to the pass. Programming errors are not swallowed.
-_TRANSIENT_ERRORS = (httpx.TransportError, httpx.TimeoutException)
+# HTTPStatusError covers an upstream 5xx that survived request_with_backoff's
+# retries — still the upstream's problem, never grounds to abort a whole pass.
+_TRANSIENT_ERRORS = (httpx.TransportError, httpx.TimeoutException, httpx.HTTPStatusError)
 
 
 class _BudgetExhausted(Exception):

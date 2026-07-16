@@ -49,7 +49,9 @@ class MusicBrainzClient:
         (DE-Z20-06-00039); MusicBrainz only accepts the bare form. Any 4xx is
         a no-match for that ISRC, never an error for the caller — one bad
         identifier must not abort a whole enrichment pass. Misses are cached
-        as empty recording lists so they aren't re-queried every pass.
+        as empty recording lists so they aren't re-queried every pass. A 5xx
+        that survives the backoff retries raises HTTPStatusError and is NOT
+        cached — the outage is MusicBrainz's state, not the ISRC's.
         """
         normalized = isrc.replace("-", "").replace(" ", "").upper()
         cache_key = f"isrc:{normalized}"

@@ -14,8 +14,12 @@ import httpx
 Clock = Callable[[], float]
 Sleep = Callable[[float], Awaitable[None]]
 
-# Wait applied to a 429 that carries no Retry-After header.
+# Wait applied to a retryable response that carries no Retry-After header.
 DEFAULT_BACKOFF_SECONDS = 1.0
+
+# 429 plus the transient 5xx family. MusicBrainz signals overload with a plain
+# 503, so a single hiccup must not surface as an error to the caller.
+RETRYABLE_STATUSES = frozenset({429, 502, 503, 504})
 
 
 class RateLimiter:
@@ -53,16 +57,16 @@ async def request_with_backoff(
     max_retries: int = 5,
     **kwargs: Any,
 ) -> httpx.Response:
-    """Issue a paced request, retrying 429s per Retry-After.
+    """Issue a paced request, retrying 429s and transient 5xxs per Retry-After.
 
-    Returns the final response even if it is still a 429 after max_retries —
-    callers decide how a persistent rate limit surfaces.
+    Returns the final response even if it is still retryable after max_retries —
+    callers decide how a persistent rate limit or outage surfaces.
     """
     retries = 0
     while True:
         await limiter.wait()
         response = await client.request(method, url, **kwargs)
-        if response.status_code != 429 or retries >= max_retries:
+        if response.status_code not in RETRYABLE_STATUSES or retries >= max_retries:
             return response
         retries += 1
         retry_after = response.headers.get("Retry-After")

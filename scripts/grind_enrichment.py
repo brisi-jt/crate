@@ -116,6 +116,7 @@ def main() -> int:
     timeout = httpx.Timeout(connect=10.0, read=args.time_budget + 120, write=10.0, pool=10.0)
 
     passes = 0
+    consecutive_5xx = 0
     print(f"grinding stage={args.stage} against {url}", flush=True)
     with httpx.Client(timeout=timeout) as client:
         while True:
@@ -130,10 +131,26 @@ def main() -> int:
                 print(f"pass already active; waiting {args.active_wait:.0f}s", flush=True)
                 time.sleep(args.active_wait)
                 continue
+            if response.status_code >= 500:
+                # A transient upstream/server wobble must not kill an overnight
+                # grind; only a persistent streak means something is truly wrong.
+                consecutive_5xx += 1
+                if consecutive_5xx >= 20:
+                    print(f"giving up after {consecutive_5xx} consecutive 5xx responses", flush=True)
+                    return 1
+                wait = min(args.active_wait * consecutive_5xx, 120.0)
+                print(
+                    f"server {response.status_code} ({consecutive_5xx} in a row); "
+                    f"retrying in {wait:.0f}s: {response.text[:200]}",
+                    flush=True,
+                )
+                time.sleep(wait)
+                continue
             if response.status_code != 200:
                 print(f"unexpected {response.status_code}: {response.text[:400]}", flush=True)
                 return 1
 
+            consecutive_5xx = 0
             body = response.json()
             passes += 1
             print(f"pass {passes}: {summarize(body)}", flush=True)

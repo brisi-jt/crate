@@ -105,6 +105,42 @@ class TestBackoff:
         assert response.status_code == 200
         assert clock.sleeps and clock.sleeps[0] >= 1.0
 
+    async def test_retries_503_honoring_retry_after(self, clock: FakeClock) -> None:
+        """MusicBrainz signals overload with 503; it must be retried like 429."""
+        attempts = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            attempts.append(clock.now)
+            if len(attempts) < 3:
+                return httpx.Response(503, headers={"Retry-After": "5"})
+            return httpx.Response(200, json={"ok": True})
+
+        rl = limiter(clock, min_interval=0.0)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            response = await request_with_backoff(
+                client, "GET", "https://example.test/x", limiter=rl, sleep=clock.sleep
+            )
+        assert response.status_code == 200
+        assert len(attempts) == 3
+        assert clock.sleeps.count(5.0) == 2
+
+    async def test_returns_persistent_503_after_max_retries(self, clock: FakeClock) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(503)
+
+        rl = limiter(clock, min_interval=0.0)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            response = await request_with_backoff(
+                client,
+                "GET",
+                "https://example.test/x",
+                limiter=rl,
+                sleep=clock.sleep,
+                max_retries=2,
+            )
+        assert response.status_code == 503
+        assert len(clock.sleeps) == 2
+
     async def test_gives_up_after_max_retries(self, clock: FakeClock) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(429, headers={"Retry-After": "1"})

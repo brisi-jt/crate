@@ -93,15 +93,23 @@ class FakeMusicBrainz:
         self,
         by_isrc: dict[str, IsrcRecording] | None = None,
         explode_on: set[str] | None = None,
+        status_error_on: set[str] | None = None,
     ) -> None:
         self.by_isrc = by_isrc or {}
         self.explode_on = explode_on or set()
+        self.status_error_on = status_error_on or set()
         self.calls: list[str] = []
 
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None:
         self.calls.append(isrc)
         if isrc in self.explode_on:
             raise httpx.ReadError("connection reset mid-read")
+        if isrc in self.status_error_on:
+            request = httpx.Request("GET", f"https://musicbrainz.test/isrc/{isrc}")
+            response = httpx.Response(503, request=request)
+            raise httpx.HTTPStatusError(
+                "503 Service Unavailable", request=request, response=response
+            )
         return self.by_isrc.get(isrc)
 
 
@@ -745,3 +753,28 @@ class TestTransientErrorIsolation:
         assert good.mbid == "gm"
         assert bad.mbid is None  # skipped, not fatal
         assert any("BISRC" in e or "Bad Artist" in e for e in report.errors)
+
+    async def test_mbid_5xx_after_retries_skips_one_artist(self, session: Session) -> None:
+        """A MusicBrainz 503 that survives client-side retries is a per-artist
+        skip, not a pass-killing 500 (the failure that killed the overnight
+        identity grind on 2026-07-16)."""
+        good = add_artist(session, "g", "Good Artist")
+        bad = add_artist(session, "b", "Bad Artist")
+        add_track(session, "tg", isrc="GISRC", artists=[{"spotify_id": "g", "name": "Good Artist"}])
+        add_track(session, "tb", isrc="BISRC", artists=[{"spotify_id": "b", "name": "Bad Artist"}])
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "GISRC": IsrcRecording(recording_mbid="r", artist_credits=[("Good Artist", "gm")])
+            },
+            status_error_on={"BISRC"},
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(good)
+        session.refresh(bad)
+        assert good.mbid == "gm"
+        assert bad.mbid is None
+        assert bad.mbid_checked_at is not None  # attempt is still marked
+        assert any("503" in e for e in report.errors)
