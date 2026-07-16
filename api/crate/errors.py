@@ -1,6 +1,8 @@
 """RFC 7807 problem-detail errors."""
 
+import json
 from http import HTTPStatus
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,6 +11,27 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
+
+
+class SafeJSONResponse(JSONResponse):
+    """JSON response that can never emit a body strict parsers choke on.
+
+    Names ingested from Spotify are scrubbed of control characters and lone
+    surrogates at the write path, but a row corrupted before that fix (or by a
+    path we don't sanitize) would otherwise raise ``UnicodeEncodeError`` on a
+    lone surrogate — surfacing to clients as a broken/truncated body
+    ("Unfinished string at EOF"). Encoding with ``errors="replace"`` guarantees
+    valid UTF-8 JSON as a last-resort guard. The default serializer already
+    escapes control characters, so this only backstops surrogates.
+    """
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8", "replace")
 
 
 class ProblemDetail(BaseModel):

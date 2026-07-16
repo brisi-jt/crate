@@ -40,15 +40,23 @@ class DeezerClient:
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def search_preview(self, title: str, artist: str) -> DeezerTrack | None:
+    async def search_preview(
+        self, title: str, artist: str, *, force: bool = False
+    ) -> DeezerTrack | None:
         """The first same-artist search result that carries a preview URL.
 
         None when Deezer has no match by this artist (or no preview for it) —
         the deck then offers the open-in-Spotify path instead of wrong audio.
+
+        ``force`` re-fetches from Deezer even on a cache hit and drops the stale
+        entry first — used by preview refresh, since a preview URL expires
+        ~20 min after issue so a cached hit would return a dead URL.
         """
         query = f'track:"{title}" artist:"{artist}"'
         cache_key = f"search:{query.lower()}"
-        payload = self._cache.get(cache_key)
+        if force:
+            self._cache.invalidate(cache_key)
+        payload = None if force else self._cache.get(cache_key)
         if payload is None:
             response = await request_with_backoff(
                 self._http,

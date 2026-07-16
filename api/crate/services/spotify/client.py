@@ -77,6 +77,7 @@ class SpotifyClient:
         refresh_token: str,
         access_token: str | None = None,
         on_tokens: Callable[[str], None] | None = None,
+        preflight: Callable[[], None] | None = None,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         max_rate_limit_retries: int = 5,
@@ -88,6 +89,10 @@ class SpotifyClient:
         # Called with the current refresh token after every successful refresh,
         # so callers can re-encrypt and persist rotations.
         self._on_tokens = on_tokens
+        # Run immediately before the token endpoint is contacted. Spotify
+        # rotates the refresh token on that call, so a caller that cannot store
+        # the rotation raises here to keep the endpoint untouched.
+        self._preflight = preflight
         self._sleep = sleep
         self._max_rate_limit_retries = max_rate_limit_retries
         # Primary playlist-entry path: /playlists/{id}/items (current) when
@@ -111,6 +116,11 @@ class SpotifyClient:
         await self._http.aclose()
 
     async def _refresh_access_token(self) -> None:
+        # The invariant: a rotated token must never be received unless we can
+        # store it. The preflight (a storage-reachability probe) runs before
+        # the endpoint is hit, so a down database aborts here — no rotation.
+        if self._preflight is not None:
+            self._preflight()
         response = await self._http.post(
             ACCOUNTS_TOKEN_URL,
             data={

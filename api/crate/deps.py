@@ -15,6 +15,8 @@ from crate.services.discovery.wiring import DiscoveryReport, run_discovery
 from crate.services.enrichment.orchestrator import EnrichmentReport, Stage, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
 from crate.services.mutations.writer import SpotifyWriter
+from crate.services.previews.refresh import RefreshedPreview
+from crate.services.previews.wiring import refresh_preview_for_user
 from crate.services.radio.wiring import build_radio_for_user
 from crate.services.spotify.auth import SpotifyAuthGateway
 from crate.services.sync import SyncReport, run_sync_for_user
@@ -123,6 +125,24 @@ def get_writer_factory() -> WriterFactory:
 
 
 WriterFactoryDep = Annotated[WriterFactory, Depends(get_writer_factory)]
+
+
+# (session, user, *, track_id, candidate_id, radio_item_id) -> refreshed
+# preview. Tests override with an offline fake.
+class PreviewRefresher(Protocol):
+    async def __call__(
+        self,
+        session: Session,
+        user: User,
+        *,
+        track_id: int | None = ...,
+        candidate_id: int | None = ...,
+        radio_item_id: int | None = ...,
+    ) -> RefreshedPreview: ...
+
+
+def get_preview_refresher() -> PreviewRefresher:
+    return refresh_preview_for_user
 
 
 def get_auth_gateway() -> SpotifyAuthGateway:

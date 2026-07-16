@@ -525,6 +525,77 @@ class TestArtistEnrichment:
         session.refresh(artist)
         assert artist.mbid is None
 
+    async def test_identity_examined_counts_artists_visited_even_when_none_resolve(
+        self, session: Session
+    ) -> None:
+        # The live bug: an identity pass visits artists lacking MBIDs but
+        # resolves none (their tracks have no MusicBrainz-matchable ISRC), so
+        # artists_mbid_resolved stays 0. The grinder keyed "did work?" off the
+        # resolved count alone and declared the stage drained after one pass —
+        # while 18,700 artists still had no MBID. The report must carry a
+        # key-independent "examined" count so the driver keeps grinding.
+        add_artist(session, "a1", "Unmatched One")
+        add_artist(session, "a2", "Unmatched Two")
+        # No tracks / ISRCs → MusicBrainz is never even queried; nothing resolves.
+        svc = service(musicbrainz=FakeMusicBrainz())
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        assert report.artists_mbid_resolved == 0
+        assert report.artists_identity_examined == 2
+
+    async def test_examined_artists_are_marked_and_not_reselected(self, session: Session) -> None:
+        # The other half of the bug: without a "checked" marker the same
+        # un-resolvable artists are re-selected every pass, so a driver that
+        # kept grinding on artists_identity_examined would loop forever. Once
+        # examined, an artist that did not resolve is marked and a second pass
+        # examines nothing — the backlog genuinely drains.
+        a1 = add_artist(session, "a1", "Unmatched One")
+        add_artist(session, "a2", "Unmatched Two")
+        svc = service(musicbrainz=FakeMusicBrainz())
+
+        first = await svc.run(session, batch_size=10, stage="identity")
+        assert first.artists_identity_examined == 2
+        session.refresh(a1)
+        assert a1.mbid_checked_at is not None  # examined-and-marked
+
+        second = await svc.run(session, batch_size=10, stage="identity")
+        assert second.artists_identity_examined == 0  # drained, no re-selection
+
+    async def test_identity_examined_zero_when_all_artists_have_mbids(
+        self, session: Session
+    ) -> None:
+        # Genuine drain: every artist already has an MBID → nothing examined →
+        # the driver correctly stops.
+        add_artist(session, "a1", "Known One", mbid="m1")
+        add_artist(session, "a2", "Known Two", mbid="m2")
+        svc = service(musicbrainz=FakeMusicBrainz())
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        assert report.artists_identity_examined == 0
+
+    async def test_resolved_artists_do_not_need_the_checked_marker(self, session: Session) -> None:
+        # An artist that resolves an MBID leaves the candidate set via mbid,
+        # so it is not re-selected regardless of the marker.
+        artist = add_artist(session, "a1", "Post Malone")
+        add_track(session, "t1", isrc="US1", artists=[{"spotify_id": "a1", "name": "Post Malone"}])
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "US1": IsrcRecording(recording_mbid="r", artist_credits=[("Post Malone", "m")])
+            }
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(artist)
+        assert artist.mbid == "m"
+        assert report.artists_mbid_resolved == 1
+        # Second pass finds no un-MBID'd candidate.
+        second = await svc.run(session, batch_size=10, stage="identity")
+        assert second.artists_identity_examined == 0
+
 
 class TestStageSelection:
     """MBID resolution is decoupled from the feature pass via the stage param."""

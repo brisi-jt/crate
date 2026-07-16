@@ -36,11 +36,19 @@ DEFAULT_BASE_URL = "http://localhost:8200"
 
 
 def pass_did_work(body: dict) -> bool:
-    """True while the selected stage still has un-enriched rows to process."""
+    """True while the selected stage still has un-enriched rows to process.
+
+    ``artists_identity_examined`` is the identity stage's key-independent
+    progress signal: a pass that visits artists lacking an MBID but resolves
+    none (their tracks carry no MusicBrainz-matchable ISRC) still did work and
+    the next pass should run. Keying only off ``artists_mbid_resolved`` made
+    the driver stop after one pass while thousands of artists still had no MBID.
+    """
     return bool(
         body.get("tracks_processed", 0)
         or body.get("features_from_localdsp", 0)
         or body.get("artists_processed", 0)
+        or body.get("artists_identity_examined", 0)
         or body.get("artists_mbid_resolved", 0)
     )
 
@@ -53,6 +61,7 @@ def summarize(body: dict) -> str:
         f"freqblog={body.get('features_from_freqblog', 0)}",
         f"localdsp={body.get('features_from_localdsp', 0)}",
         f"missing={body.get('features_missing', 0)}",
+        f"artists={body.get('artists_identity_examined', 0)}",
         f"mbid={body.get('artists_mbid_resolved', 0)}",
     ]
     if body.get("budget_exhausted"):

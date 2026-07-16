@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     # backups/crate under the repository root.
     backup_dir: str = Field(default="", validation_alias="CRATE_BACKUP_DIR")
 
+    # Where a just-rotated Spotify refresh token is spilled (Fernet-encrypted,
+    # 0600) when the database dies between the reachability check and the
+    # commit. Reconciled back into the DB on startup and every healthy
+    # scheduler tick. Empty means <repo>/api/data/token_spill.
+    token_spill_path: str = Field(default="", validation_alias="CRATE_TOKEN_SPILL_PATH")
+
     # Last.fm API key for artist similarity and tags. Optional: without it the
     # enrichment pipeline skips Last.fm and reports that coverage as pending.
     lastfm_api_key: str | None = None

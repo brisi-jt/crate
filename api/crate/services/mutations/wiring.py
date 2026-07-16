@@ -9,6 +9,7 @@ database-backed stand-in instead of Spotify — every call succeeds, listings
 come from local membership, ids and snapshots are invented.
 """
 
+import contextlib
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -18,10 +19,13 @@ from sqlmodel import Session, select
 from crate.errors import AppError
 from crate.model.enums import CredentialStatus
 from crate.model.orm import Playlist, PlaylistTrack, SpotifyCredential, Track, User
+from crate.model.orm.base import utcnow
 from crate.services.crypto import get_cipher
 from crate.services.mutations.writer import ClientWriter, SpotifyWriter
+from crate.services.spill import write_spill
 from crate.services.spotify.client import SpotifyClient, SpotifyReauthRequired
 from crate.services.spotify.problems import reauth_conflict
+from crate.services.storage import ping_engine
 from crate.settings import get_settings
 
 
@@ -106,9 +110,15 @@ async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator
         raise reauth_conflict(credential.status)
 
     cipher = get_cipher()
+    engine = session.get_bind()
+    # Holds the encrypted just-rotated refresh token so a persist failure can
+    # spill exactly that value rather than lose it. None until a rotation lands.
+    rotated_encrypted: dict[str, str | None] = {"value": None}
 
     def persist_refresh_token(refresh_token: str) -> None:
-        credential.refresh_token_encrypted = cipher.encrypt(refresh_token)
+        encrypted = cipher.encrypt(refresh_token)
+        credential.refresh_token_encrypted = encrypted
+        rotated_encrypted["value"] = encrypted
 
     client = SpotifyClient(
         client_id=settings.spotify_client_id,
@@ -119,6 +129,7 @@ async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator
             else None
         ),
         on_tokens=persist_refresh_token,
+        preflight=lambda: ping_engine(engine),
         use_items_endpoints=settings.spotify_use_items_endpoints,
     )
     try:
@@ -134,7 +145,23 @@ async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator
             if client.access_token_expires_at is not None:
                 credential.access_token_expires_at = client.access_token_expires_at
             session.add(credential)
-            session.commit()
+            try:
+                session.commit()
+            except Exception:
+                # The DB died between the passing preflight and this write. A
+                # rotated refresh token is unrecoverable if lost, so spill it;
+                # a healthy tick reconciles it back. Access-token-only failures
+                # are not spilled — access tokens are re-derivable via refresh.
+                if rotated_encrypted["value"] is not None:
+                    with contextlib.suppress(Exception):
+                        session.rollback()
+                    write_spill(
+                        credential.user_id,
+                        rotated_encrypted["value"],
+                        rotated_at=utcnow(),
+                    )
+                await client.aclose()
+                raise
         await client.aclose()
 
 

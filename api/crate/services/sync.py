@@ -5,6 +5,7 @@ afterwards. Every observed change lands as a SyncEvent row — the event
 history the analytics layer replays.
 """
 
+import contextlib
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -31,12 +32,15 @@ from crate.model.orm import (
 )
 from crate.services.analytics.snapshots import invalidate_snapshots
 from crate.services.crypto import get_cipher
+from crate.services.spill import write_spill
 from crate.services.spotify.client import SpotifyClient, SpotifyReauthRequired
 from crate.services.spotify.models import (
     SpotifyPlaylistSummary,
     SpotifyTrack,
 )
 from crate.services.spotify.problems import reauth_conflict
+from crate.services.storage import ping_engine
+from crate.services.text import clean_name, clean_optional_name
 from crate.settings import get_settings
 
 
@@ -80,16 +84,18 @@ def upsert_track(
     if row is None:
         row = session.exec(select(Track).where(Track.spotify_id == remote.id)).first()
     artists_json: list[dict[str, Any]] = [
-        {"spotify_id": artist.id, "name": artist.name} for artist in remote.artists
+        {"spotify_id": artist.id, "name": clean_optional_name(artist.name)}
+        for artist in remote.artists
     ]
+    clean_track_name = clean_name(remote.name)
     if row is None:
-        row = Track(spotify_id=remote.id, name=remote.name)
+        row = Track(spotify_id=remote.id, name=clean_track_name)
         session.add(row)
-    row.name = remote.name
+    row.name = clean_track_name
     row.isrc = remote.external_ids.isrc
     row.artists = artists_json
     row.album_spotify_id = remote.album.id if remote.album else None
-    row.album_name = remote.album.name if remote.album else None
+    row.album_name = clean_optional_name(remote.album.name) if remote.album else None
     row.duration_ms = remote.duration_ms
     session.add(row)
     session.flush()
@@ -104,6 +110,7 @@ def upsert_track(
 
 def upsert_artist(session: Session, spotify_id: str, name: str) -> None:
     """Create or rename the global catalog row for a Spotify artist."""
+    name = clean_name(name)
     row = session.exec(select(Artist).where(Artist.spotify_id == spotify_id)).first()
     if row is None:
         row = Artist(spotify_id=spotify_id, name=name)
@@ -177,8 +184,8 @@ class SyncService:
         row = Playlist(
             user_id=self._user.id,
             spotify_id=summary.id,
-            name=summary.name,
-            description=summary.description or None,
+            name=clean_name(summary.name),
+            description=clean_optional_name(summary.description) or None,
             snapshot_id=summary.snapshot_id,
             is_owned=self._is_owned(summary),
             status=PlaylistSyncStatus.synced,
@@ -200,13 +207,14 @@ class SyncService:
         self, row: Playlist, summary: SpotifyPlaylistSummary, report: SyncReport
     ) -> None:
         session = self._session
-        if summary.name != row.name:
+        new_name = clean_name(summary.name)
+        if new_name != row.name:
             self._emit(
                 row,
                 SyncEventType.playlist_renamed,
-                detail={"from": row.name, "to": summary.name},
+                detail={"from": row.name, "to": new_name},
             )
-            row.name = summary.name
+            row.name = new_name
             report.playlists_renamed += 1
 
         if summary.snapshot_id == row.snapshot_id:
@@ -342,9 +350,13 @@ async def run_sync_for_user(session: Session, user: User) -> SyncReport:
 
     cipher = get_cipher()
     settings = get_settings()
+    engine = session.get_bind()
+    rotated_encrypted: dict[str, str | None] = {"value": None}
 
     def persist_refresh_token(refresh_token: str) -> None:
-        credential.refresh_token_encrypted = cipher.encrypt(refresh_token)
+        encrypted = cipher.encrypt(refresh_token)
+        credential.refresh_token_encrypted = encrypted
+        rotated_encrypted["value"] = encrypted
 
     client = SpotifyClient(
         client_id=settings.spotify_client_id,
@@ -355,6 +367,7 @@ async def run_sync_for_user(session: Session, user: User) -> SyncReport:
             else None
         ),
         on_tokens=persist_refresh_token,
+        preflight=lambda: ping_engine(engine),
         use_items_endpoints=settings.spotify_use_items_endpoints,
     )
     try:
@@ -372,5 +385,14 @@ async def run_sync_for_user(session: Session, user: User) -> SyncReport:
         if client.access_token_expires_at is not None:
             credential.access_token_expires_at = client.access_token_expires_at
     session.add(credential)
-    session.commit()
+    try:
+        session.commit()
+    except Exception:
+        # DB died after a rotation but before persistence — spill the rotated
+        # refresh token so a healthy tick can reconcile it (see services/spill).
+        if rotated_encrypted["value"] is not None:
+            with contextlib.suppress(Exception):
+                session.rollback()
+            write_spill(credential.user_id, rotated_encrypted["value"], rotated_at=utcnow())
+        raise
     return report

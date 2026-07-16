@@ -152,6 +152,12 @@ class EnrichmentReport:
     localdsp_no_preview: int = 0
     features_missing: int = 0
     artists_processed: int = 0
+    # Artists the identity stage looked at for an MBID this pass, whether or not
+    # one resolved. Key-independent progress signal: the driver keys "did this
+    # pass do work?" off this, so an identity pass that visits un-MBID'd artists
+    # but resolves none (their tracks have no MusicBrainz-matchable ISRC) is not
+    # mistaken for a drained stage.
+    artists_identity_examined: int = 0
     artists_mbid_resolved: int = 0
     similarity_edges_added: int = 0
     tags_added: int = 0
@@ -472,7 +478,10 @@ class EnrichmentService:
         deadline: _Deadline,
     ) -> None:
         candidates = session.exec(
-            select(Artist).where(Artist.mbid == None).limit(batch_size)  # noqa: E711
+            select(Artist)
+            .where(Artist.mbid == None)  # noqa: E711
+            .where(Artist.mbid_checked_at == None)  # noqa: E711 — never re-select the tried-and-missed
+            .limit(batch_size)
         ).all()
         if not candidates:
             return
@@ -480,12 +489,19 @@ class EnrichmentService:
         isrcs_by_artist = self._isrcs_by_artist_spotify_id(session)
         for artist in candidates:
             deadline.check()  # honour the budget between per-artist units
+            report.artists_identity_examined += 1
             try:
                 await self._resolve_one_artist_mbid(
                     session, artist, isrcs_by_artist, report, deadline
                 )
             except _TRANSIENT_ERRORS as exc:  # one bad read never voids the pass
                 report.errors.append(f"musicbrainz {artist.name}: {exc!r}")
+            # Mark the attempt (resolved or not) so the un-resolvable long tail
+            # is not re-selected next pass. A transient failure still marks the
+            # artist — a re-attempt is a manual marker-clear, matching the
+            # per-unit isolation elsewhere in the pass.
+            artist.mbid_checked_at = utcnow()
+            session.add(artist)
         session.commit()
 
     async def _resolve_one_artist_mbid(

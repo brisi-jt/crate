@@ -38,6 +38,8 @@ from crate.services.account.wiring import (
 )
 from crate.services.digest.service import run_weekly_digest_for_user
 from crate.services.insights.editions import compile_edition_for_user
+from crate.services.spill import reconcile_all_spills
+from crate.services.storage import StorageUnavailable
 from crate.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -265,6 +267,11 @@ class AccountScheduler:
 
     async def _run_for_connected_users(self, job: str, fn: JobFn) -> None:
         with self._session_factory() as session:
+            # A healthy tick is the moment to drain any spilled rotated tokens
+            # left by a prior write failure. Best-effort — a spill reconcile
+            # error never blocks the pass.
+            with contextlib.suppress(Exception):
+                reconcile_all_spills(session)
             credentials = session.exec(select(SpotifyCredential)).all()
             if not credentials:
                 self._log_skip(
@@ -288,6 +295,16 @@ class AccountScheduler:
                     continue
                 try:
                     await fn(session, user)
+                except StorageUnavailable:
+                    # The DB is unreachable, so the refresh preflight aborted
+                    # before Spotify was contacted — no rotation, credential
+                    # intact. Skip this tick like any other, log once, re-arm.
+                    self._log_skip(
+                        key,
+                        "%s: storage unreachable for user %d; skipping until the DB recovers",
+                        job,
+                        credential.user_id,
+                    )
                 except AppError as exc:
                     # The wiring's own credential gate (disconnected mid-pass,
                     # flipped to needs_reauth by the refresh) — same log-once

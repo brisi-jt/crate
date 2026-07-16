@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlmodel import select
 
 from crate.backup import read_backup_status, resolve_backup_dir
+from crate.db import get_engine
 from crate.deps import CurrentUserDep, SessionDep, SyncRunner, get_sync_runner
 from crate.errors import ProblemDetail
 from crate.model.orm import (
@@ -19,6 +20,7 @@ from crate.model.orm import (
     SyncEvent,
     TopItemsSnapshot,
 )
+from crate.services.readiness import check_database
 from crate.settings import get_settings
 
 router = APIRouter(prefix="/v1/sync", tags=["sync"])
@@ -94,6 +96,13 @@ class SyncStatus(BaseModel):
             "and needs attention."
         ),
     )
+    db_ok: bool = Field(
+        description=(
+            "Whether the database round-trips a SELECT 1 right now. Mirrors the "
+            "/readyz database check so sync health carries the same liveness "
+            "signal that made this endpoint return through a down database."
+        ),
+    )
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -167,6 +176,7 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
     ).one()
 
     backup_status = read_backup_status(resolve_backup_dir(get_settings()))
+    db_ok = check_database(get_engine()).ok
 
     needs_reauth = credential is not None and credential.status.requires_reauth
     reauth_reason = credential.status.reauth_reason if credential is not None else None
@@ -190,5 +200,6 @@ def sync_status(session: SessionDep, user: CurrentUserDep) -> SyncStatus:
         top_items_captured_at=top_items_captured_at,
         last_backup_at=backup_status.last_backup_at,
         backup_ok=backup_status.backup_ok,
+        db_ok=db_ok,
         links=links,
     )

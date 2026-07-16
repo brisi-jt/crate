@@ -121,6 +121,12 @@ class Artist(TimestampedModel, table=True):
     spotify_id: str = Field(unique=True, max_length=64)
     name: str = Field(max_length=512)
     mbid: str | None = Field(default=None, max_length=64)
+    # When the identity stage last attempted an MBID for this artist (even a
+    # miss). Set on attempt so the un-resolvable long tail is not re-selected
+    # every pass and the identity backlog drains; clear it (null) to re-attempt
+    # after new ISRC-bearing tracks arrive. Mirrors TrackFeatures.preview_resolved's
+    # "don't retry the hopeless" semantics.
+    mbid_checked_at: datetime | None = Field(default=None)
 
 
 class PlaylistTrack(TimestampedModel, table=True):

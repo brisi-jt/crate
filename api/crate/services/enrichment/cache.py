@@ -44,6 +44,17 @@ class ResponseCache:
         self._session.add(row)
         self._session.commit()
 
+    def invalidate(self, key: str) -> None:
+        """Drop a cached entry so the next lookup re-fetches.
+
+        Used by the preview-refresh path: a Deezer preview URL expires ~20 min
+        after issue, so a stale cache hit would keep handing back a dead URL.
+        """
+        row = self._find(_storage_key(key))
+        if row is not None:
+            self._session.delete(row)
+            self._session.commit()
+
     def _find(self, storage_key: str) -> ApiResponseCache | None:
         return self._session.exec(
             select(ApiResponseCache)

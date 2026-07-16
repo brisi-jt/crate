@@ -85,6 +85,12 @@ class EnrichmentRunResult(BaseModel):
         description="Tracks that ended the pass without features from any source."
     )
     artists_processed: int = Field(description="Artists examined for similarity and tags.")
+    artists_identity_examined: int = Field(
+        default=0,
+        description="Artists the identity stage looked at for an MBID this pass, "
+        "whether or not one resolved. A grinder keys 'more work remains' off "
+        "this so the stage is not mistaken for drained when a pass resolves none.",
+    )
     artists_mbid_resolved: int = Field(
         description="Artists newly linked to a MusicBrainz identifier."
     )
@@ -257,6 +263,7 @@ async def trigger_enrichment(
         localdsp_no_preview=report.localdsp_no_preview,
         features_missing=report.features_missing,
         artists_processed=report.artists_processed,
+        artists_identity_examined=report.artists_identity_examined,
         artists_mbid_resolved=report.artists_mbid_resolved,
         similarity_edges_added=report.similarity_edges_added,
         tags_added=report.tags_added,

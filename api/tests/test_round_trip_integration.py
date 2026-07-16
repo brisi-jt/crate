@@ -214,18 +214,21 @@ def test_track_round_trip(migrated_engine: Engine) -> None:
 
 
 def test_artist_round_trip(migrated_engine: Engine) -> None:
+    checked = datetime(2026, 7, 16, 9, 30, 0, 123456)
     row = persist_and_reload(
         migrated_engine,
         Artist(
             spotify_id="4Z8W4fKeB5YxbusRsdQVPb",
             name="Night Artist",
             mbid="b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d",
+            mbid_checked_at=checked,
         ),
     )
     assert isinstance(row.id, int)
     assert row.spotify_id == "4Z8W4fKeB5YxbusRsdQVPb"
     assert row.name == "Night Artist"
     assert row.mbid == "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d"
+    assert row.mbid_checked_at == checked
     assert_timestamps(row)
 
 
