@@ -7,6 +7,7 @@ import ForceGraph2D, {
   type NodeObject,
 } from "react-force-graph-2d";
 import type { GalaxyEdge } from "@/lib/api/schemas";
+import { useBreathDrift } from "@/lib/canvas/use-breath-drift";
 import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
 import {
   type GalaxyEdgeKind,
@@ -184,33 +185,17 @@ export default function ArtistGalaxyCanvas({
     return () => clearTimeout(timer);
   }, [graphMounted]);
 
-  // Ambient breath (graph spec §7): nodes drift visibly but calmly at rest.
-  // Jitter amplitude 0.08 per axis → terminal drift ≈ 11 px/s with
-  // velocityDecay=0.55 — visible at a glance, calm while reading.
-  // Periodic reheat prevents the inner-sim alpha from decaying to zero
-  // (d3AlphaTarget only reaches the outer wrapper, not the inner kapsule).
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg || !graphMounted) return;
-    if (reducedMotion) {
-      fg.d3Force("breath", null);
-      return;
-    }
-    const breath = () => {
-      for (const node of graphData.nodes) {
-        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.08;
-        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.08;
-      }
-    };
-    fg.d3Force("breath", breath);
-    const reheatId = setInterval(() => {
-      fgRef.current?.d3ReheatSimulation();
-    }, 8_000);
-    return () => {
-      clearInterval(reheatId);
-      fgRef.current?.d3Force("breath", null);
-    };
-  }, [reducedMotion, graphData, graphMounted]);
+  // Ambient breath (graph spec §7): once the layout settles, an own RAF loop
+  // pins each node to `rest + deterministic sine drift`, keeping the galaxy
+  // gently in motion for the whole session — independent of d3's alpha
+  // lifecycle. A velocity-jitter force nets to sub-pixel once the simulation
+  // cools and dies for good after a burst of pan/zoom; pinning fx/fy (applied
+  // verbatim by d3 each tick) is immune to settle, reheats, and interaction.
+  // Reduced motion: loop never runs, the galaxy is a still chart.
+  const setDragging = useBreathDrift(
+    graphData.nodes,
+    !reducedMotion && graphMounted,
+  );
 
   // Right dock opening/closing shifts the camera (docked-panel rule 5).
   const prevInset = useRef(0);
@@ -429,6 +414,10 @@ export default function ArtistGalaxyCanvas({
           nodeLabel={() => ""}
           onNodeHover={(node) => setHoveredId(node ? node.id : null)}
           onNodeClick={(node) => onSelect(node.id)}
+          // Suspend ambient drift on the dragged node so the RAF pin does not
+          // fight the drag; the library owns its fx/fy until release.
+          onNodeDrag={(node) => setDragging(node.id)}
+          onNodeDragEnd={() => setDragging(null)}
           onBackgroundClick={() => onSelect(null)}
           onRenderFramePre={() => {
             placedLabels.current = [];
@@ -452,13 +441,11 @@ export default function ArtistGalaxyCanvas({
             isIncident(link, hoveredId) ||
             isIncident(link, selectedId)
           }
+          // cooldownTime=Infinity keeps the library's redraw loop alive so the
+          // canvas repaints the drift positions the breath RAF loop writes.
           enableZoomInteraction={false}
           warmupTicks={150}
           d3VelocityDecay={0.55}
-          {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<
-            string,
-            unknown
-          >)}
           cooldownTime={reducedMotion ? 15_000 : Infinity}
         />
       )}

@@ -7,6 +7,7 @@ import ForceGraph2D, {
   type NodeObject,
 } from "react-force-graph-2d";
 import type { GraphResponse } from "@/lib/api/schemas";
+import { useBreathDrift } from "@/lib/canvas/use-breath-drift";
 import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
 import {
   acousticColor,
@@ -236,41 +237,19 @@ export default function GraphCanvas({
     return () => clearTimeout(timer);
   }, [graphMounted]);
 
-  // Ambient breath (graph spec §7): the simulation never fully freezes. A
-  // custom force adds gentle velocity jitter each tick — a drift visible at a
-  // glance, calm while reading — while high velocity decay keeps aimed-at
-  // nodes still. d3-force's inner alpha decays toward zero even with
-  // cooldownTime=Infinity, so a periodic reheat (via d3ReheatSimulation)
-  // restores simulation energy before motion becomes imperceptible.
-  // Amplitude 0.08 per axis gives terminal drift ≈ 11 px/s at zoom=1 with
-  // velocityDecay=0.55, which is visibly subtle without being distracting.
-  // Reduced motion: no force, default cooldown, the map is a still chart.
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg || !graphMounted) return;
-    if (reducedMotion) {
-      fg.d3Force("breath", null);
-      return;
-    }
-    const breath = () => {
-      for (const node of graphData.nodes) {
-        node.vx = (node.vx ?? 0) + (Math.random() - 0.5) * 0.08;
-        node.vy = (node.vy ?? 0) + (Math.random() - 0.5) * 0.08;
-      }
-    };
-    fg.d3Force("breath", breath);
-    // Periodically reheat the inner simulation so alpha never decays to zero.
-    // d3AlphaTarget on the outer wrapper does not propagate to the inner
-    // kapsule, so without this the breath force fires but produces
-    // imperceptible motion once the simulation cools (~5 s after load).
-    const reheatId = setInterval(() => {
-      fgRef.current?.d3ReheatSimulation();
-    }, 8_000);
-    return () => {
-      clearInterval(reheatId);
-      fgRef.current?.d3Force("breath", null);
-    };
-  }, [reducedMotion, graphData, graphMounted]);
+  // Ambient breath (graph spec §7): once the layout settles, an own RAF loop
+  // pins each node to `rest + deterministic sine drift`, so the constellation
+  // keeps drifting — visible at a glance, calm while reading — for the whole
+  // session. This is deliberately independent of d3's alpha lifecycle: a
+  // velocity-jitter force nets to sub-pixel once the simulation cools, and a
+  // burst of panning/zooming drives the layout into a minimum that reheats
+  // cannot revive, so the graph froze after the first interaction. Pinning
+  // fx/fy (which d3 applies verbatim each tick) makes the drift immune to
+  // settle, reheats, and every pan/zoom/drag. Reduced motion: loop never runs.
+  const setDragging = useBreathDrift(
+    graphData.nodes,
+    !reducedMotion && graphMounted,
+  );
 
   // Right dock opening/closing: shift the camera so nodes never hide behind
   // the panel (docked-panel rule 5).
@@ -603,6 +582,10 @@ export default function GraphCanvas({
             event.preventDefault();
             onNodeContextMenu?.(node.id, event.clientX, event.clientY);
           }}
+          // Suspend ambient drift on the dragged node so the RAF pin does not
+          // fight the drag; the library owns its fx/fy until release.
+          onNodeDrag={(node) => setDragging(node.id)}
+          onNodeDragEnd={() => setDragging(null)}
           onBackgroundClick={() => {
             if (dim) return;
             onSelect(null);
@@ -627,18 +610,14 @@ export default function GraphCanvas({
             isIncident(link, hoveredId) ||
             isIncident(link, selectedId)
           }
-          // cooldownTime=Infinity keeps the engine loop running so the breath
-          // force fires every tick. The periodic d3ReheatSimulation() call in
-          // the breath effect restores inner-sim alpha before it decays to zero.
-          // Under reduced motion we let the layout settle (finite cooldown).
+          // cooldownTime=Infinity keeps the library's redraw loop running so the
+          // canvas repaints the drift positions the breath RAF loop writes each
+          // frame (autoPauseRedraw only paints while the engine is "running").
+          // Under reduced motion the layout settles into a still chart.
           // Warmup pre-runs the layout so the first paint is already spread.
           enableZoomInteraction={false}
           warmupTicks={150}
           d3VelocityDecay={0.55}
-          {...({ d3AlphaTarget: reducedMotion ? 0 : 0.01 } as Record<
-            string,
-            unknown
-          >)}
           cooldownTime={reducedMotion ? 15_000 : Infinity}
         />
       )}
