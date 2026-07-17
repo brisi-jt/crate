@@ -78,6 +78,8 @@ export default function MapPage() {
   const rightPanel = useUiStore((s) => s.rightPanel);
   const openInbox = useUiStore((s) => s.openInbox);
   const openInsights = useUiStore((s) => s.openInsights);
+  const openTriage = useUiStore((s) => s.openTriage);
+  const openDashboard = useUiStore((s) => s.openDashboard);
   const digests = useDigests();
   const inboxUnread = hasUnread(digests.data?.items ?? []);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
@@ -325,6 +327,20 @@ export default function MapPage() {
             className="micro-caps pointer-events-auto cursor-pointer text-text-muted hover:text-text-secondary"
           >
             INSIGHTS
+          </button>
+          <button
+            type="button"
+            onClick={openTriage}
+            className="micro-caps pointer-events-auto cursor-pointer text-text-muted hover:text-text-secondary"
+          >
+            TRIAGE
+          </button>
+          <button
+            type="button"
+            onClick={openDashboard}
+            className="micro-caps pointer-events-auto cursor-pointer text-text-muted hover:text-text-secondary"
+          >
+            DASHBOARD
           </button>
           <button
             type="button"

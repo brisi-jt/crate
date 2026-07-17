@@ -65,82 +65,8 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
           <CommandEmpty className="py-lg text-center text-sm text-text-muted">
             Nothing matches.
           </CommandEmpty>
-          <CommandGroup
-            heading="Playlists"
-            className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
-          >
-            {nodes.map((node) => (
-              <CommandItem
-                key={node.id}
-                value={node.name}
-                onSelect={() => {
-                  flyToNode("playlists", node.id);
-                  openPlaylist(node.id);
-                }}
-                className="gap-sm data-[selected=true]:bg-surface-2"
-              >
-                <span
-                  className="inline-block size-[10px] rounded-xs"
-                  style={{
-                    background: oklchString(
-                      node.centroid ? acousticColor(node.centroid) : GREY_NODE,
-                    ),
-                  }}
-                />
-                {node.name}
-                <span className="data-readout ml-auto text-micro text-text-muted">
-                  {node.track_count}
-                </span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          {artists.length > 0 && (
-            <>
-              <CommandSeparator className="bg-border-subtle" />
-              <CommandGroup
-                heading="Artists"
-                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
-              >
-                {artists.slice(0, 400).map((a) => (
-                  <CommandItem
-                    key={a.id}
-                    value={`artist ${a.name}`}
-                    onSelect={() => flyToNode("artists", a.id)}
-                    className="gap-sm data-[selected=true]:bg-surface-2"
-                  >
-                    {a.name}
-                    <span className="data-readout ml-auto text-micro text-text-muted">
-                      {a.track_count}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </>
-          )}
-          {tracks.length > 0 && (
-            <>
-              <CommandSeparator className="bg-border-subtle" />
-              <CommandGroup
-                heading="Tracks"
-                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
-              >
-                {tracks.slice(0, 400).map((t) => (
-                  <CommandItem
-                    key={t.track_id}
-                    value={`track ${t.name} ${t.artist}`}
-                    onSelect={() => flyToNode("tracks", t.track_id)}
-                    className="gap-sm data-[selected=true]:bg-surface-2"
-                  >
-                    <span className="truncate">{t.name}</span>
-                    <span className="ml-auto truncate text-micro text-text-muted">
-                      {t.artist}
-                    </span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </>
-          )}
-          <CommandSeparator className="bg-border-subtle" />
+          {/* Panels first: a fixed, scannable set — search results below can
+              run to hundreds of rows, which would push these off-screen. */}
           <CommandGroup
             heading="Panels"
             className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
@@ -229,6 +155,82 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               </CommandItem>
             )}
           </CommandGroup>
+          <CommandSeparator className="bg-border-subtle" />
+          <CommandGroup
+            heading="Playlists"
+            className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
+          >
+            {nodes.map((node) => (
+              <CommandItem
+                key={node.id}
+                value={node.name}
+                onSelect={() => {
+                  flyToNode("playlists", node.id);
+                  openPlaylist(node.id);
+                }}
+                className="gap-sm data-[selected=true]:bg-surface-2"
+              >
+                <span
+                  className="inline-block size-[10px] rounded-xs"
+                  style={{
+                    background: oklchString(
+                      node.centroid ? acousticColor(node.centroid) : GREY_NODE,
+                    ),
+                  }}
+                />
+                {node.name}
+                <span className="data-readout ml-auto text-micro text-text-muted">
+                  {node.track_count}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          {artists.length > 0 && (
+            <>
+              <CommandSeparator className="bg-border-subtle" />
+              <CommandGroup
+                heading="Artists"
+                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
+              >
+                {artists.slice(0, 400).map((a) => (
+                  <CommandItem
+                    key={a.id}
+                    value={`artist ${a.name}`}
+                    onSelect={() => flyToNode("artists", a.id)}
+                    className="gap-sm data-[selected=true]:bg-surface-2"
+                  >
+                    {a.name}
+                    <span className="data-readout ml-auto text-micro text-text-muted">
+                      {a.track_count}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+          {tracks.length > 0 && (
+            <>
+              <CommandSeparator className="bg-border-subtle" />
+              <CommandGroup
+                heading="Tracks"
+                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
+              >
+                {tracks.slice(0, 400).map((t) => (
+                  <CommandItem
+                    key={t.track_id}
+                    value={`track ${t.name} ${t.artist}`}
+                    onSelect={() => flyToNode("tracks", t.track_id)}
+                    className="gap-sm data-[selected=true]:bg-surface-2"
+                  >
+                    <span className="truncate">{t.name}</span>
+                    <span className="ml-auto truncate text-micro text-text-muted">
+                      {t.artist}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
           <CommandSeparator className="bg-border-subtle" />
           <CommandGroup
             heading="Actions"
