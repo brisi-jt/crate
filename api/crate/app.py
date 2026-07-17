@@ -18,6 +18,7 @@ from crate.router import (
     account,
     analytics,
     auth,
+    competitive,
     digests,
     discovery,
     enrichment,
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     app.include_router(me.router)
     app.include_router(triage.router)
     app.include_router(history.router)
+    app.include_router(competitive.router)
 
     @app.get(
         "/healthz",
