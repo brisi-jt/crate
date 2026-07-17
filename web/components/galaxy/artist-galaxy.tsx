@@ -7,13 +7,15 @@ import ArtistGalaxyCanvas, {
   type GalaxyRenderNode,
 } from "@/components/galaxy/artist-galaxy-canvas";
 import { useArtistGalaxy } from "@/hooks/api/use-artist-galaxy";
-import type { GraphResponse } from "@/lib/api/schemas";
+import type { GalaxyNode, GraphResponse } from "@/lib/api/schemas";
+import type { FlyTarget } from "@/lib/canvas/fly-to";
 import {
   acousticColor,
   GREY_NODE,
   oklchString,
   selectionRing,
 } from "@/lib/color/acoustic";
+import { equalizedColor, rankEqualize } from "@/lib/color/equalize";
 import { bridgingArtists, togglePin } from "@/lib/galaxy/logic";
 import { useUiStore } from "@/lib/store/ui";
 
@@ -23,6 +25,7 @@ interface ArtistGalaxyProps {
   onSelectArtist: (artistId: string | null) => void;
   rightInset: number;
   reducedMotion: boolean;
+  flyTo?: FlyTarget | null;
 }
 
 /**
@@ -36,15 +39,28 @@ export default function ArtistGalaxy({
   onSelectArtist,
   rightInset,
   reducedMotion,
+  flyTo = null,
 }: ArtistGalaxyProps) {
   const galaxy = useArtistGalaxy();
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const [pins, setPins] = useState<number[]>([]);
 
+  // G4 — equalize artist colours across the galaxy so they fill the gamut.
+  const equalizer = useMemo(() => {
+    const centroids = (galaxy.data?.nodes ?? [])
+      .map((n) => n.centroid)
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+    return centroids.length > 0 ? rankEqualize(centroids) : null;
+  }, [galaxy.data]);
+
   const renderNodes = useMemo<GalaxyRenderNode[]>(() => {
     const nodes = galaxy.data?.nodes ?? [];
     return nodes.map((node) => {
-      const color = node.centroid ? acousticColor(node.centroid) : GREY_NODE;
+      const color = node.centroid
+        ? equalizer
+          ? equalizedColor(node.centroid, equalizer)
+          : acousticColor(node.centroid)
+        : GREY_NODE;
       return {
         id: node.id,
         name: node.name,
@@ -54,6 +70,13 @@ export default function ArtistGalaxy({
         grey: node.centroid === null,
       };
     });
+  }, [galaxy.data, equalizer]);
+
+  // Full node data by id — the hover card reads photo/genres/similar from it.
+  const nodeById = useMemo(() => {
+    const m = new Map<string, GalaxyNode>();
+    for (const n of galaxy.data?.nodes ?? []) m.set(n.id, n);
+    return m;
   }, [galaxy.data]);
 
   // Pins drive the highlight; with none pinned, a playlist selected
@@ -114,11 +137,13 @@ export default function ArtistGalaxy({
       <ArtistGalaxyCanvas
         nodes={renderNodes}
         edges={galaxy.data.edges}
+        nodeData={nodeById}
         highlightIds={highlightIds}
         selectedId={selectedArtistId}
         onSelect={onSelectArtist}
         rightInset={rightInset}
         reducedMotion={reducedMotion}
+        flyTo={flyTo}
       />
 
       {/* Bridge legend — pin one playlist to light it, two to see bridges. */}

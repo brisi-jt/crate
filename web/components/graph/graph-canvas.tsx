@@ -9,12 +9,8 @@ import ForceGraph2D, {
 import type { GraphResponse } from "@/lib/api/schemas";
 import { useBreathDrift } from "@/lib/canvas/use-breath-drift";
 import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
-import {
-  acousticColor,
-  GREY_NODE,
-  oklchString,
-  selectionRing,
-} from "@/lib/color/acoustic";
+import { GREY_NODE, oklchString, selectionRing } from "@/lib/color/acoustic";
+import { equalizedColor, rankEqualize } from "@/lib/color/equalize";
 import { type CanvasTokens, readCanvasTokens } from "@/lib/graph/canvas-tokens";
 import { edgeWidth, nodeRadius } from "@/lib/graph/geometry";
 import { GraphHoverCard } from "./hover-card";
@@ -140,15 +136,31 @@ export default function GraphCanvas({
     return () => observer.disconnect();
   }, []);
 
+  // G4 — rank-equalize the palette across the library so playlist colours fill
+  // the gamut instead of piling on red (centroids regress to the mean hardest
+  // of all — measured p10–p90 acousticness 0.21–0.59). Shared by the painter
+  // and the hover-card swatch so they always agree.
+  const equalizer = useMemo(() => {
+    const centroids = graph.nodes
+      .map((n) => n.centroid)
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+    return centroids.length > 0 ? rankEqualize(centroids) : null;
+  }, [graph.nodes]);
+
   const graphData = useMemo(() => {
     const subsetIds = new Set(
       graph.edges.filter((e) => e.subset).map((e) => e.source),
     );
+    const eq = equalizer;
     // Higher track counts first: they paint first and win label collisions.
     const nodes: MapNode[] = [...graph.nodes]
       .sort((a, b) => b.track_count - a.track_count)
       .map((n) => {
-        const color = n.centroid ? acousticColor(n.centroid) : GREY_NODE;
+        const color = n.centroid
+          ? eq
+            ? equalizedColor(n.centroid, eq)
+            : GREY_NODE
+          : GREY_NODE;
         return {
           id: n.id,
           name: n.name,
@@ -166,7 +178,7 @@ export default function GraphCanvas({
       subset: e.subset,
     }));
     return { nodes, links };
-  }, [graph]);
+  }, [graph, equalizer]);
 
   // The graph mounts only once tokens and container size exist — effects
   // that reach through fgRef must key off this, not run at first render.
@@ -629,6 +641,7 @@ export default function GraphCanvas({
           x={hoverCard.x}
           y={hoverCard.y}
           containerWidth={size.width}
+          equalizer={equalizer}
         />
       )}
     </div>

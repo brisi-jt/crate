@@ -108,6 +108,8 @@ export const graphNodeSchema = z.object({
   name: z.string(),
   track_count: z.number(),
   centroid: centroidSchema.nullable(),
+  /** Spotify playlist cover, when set; the hover card builds a member mosaic otherwise. */
+  image_url: z.string().nullable().optional(),
 });
 
 export const graphEdgeSchema = z.object({
@@ -146,6 +148,8 @@ export const galaxyNodeSchema = z.object({
   playlist_ids: z.array(z.number()),
   /** Mean sound of the artist's enriched tracks; null renders the grey state. */
   centroid: centroidSchema.nullable(),
+  /** Small artist photo for the galaxy hover card; null until backfill reaches them. */
+  image_url: z.string().nullable().optional(),
   genres: z.array(z.string()),
   /** Library tracks, alphabetical, capped server-side (track_count = full total). */
   tracks: z.array(z.object({ id: z.number(), name: z.string() })),
@@ -224,6 +228,8 @@ export const mapPointSchema = z.object({
   y: z.number(),
   /** Density cluster label; -1 = noise (no cluster). */
   cluster: z.number(),
+  /** Small album-art thumb for the hover card; null until the album is imaged. */
+  album_image_url: z.string().nullable().optional(),
   /** Per-track library percentiles — drives exact acoustic color when present. */
   features: centroidSchema.nullable().optional(),
   /** Owning playlists — replaces the client-side membership join when present. */

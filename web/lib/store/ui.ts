@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { FlyId, FlyTarget } from "@/lib/canvas/fly-to";
 
 /**
  * Dock-layer state. The map is the room: everything else is a panel docked
@@ -26,6 +27,13 @@ export type RightPanel =
  * as panels instead (the frontier explorer is a panel, not a fourth mode).
  */
 export type MapMode = "playlists" | "tracks" | "artists";
+
+/**
+ * How the field colours its points (G4). `acoustic` = rank-equalized acoustic
+ * colour (the default: colour = sound, spread across the gamut); `cluster` =
+ * each density cluster gets a distinct base hue, shaded within by acoustics.
+ */
+export type PaletteMode = "acoustic" | "cluster";
 
 /**
  * Surfaces that carry a field guide: the three canvas modes plus the
@@ -55,8 +63,12 @@ interface UiState {
   mapMode: MapMode;
   /** Track-field HDBSCAN hulls on/off. */
   clusterOverlay: boolean;
+  /** Field point palette: rank-equalized acoustic colour, or cluster-keyed (G4). */
+  paletteMode: PaletteMode;
   /** Node selected on the map (drives the selection ring + playlist panel). */
   selectedPlaylistId: number | null;
+  /** G5 — the active search-to-focus fly-to target (mode + id + nonce). */
+  flyTarget: FlyTarget | null;
   /** Tracks marked in the playlist panel, for "add selection to…" actions. */
   selectedTracks: SelectedTrack[];
   /**
@@ -80,6 +92,9 @@ interface UiState {
   openTriage: () => void;
   setMapMode: (mode: MapMode) => void;
   setClusterOverlay: (on: boolean) => void;
+  setPaletteMode: (mode: PaletteMode) => void;
+  /** Switch to the target's map mode and fly the camera to it (⌘K search). */
+  flyToNode: (mode: MapMode, id: FlyId) => void;
   openStats: () => void;
   openBulkOps: (sourceId?: number) => void;
   openOpsLog: () => void;
@@ -101,7 +116,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   includeFollowed: false,
   mapMode: "playlists",
   clusterOverlay: false,
+  paletteMode: "acoustic",
   selectedPlaylistId: null,
+  flyTarget: null,
   selectedTracks: [],
   fieldGuideExpanded: {},
   fieldGuideFirstVisit: {},
@@ -127,6 +144,16 @@ export const useUiStore = create<UiState>((set, get) => ({
   setMapMode: (mode) => set({ mapMode: mode }),
 
   setClusterOverlay: (on) => set({ clusterOverlay: on }),
+
+  setPaletteMode: (mode) => set({ paletteMode: mode }),
+
+  flyToNode: (mode, id) =>
+    set(() => ({
+      mapMode: mode,
+      paletteOpen: false,
+      // Clock nonce so this is comparable with the graph's transport/deck fly.
+      flyTarget: { mode, id, nonce: Date.now() },
+    })),
 
   openPlaylist: (playlistId) =>
     set({

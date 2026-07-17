@@ -44,6 +44,7 @@ import {
 import { useDigests } from "@/hooks/api/use-digests";
 import { useGraph } from "@/hooks/api/use-graph";
 import { useSyncStatus, useTriggerSync } from "@/hooks/api/use-sync";
+import { flyToForMode } from "@/lib/canvas/fly-to";
 import { acousticColor, GREY_NODE, oklchString } from "@/lib/color/acoustic";
 import { nodeRadius } from "@/lib/graph/geometry";
 import { hasUnread } from "@/lib/inbox/logic";
@@ -84,6 +85,7 @@ export default function MapPage() {
   const openArtist = useUiStore((s) => s.openArtist);
   const mapMode = useUiStore((s) => s.mapMode);
   const setMapMode = useUiStore((s) => s.setMapMode);
+  const flyTarget = useUiStore((s) => s.flyTarget);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const setPaletteOpen = useUiStore((s) => s.setPaletteOpen);
   const popLayer = useUiStore((s) => s.popLayer);
@@ -94,9 +96,26 @@ export default function MapPage() {
   const [ghost, setGhost] = useState<GhostRender | null>(null);
   const [flyTo, setFlyTo] = useState<FlyToRequest | null>(null);
 
+  // Nonce is a monotonic clock so the graph's two fly sources (transport
+  // artwork / deck-open below, and ⌘K search from the store) are comparable —
+  // newest wins, and each fires once via the graph's per-nonce guard.
   const flyToNode = useCallback((nodeId: number) => {
-    setFlyTo((previous) => ({ nodeId, nonce: (previous?.nonce ?? 0) + 1 }));
+    setFlyTo({ nodeId, nonce: Date.now() });
   }, []);
+
+  // The playlist graph flies for two reasons: transport/deck (local `flyTo`)
+  // and ⌘K search-to-focus (the store's playlists-mode target). Both carry a
+  // clock nonce; newest wins, driving the one FlyToRequest the graph reads.
+  const graphSearchTarget = flyToForMode(flyTarget, "playlists");
+  const graphFlyTo = useMemo<FlyToRequest | null>(() => {
+    const searchReq: FlyToRequest | null =
+      graphSearchTarget && typeof graphSearchTarget.id === "number"
+        ? { nodeId: graphSearchTarget.id, nonce: graphSearchTarget.nonce }
+        : null;
+    if (!flyTo) return searchReq;
+    if (!searchReq) return flyTo;
+    return searchReq.nonce > flyTo.nonce ? searchReq : flyTo;
+  }, [flyTo, graphSearchTarget]);
 
   // Opening the deck flies the camera to the target playlist so the node and
   // its ghost stay visible above the deck card.
@@ -188,6 +207,7 @@ export default function MapPage() {
             }}
             rightInset={rightInset}
             reducedMotion={reducedMotion}
+            flyTo={flyToForMode(flyTarget, "artists")}
           />
         ) : graph.data && mapMode === "tracks" ? (
           <TrackField
@@ -204,6 +224,7 @@ export default function MapPage() {
             }}
             rightInset={rightInset}
             reducedMotion={reducedMotion}
+            flyTo={flyToForMode(flyTarget, "tracks")}
           />
         ) : graph.data ? (
           <GraphCanvas
@@ -222,7 +243,7 @@ export default function MapPage() {
                 ? { targetId: deckPlaylistId, ghost }
                 : null
             }
-            flyTo={flyTo}
+            flyTo={graphFlyTo}
           />
         ) : graph.isPending || sync.isPending ? (
           <SyncInProgress />

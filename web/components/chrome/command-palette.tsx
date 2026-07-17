@@ -9,7 +9,9 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { useArtistGalaxy } from "@/hooks/api/use-artist-galaxy";
 import { useTriggerSync } from "@/hooks/api/use-sync";
+import { useTrackMap } from "@/hooks/api/use-track-map";
 import type { GraphNode } from "@/lib/api/schemas";
 import { acousticColor, GREY_NODE, oklchString } from "@/lib/color/acoustic";
 import { openListeningDeck } from "@/lib/store/deck";
@@ -34,12 +36,21 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
   const openGlossary = useUiStore((s) => s.openGlossary);
+  const flyToNode = useUiStore((s) => s.flyToNode);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const rightPanel = useUiStore((s) => s.rightPanel);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const sync = useTriggerSync();
 
+  // Search-to-focus (G5) targets: tracks + artists. Only fetched while the
+  // palette is open (the queries are already cached by the map views).
+  const trackMap = useTrackMap();
+  const galaxy = useArtistGalaxy();
+
   if (!paletteOpen) return null;
+
+  const tracks = trackMap.data?.points ?? [];
+  const artists = galaxy.data?.nodes ?? [];
 
   return (
     <div className="-translate-x-1/2 absolute top-[64px] left-1/2 z-40 w-[560px]">
@@ -61,7 +72,10 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               <CommandItem
                 key={node.id}
                 value={node.name}
-                onSelect={() => openPlaylist(node.id)}
+                onSelect={() => {
+                  flyToNode("playlists", node.id);
+                  openPlaylist(node.id);
+                }}
                 className="gap-sm data-[selected=true]:bg-surface-2"
               >
                 <span
@@ -79,6 +93,52 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               </CommandItem>
             ))}
           </CommandGroup>
+          {artists.length > 0 && (
+            <>
+              <CommandSeparator className="bg-border-subtle" />
+              <CommandGroup
+                heading="Artists"
+                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
+              >
+                {artists.slice(0, 400).map((a) => (
+                  <CommandItem
+                    key={a.id}
+                    value={`artist ${a.name}`}
+                    onSelect={() => flyToNode("artists", a.id)}
+                    className="gap-sm data-[selected=true]:bg-surface-2"
+                  >
+                    {a.name}
+                    <span className="data-readout ml-auto text-micro text-text-muted">
+                      {a.track_count}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+          {tracks.length > 0 && (
+            <>
+              <CommandSeparator className="bg-border-subtle" />
+              <CommandGroup
+                heading="Tracks"
+                className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
+              >
+                {tracks.slice(0, 400).map((t) => (
+                  <CommandItem
+                    key={t.track_id}
+                    value={`track ${t.name} ${t.artist}`}
+                    onSelect={() => flyToNode("tracks", t.track_id)}
+                    className="gap-sm data-[selected=true]:bg-surface-2"
+                  >
+                    <span className="truncate">{t.name}</span>
+                    <span className="ml-auto truncate text-micro text-text-muted">
+                      {t.artist}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
           <CommandSeparator className="bg-border-subtle" />
           <CommandGroup
             heading="Panels"

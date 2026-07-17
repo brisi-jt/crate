@@ -6,9 +6,17 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from "react-force-graph-2d";
-import type { GalaxyEdge } from "@/lib/api/schemas";
+import { ArtistHoverCard } from "@/components/canvas/rich-hover-card";
+import type {
+  GalaxyEdge,
+  GalaxyNode as GalaxyNodeData,
+} from "@/lib/api/schemas";
+import type { FlyTarget } from "@/lib/canvas/fly-to";
+import { shouldFireFlyTo } from "@/lib/canvas/fly-to";
+import { artistCardModel } from "@/lib/canvas/hover-card";
 import { useBreathDrift } from "@/lib/canvas/use-breath-drift";
 import { useCanvasWheel } from "@/lib/canvas/use-canvas-wheel";
+import { parseOklch } from "@/lib/color/acoustic";
 import {
   type GalaxyEdgeKind,
   galaxyEdgeDash,
@@ -39,6 +47,8 @@ type GalaxyLink = LinkObject<GalaxyRenderNode, GalaxyLinkData>;
 
 const LABEL_THRESHOLD_PX = 8;
 const LABEL_FADE_MS = 150;
+const HOVER_CARD_DELAY_MS = 260;
+const FLY_TO_MS = 650;
 
 interface PlacedLabel {
   id: string;
@@ -53,12 +63,16 @@ interface PlacedLabel {
 interface ArtistGalaxyCanvasProps {
   nodes: GalaxyRenderNode[];
   edges: GalaxyEdge[];
+  /** Full artist payloads by id — the hover card reads photo/genres/similar. */
+  nodeData: Map<string, GalaxyNodeData>;
   /** Artist keys kept at full strength (bridge highlight). Null = no veil. */
   highlightIds: Set<string> | null;
   selectedId: string | null;
   onSelect: (artistId: string | null) => void;
   rightInset: number;
   reducedMotion: boolean;
+  /** G5 — camera fly-to target for the galaxy (search-to-focus). */
+  flyTo?: FlyTarget | null;
 }
 
 /**
@@ -71,11 +85,13 @@ interface ArtistGalaxyCanvasProps {
 export default function ArtistGalaxyCanvas({
   nodes,
   edges,
+  nodeData,
   highlightIds,
   selectedId,
   onSelect,
   rightInset,
   reducedMotion,
+  flyTo = null,
 }: ArtistGalaxyCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<ForceGraphMethods<GalaxyNode, GalaxyLink> | undefined>(
@@ -84,6 +100,19 @@ export default function ArtistGalaxyCanvas({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [tokens, setTokens] = useState<CanvasTokens | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hoverCard, setHoverCard] = useState<{
+    artistId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gesturingUntil = useRef(0);
+
+  const nodeById = useMemo(() => {
+    const m = new Map<string, GalaxyNode>();
+    for (const n of nodes) m.set(n.id, n);
+    return m;
+  }, [nodes]);
 
   const labelAlpha = useRef(new Map<string, number>());
   const lastFrameAt = useRef(0);
@@ -184,6 +213,20 @@ export default function ArtistGalaxyCanvas({
     }, 1100);
     return () => clearTimeout(timer);
   }, [graphMounted]);
+
+  // G5 — fly-to (search-to-focus): glide to the searched artist, once per nonce.
+  const lastFlyNonce = useRef(0);
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || !shouldFireFlyTo(flyTo, lastFlyNonce.current)) return;
+    lastFlyNonce.current = flyTo?.nonce ?? 0;
+    const target = graphData.nodes.find((n) => n.id === flyTo?.id);
+    if (!target || target.x === undefined || target.y === undefined) return;
+    const duration = reducedMotion ? 0 : FLY_TO_MS;
+    fg.centerAt(target.x, target.y, duration);
+    if (fg.zoom() < 1.5) fg.zoom(1.5, duration);
+    if (typeof flyTo?.id === "string") onSelect(flyTo.id);
+  }, [flyTo, graphData, reducedMotion, onSelect]);
 
   // Ambient breath (graph spec §7): once the layout settles, an own RAF loop
   // pins each node to `rest + deterministic sine drift`, keeping the galaxy
@@ -400,6 +443,27 @@ export default function ArtistGalaxyCanvas({
     [],
   );
 
+  // G1 — artist hover card on dwell (photo + genres + similar). Hidden while
+  // panning/zooming so it never chases the cursor mid-gesture.
+  const handleHover = useCallback((node: GalaxyNode | null) => {
+    setHoveredId(node ? node.id : null);
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    if (!node) {
+      setHoverCard(null);
+      return;
+    }
+    hoverTimer.current = setTimeout(() => {
+      const fg = fgRef.current;
+      if (!fg || node.x === undefined || node.y === undefined) return;
+      if (performance.now() < gesturingUntil.current) return;
+      const screen = fg.graph2ScreenCoords(node.x, node.y);
+      setHoverCard({ artistId: node.id, x: screen.x, y: screen.y });
+    }, HOVER_CARD_DELAY_MS);
+  }, []);
+
+  const hoveredData = hoverCard ? nodeData.get(hoverCard.artistId) : null;
+  const hoveredRender = hoverCard ? nodeById.get(hoverCard.artistId) : null;
+
   return (
     <div ref={containerRef} className="absolute inset-0">
       {graphMounted && (
@@ -412,8 +476,12 @@ export default function ArtistGalaxyCanvas({
           nodeCanvasObject={paintNode}
           nodePointerAreaPaint={paintPointerArea}
           nodeLabel={() => ""}
-          onNodeHover={(node) => setHoveredId(node ? node.id : null)}
+          onNodeHover={handleHover}
           onNodeClick={(node) => onSelect(node.id)}
+          onZoom={() => {
+            gesturingUntil.current = performance.now() + 220;
+            setHoverCard(null);
+          }}
           // Suspend ambient drift on the dragged node so the RAF pin does not
           // fight the drag; the library owns its fx/fy until release.
           onNodeDrag={(node) => setDragging(node.id)}
@@ -447,6 +515,17 @@ export default function ArtistGalaxyCanvas({
           warmupTicks={150}
           d3VelocityDecay={0.55}
           cooldownTime={reducedMotion ? 15_000 : Infinity}
+        />
+      )}
+      {hoverCard && hoveredData && hoveredRender && (
+        <ArtistHoverCard
+          model={artistCardModel(hoveredData)}
+          color={parseOklch(hoveredRender.fill)}
+          x={hoverCard.x}
+          y={hoverCard.y}
+          containerWidth={size.width}
+          containerHeight={size.height}
+          rightInset={rightInset}
         />
       )}
     </div>

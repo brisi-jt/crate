@@ -3,6 +3,7 @@ import {
   acousticColor,
   GREY_NODE,
   oklchString,
+  parseOklch,
   selectionRing,
 } from "./acoustic";
 
@@ -107,6 +108,21 @@ describe("grey out-of-gamut state", () => {
     expect(GREY_NODE.l).toBeLessThan(0.48);
     expect(GREY_NODE.c).toBeLessThan(0.05);
     expect(oklchString(GREY_NODE)).toBe("oklch(0.42 0.012 265)");
+  });
+});
+
+describe("parseOklch", () => {
+  it("round-trips oklchString", () => {
+    const c = acousticColor({ acousticness: 0.3, energy: 0.6, valence: 0.55 });
+    const parsed = parseOklch(oklchString(c));
+    expect(parsed.l).toBeCloseTo(c.l, 3);
+    expect(parsed.c).toBeCloseTo(c.c, 3);
+    expect(parsed.h).toBeCloseTo(c.h, 2);
+  });
+
+  it("falls back to grey on an unparseable string", () => {
+    expect(parseOklch("not a color")).toEqual(GREY_NODE);
+    expect(parseOklch("")).toEqual(GREY_NODE);
   });
 });
 

@@ -70,6 +70,22 @@ export function oklchString({ l, c, h }: Oklch): string {
 }
 
 /**
+ * Parse an `oklch(l c h)` string back to its components — the inverse of
+ * oklchString, for surfaces that carry the fill as a string (render points)
+ * but need the numeric colour again (hover-card tint). Falls back to the grey
+ * state on anything unparseable.
+ */
+export function parseOklch(value: string): Oklch {
+  const match = value.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/i);
+  if (!match) return GREY_NODE;
+  return {
+    l: Number.parseFloat(match[1]),
+    c: Number.parseFloat(match[2]),
+    h: Number.parseFloat(match[3]),
+  };
+}
+
+/**
  * Selection-ring color: the node's own color lifted by +0.12 lightness with
  * the chroma clamp re-applied at the new lightness (graph spec §1).
  */
