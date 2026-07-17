@@ -44,4 +44,17 @@ export const queryKeys = {
   insightPins: (surface: string, ownedOnly: boolean) =>
     ["insight-pins", surface, { ownedOnly }] as const,
   me: ["me"] as const,
+  /** The account's triage source setting. */
+  triageSetting: ["triage", "setting"] as const,
+  /** The triage queue for a source + ≤N filter; invalidate with the `triage` prefix. */
+  triageQueue: (source: string, maxPlaylists: number) =>
+    ["triage", "queue", source, { maxPlaylists }] as const,
+  /** Per-track filing intelligence; invalidate one track or the `triage` prefix. */
+  triageIntelligence: (trackId: number, maxPlaylists: number) =>
+    ["triage", "intelligence", trackId, { maxPlaylists }] as const,
+  /**
+   * Liked Songs roster. No `saved` key existed before triage — filing that
+   * unsaves a track must invalidate it, so it lives here as its own vocabulary.
+   */
+  saved: ["saved"] as const,
 };

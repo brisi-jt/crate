@@ -773,6 +773,103 @@ export const insightPinsSchema = z.object({
   _links: halLinksSchema,
 });
 
+// ------------------------------------------------------ triage (Phase 1/2)
+
+/** The account's current triage source. */
+export const triageSettingSchema = z.object({
+  source: z.enum(["liked", "playlist"]),
+  playlist_id: z.number().nullable(),
+  playlist_name: z.string().nullable().optional(),
+  _links: halLinksSchema,
+});
+
+/** One song in the triage queue — the payload carries no artwork. */
+export const queueTrackSchema = z.object({
+  track_id: z.number(),
+  spotify_id: z.string(),
+  name: z.string(),
+});
+
+export const queueCollectionSchema = z.object({
+  items: z.array(queueTrackSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+  source: z.enum(["liked", "playlist"]),
+  /** The ≤N filter in effect (liked mode only). */
+  max_playlists: z.number(),
+  _links: halLinksSchema,
+});
+
+/** A named filing signal — never blended into one score. */
+export const evidenceKindSchema = z.enum([
+  "sonic_fit",
+  "artist_overlap",
+  "placement_history",
+  "vibe_match",
+]);
+
+export const evidenceSchema = z.object({
+  kind: evidenceKindSchema,
+  score: z.number(),
+  summary: z.string(),
+  /** Structured backing for the signal (agreeing axes, counts, neighbours). */
+  detail: z.record(z.string(), z.unknown()).optional(),
+});
+
+/** One candidate destination playlist with its four separately-labeled signals. */
+export const destinationSuggestionSchema = z.object({
+  playlist_id: z.number(),
+  name: z.string(),
+  rank: z.number(),
+  /** True when the track is already here — greyed + badge, still selectable. */
+  already_in: z.boolean(),
+  evidence: z.array(evidenceSchema),
+});
+
+export const triageMembershipSchema = z.object({
+  count: z.number(),
+  playlist_ids: z.array(z.number()),
+  playlist_names: z.array(z.string()),
+});
+
+/** A cluster-grounded new-playlist proposal (founding members listed). */
+export const clusterProposalSchema = z.object({
+  suggested_name: z.string(),
+  founding_track_ids: z.array(z.number()),
+  size: z.number(),
+});
+
+/**
+ * The new-category panel. `pending` = the background clusterer is running
+ * (poll again); `empty` = the queue is below the clustering floor.
+ */
+export const newCategorySchema = z.object({
+  status: z.enum(["ready", "pending", "empty"]),
+  proposals: z.array(clusterProposalSchema),
+});
+
+export const triageIntelligenceSchema = z.object({
+  track_id: z.number(),
+  suggestions: z.array(destinationSuggestionSchema),
+  memberships: triageMembershipSchema,
+  new_category: newCategorySchema,
+  _links: halLinksSchema,
+});
+
+export const triageApplyResultSchema = z.object({
+  journal_id: z.number(),
+  status: z.string(),
+  _links: halLinksSchema,
+});
+
+export const triageCleanupResultSchema = z.object({
+  journal_id: z.number(),
+  status: z.string(),
+  removed: z.number(),
+  _links: halLinksSchema,
+});
+
 // -------------------------------------------------------------- me (Task 26)
 
 export const meSchema = z.object({
@@ -852,3 +949,15 @@ export type EditionCollection = z.infer<typeof editionCollectionSchema>;
 export type InsightPin = z.infer<typeof insightPinSchema>;
 export type InsightPins = z.infer<typeof insightPinsSchema>;
 export type Me = z.infer<typeof meSchema>;
+export type TriageSetting = z.infer<typeof triageSettingSchema>;
+export type QueueTrack = z.infer<typeof queueTrackSchema>;
+export type QueueCollection = z.infer<typeof queueCollectionSchema>;
+export type EvidenceKind = z.infer<typeof evidenceKindSchema>;
+export type Evidence = z.infer<typeof evidenceSchema>;
+export type DestinationSuggestion = z.infer<typeof destinationSuggestionSchema>;
+export type TriageMembership = z.infer<typeof triageMembershipSchema>;
+export type ClusterProposal = z.infer<typeof clusterProposalSchema>;
+export type NewCategory = z.infer<typeof newCategorySchema>;
+export type TriageIntelligence = z.infer<typeof triageIntelligenceSchema>;
+export type TriageApplyResult = z.infer<typeof triageApplyResultSchema>;
+export type TriageCleanupResult = z.infer<typeof triageCleanupResultSchema>;
