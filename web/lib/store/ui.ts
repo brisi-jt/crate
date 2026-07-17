@@ -17,7 +17,8 @@ export type RightPanel =
   | { kind: "frontier" }
   | { kind: "inbox" }
   | { kind: "radio" }
-  | { kind: "insights" };
+  | { kind: "insights" }
+  | { kind: "triage" };
 
 /**
  * The canvas renders one of three maps: the playlist graph, the track field,
@@ -74,6 +75,7 @@ interface UiState {
   openInbox: () => void;
   openRadio: () => void;
   openInsights: () => void;
+  openTriage: () => void;
   setMapMode: (mode: MapMode) => void;
   setClusterOverlay: (on: boolean) => void;
   openStats: () => void;
@@ -114,6 +116,8 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openInsights: () =>
     set({ rightPanel: { kind: "insights" }, paletteOpen: false }),
+
+  openTriage: () => set({ rightPanel: { kind: "triage" }, paletteOpen: false }),
 
   setMapMode: (mode) => set({ mapMode: mode }),
 

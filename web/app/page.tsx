@@ -31,6 +31,7 @@ import { PlaylistPanelContent } from "@/components/panels/playlist-panel";
 import { RadioPanelContent } from "@/components/panels/radio-panel";
 import { RightDock } from "@/components/panels/right-dock";
 import { TrackCardPanelContent } from "@/components/panels/track-card-panel";
+import { TriagePanelContent } from "@/components/panels/triage-panel";
 import {
   ConnectBeacon,
   FirstSyncBeacon,
@@ -142,7 +143,8 @@ export default function MapPage() {
       rightPanel.kind === "bulk-ops" ||
       rightPanel.kind === "frontier" ||
       rightPanel.kind === "radio" ||
-      rightPanel.kind === "insights"
+      rightPanel.kind === "insights" ||
+      rightPanel.kind === "triage"
       ? 640
       : 440
     : 0;
@@ -412,6 +414,15 @@ export default function MapPage() {
         onClose={closeRightPanel}
       >
         {rightPanel?.kind === "insights" && <InsightsPanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "triage"}
+        wide
+        title="Triage"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "triage" && <TriagePanelContent />}
       </RightDock>
 
       {contextMenu && (

@@ -29,6 +29,7 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const openInbox = useUiStore((s) => s.openInbox);
   const openRadio = useUiStore((s) => s.openRadio);
   const openInsights = useUiStore((s) => s.openInsights);
+  const openTriage = useUiStore((s) => s.openTriage);
   const setMapMode = useUiStore((s) => s.setMapMode);
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
@@ -82,6 +83,12 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
             heading="Panels"
             className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
           >
+            <CommandItem
+              onSelect={() => openTriage()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open triage
+            </CommandItem>
             <CommandItem
               onSelect={() => openInsights()}
               className="data-[selected=true]:bg-surface-2"
