@@ -30,7 +30,7 @@ export type RightPanel =
 export type MapMode = "playlists" | "tracks" | "artists";
 
 /**
- * How the field colours its points (G4). `acoustic` = rank-equalized acoustic
+ * How the field colours its points. `acoustic` = rank-equalized acoustic
  * colour (the default: colour = sound, spread across the gamut); `cluster` =
  * each density cluster gets a distinct base hue, shaded within by acoustics.
  */
@@ -64,11 +64,11 @@ interface UiState {
   mapMode: MapMode;
   /** Track-field HDBSCAN hulls on/off. */
   clusterOverlay: boolean;
-  /** Field point palette: rank-equalized acoustic colour, or cluster-keyed (G4). */
+  /** Field point palette: rank-equalized acoustic colour, or cluster-keyed. */
   paletteMode: PaletteMode;
   /** Node selected on the map (drives the selection ring + playlist panel). */
   selectedPlaylistId: number | null;
-  /** G5 — the active search-to-focus fly-to target (mode + id + nonce). */
+  /** The active search-to-focus fly-to target (mode + id + nonce). */
   flyTarget: FlyTarget | null;
   /** Tracks marked in the playlist panel, for "add selection to…" actions. */
   selectedTracks: SelectedTrack[];

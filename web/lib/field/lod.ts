@@ -1,12 +1,12 @@
 /**
- * G7 — track-field level of detail. The field grows toward 40k points; far out
+ * Track-field level of detail. The field grows toward 40k points; far out
  * it reads as an undifferentiated cloud. Below a zoom threshold, aggregate the
  * points into cluster blobs (hulls + a labelled disc per cluster); above it,
  * reveal the points. A transition band cross-fades the two so the drill-down is
  * continuous, not a hard swap.
  *
  * The decision is a pure function of zoom (`fieldLod`) so the painter stays
- * thin and the behaviour is unit-tested. `dominantCluster` also feeds the G4
+ * thin and the behaviour is unit-tested. `dominantCluster` also feeds the
  * cluster palette's neutral fallback for the genre-less mass.
  */
 
@@ -96,8 +96,7 @@ export function clusterBlobs(points: ClusterBlobPoint[]): ClusterBlob[] {
 /**
  * The most populous real cluster (noise excluded), lowest id winning ties.
  * Null when there are no real clusters. In the owned library this is the
- * genre-less acoustically-central mass (4a clustering handoff) — the G4 cluster
- * palette tints it neutral.
+ * genre-less acoustically-central mass — the cluster palette tints it neutral.
  */
 export function dominantCluster(clusters: number[]): number | null {
   const counts = new Map<number, number>();

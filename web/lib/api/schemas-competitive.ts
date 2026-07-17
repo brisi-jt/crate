@@ -1,5 +1,5 @@
 /**
- * Zod schemas for the competitor-parity surfaces (Phase 6 F-series):
+ * Zod schemas for the competitor-parity surfaces:
  *   F1 — GET /v1/listening/dashboard   (listening rhythm)
  *   F3 — GET /v1/obscurity             (library + per-playlist obscurity)
  *   F5 — GET /v1/taste/drift           (you vs a past self)

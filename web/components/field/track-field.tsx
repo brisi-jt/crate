@@ -66,7 +66,7 @@ export default function TrackField({
     return map;
   }, [graph.nodes]);
 
-  // Rank-equalizer (G4): built once over every track's acoustic driver so the
+  // Rank-equalizer: built once over every track's acoustic driver so the
   // population fills the colour gamut instead of piling on red. Owner-blend
   // fallbacks (no per-track features) also feed the curve via their centroids.
   const equalizer = useMemo(() => {
@@ -78,9 +78,9 @@ export default function TrackField({
     return centroids.length > 0 ? rankEqualize(centroids) : null;
   }, [trackMap.data]);
 
-  // Cluster palette (G4 cluster mode): distinct hue per cluster, with the
-  // dominant (genre-less, per the 4a clustering handoff) cluster tinted neutral
-  // so it reads as "mixed", not a false genre identity.
+  // Cluster palette (cluster mode): distinct hue per cluster, with the
+  // dominant (genre-less) cluster tinted neutral so it reads as "mixed",
+  // not a false genre identity.
   const palette = useMemo(() => {
     const raw = trackMap.data?.points ?? [];
     const clusters = raw.map((p) => p.cluster);
@@ -190,7 +190,7 @@ export default function TrackField({
         flyTo={flyTo}
       />
 
-      {/* Palette mode (G4): acoustic (colour = sound, equalized) vs cluster-keyed.
+      {/* Palette mode: acoustic (colour = sound, equalized) vs cluster-keyed.
           Sits above the playlist legend on the left rail. */}
       <div className="pointer-events-auto absolute top-[56px] left-lg z-10 flex w-[220px] items-center gap-2xs">
         <span className="micro-caps text-text-muted">PALETTE</span>

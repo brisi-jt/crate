@@ -8,7 +8,7 @@ Two sources:
   oldest-waiting first, a true inbox.
 - **Liked Songs**: saved (not-removed) tracks filtered to those appearing in
   ``<= max_playlists`` live owned playlists (the ≤N slider; default 0 =
-  orphans). P0-4: the ≤N filter is pushed into SQL via a per-track live
+  orphans). The ≤N filter is pushed into SQL via a per-track live
   membership count, so ``total`` and page boundaries are correct at every N —
   never applied in Python after pagination.
 """

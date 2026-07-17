@@ -78,7 +78,7 @@ export const ARCHAEOLOGY_REFS = [
 /** Library stats + bulk ops chrome. */
 export const STATS_REFS = ["split_merge_hints", "calibration_drift"] as const;
 
-/** Triage panel — the newest jargon surface (Phase 2). */
+/** Triage panel jargon surface. */
 export const TRIAGE_REFS = [
   "triage_source",
   "orphan_filter",

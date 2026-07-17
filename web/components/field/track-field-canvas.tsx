@@ -27,7 +27,7 @@ export interface FieldRenderPoint {
   cluster: number;
   x: number;
   y: number;
-  /** Small album-art thumb url for the G1 hover card; null until imaged. */
+  /** Small album-art thumb url for the hover card; null until imaged. */
   albumImageUrl: string | null;
   /** Per-track features for the hover-card fingerprint; null when unenriched. */
   features: AcousticCentroid | null;
@@ -70,7 +70,7 @@ interface TrackFieldCanvasProps {
   onSelect: (trackId: number | null) => void;
   rightInset: number;
   reducedMotion: boolean;
-  /** G5 — camera fly-to target for the track field (search-to-focus). */
+  /** Camera fly-to target for the track field (search-to-focus). */
   flyTo?: FlyTarget | null;
 }
 
@@ -126,7 +126,7 @@ export default function TrackFieldCanvas({
   // the painters read the live globalScale directly for LOD.
   void zoom;
 
-  // Cluster blobs for the far-zoom aggregate view (G7).
+  // Cluster blobs for the far-zoom aggregate view.
   const blobs = useMemo(() => clusterBlobs(points), [points]);
 
   useEffect(() => {
@@ -187,7 +187,7 @@ export default function TrackFieldCanvas({
     }
   }, [rightInset, reducedMotion]);
 
-  // G5 — fly-to (search-to-focus): glide the camera to the searched track and
+  // Fly-to (search-to-focus): glide the camera to the searched track and
   // pop a zoom that resolves it, once per nonce.
   const lastFlyNonce = useRef(0);
   useEffect(() => {
@@ -240,7 +240,7 @@ export default function TrackFieldCanvas({
   }
 
   /**
-   * G7 — cluster blobs for the far-zoom aggregate. Below the LOD threshold the
+   * Cluster blobs for the far-zoom aggregate. Below the LOD threshold the
    * 5,862-point cloud collapses into one soft disc per cluster (its colour, its
    * id), so the field is a legible drill-down instead of a fog. Cross-fades out
    * as the points fade in.
@@ -276,7 +276,7 @@ export default function TrackFieldCanvas({
     globalScale: number,
   ) {
     if (!tokens || node.x === undefined || node.y === undefined) return;
-    // G7 LOD: far out, points are fully faded and the blob layer carries the
+    // LOD: far out, points are fully faded and the blob layer carries the
     // field; keep hovered/selected points visible so interaction still works.
     const hovered = node.id === hoveredId;
     const selected = node.id === selectedId;
@@ -454,7 +454,7 @@ export default function TrackFieldCanvas({
     [],
   );
 
-  // G1 — hover card on dwell. Points are only resolvable once zoomed in, so the
+  // Hover card on dwell. Points are only resolvable once zoomed in, so the
   // card is gated behind the point-visible LOD zoom too; hidden mid-gesture.
   const handleHover = useCallback((node: FieldNode | null) => {
     setHoveredId(node ? node.id : null);

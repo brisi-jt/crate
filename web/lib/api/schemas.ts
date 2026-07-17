@@ -779,7 +779,7 @@ export const insightPinsSchema = z.object({
   _links: halLinksSchema,
 });
 
-// ------------------------------------------------------ triage (Phase 1/2)
+// ----------------------------------------------------------------- triage
 
 /** The account's current triage source. */
 export const triageSettingSchema = z.object({

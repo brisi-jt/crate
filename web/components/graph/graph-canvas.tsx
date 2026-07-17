@@ -136,7 +136,7 @@ export default function GraphCanvas({
     return () => observer.disconnect();
   }, []);
 
-  // G4 — rank-equalize the palette across the library so playlist colours fill
+  // Rank-equalize the palette across the library so playlist colours fill
   // the gamut instead of piling on red (centroids regress to the mean hardest
   // of all — measured p10–p90 acousticness 0.21–0.59). Shared by the painter
   // and the hover-card swatch so they always agree.

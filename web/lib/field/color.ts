@@ -60,14 +60,14 @@ export interface FieldPointColorInput {
   owners: Array<AcousticCentroid | null>;
   /** Density cluster label (−1 = noise) — drives cluster-mode colour. */
   cluster: number;
-  /** The library rank-equalizer (G4). Null = raw acoustic colour. */
+  /** The library rank-equalizer. Null = raw acoustic colour. */
   equalizer: Equalizer | null;
-  /** The cluster-keyed palette (G4 cluster mode). */
+  /** The cluster-keyed palette (cluster mode). */
   palette: ClusterPalette;
 }
 
 /**
- * The field's point colour with G4 palette modes:
+ * The field's point colour with two palette modes:
  *  - `acoustic`: the track's own sound, rank-equalized across the library so
  *    the population fills the gamut instead of piling on red. Falls back to raw
  *    acoustic colour when no equalizer is built, and to the membership blend or

@@ -12,13 +12,13 @@ interface GraphHoverCardProps {
   x: number;
   y: number;
   containerWidth: number;
-  /** Library equalizer so the swatch matches the equalized node fill (G4). */
+  /** Library equalizer so the swatch matches the equalized node fill. */
   equalizer: Equalizer | null;
 }
 
 /**
  * Canvas nodes can't anchor a DOM HoverCard, so this is a manually positioned
- * readout on --surface-2 (component inventory §3.1). G1: the playlist cover
+ * readout on --surface-2 (component inventory §3.1). The playlist cover
  * (when Spotify has one) anchors the card, tinted by the playlist's own
  * acoustic colour; the overlap/subset readouts stay.
  */

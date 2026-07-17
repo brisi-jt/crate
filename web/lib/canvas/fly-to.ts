@@ -1,5 +1,5 @@
 /**
- * G5 — search-to-focus fly-to targets.
+ * Search-to-focus fly-to targets.
  *
  * ⌘K search (or any "jump to X") dispatches a fly-to target: which canvas mode
  * it belongs to, the node id, and a monotonic nonce. Each canvas consumes only

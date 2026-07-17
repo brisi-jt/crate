@@ -1,11 +1,11 @@
 /**
- * G1 — rich hover-card view models.
+ * Rich hover-card view models.
  *
  * One shell component renders every hover card; this module maps a node
  * (track / artist / playlist / genre) into the card's display data. Pure — no
  * DOM, no image decode — so the fields, fingerprint readout, and viewport
  * clamping are unit-tested and the component is a thin renderer. Imagery fields
- * come from the Phase 0 backfill (album_image_url, artist image_url, playlist
+ * come from the imagery backfill (album_image_url, artist image_url, playlist
  * image_url) exposed in the map/galaxy/graph payloads.
  */
 

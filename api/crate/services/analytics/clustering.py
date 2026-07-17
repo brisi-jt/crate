@@ -8,7 +8,7 @@ caching, not parallelism (dropping the seed for `n_jobs>1` would make the
 layout non-reproducible). HDBSCAN comes from scikit-learn — no separate hdbscan
 package.
 
-**Two embeddings (G2).** The layout you *see* and the geometry we *cluster* are
+**Two embeddings.** The layout you *see* and the geometry we *cluster* are
 different jobs:
 
 * the **display embedding** (min_dist=0.1) spaces points out prettily for the
@@ -24,7 +24,7 @@ degenerate 2-cluster blob into a usable ~15-30 cluster structure, and it also
 fixes the correctness bug where hulls drawn on the display layout disagreed with
 cluster ids computed in raw space.
 
-**Genre in the distance (G3).** Percentile acoustics alone make clusters that
+**Genre in the distance.** Percentile acoustics alone make clusters that
 are hard to read ("this corner is… mid-energy?"). The caller can pass a
 pre-weighted per-track ``genre_matrix`` (a reduced genre profile from the ENAO
 ``ArtistGenre`` join); it is concatenated onto the acoustic block before UMAP so
@@ -50,7 +50,7 @@ UMAP_SEED = 42
 DISPLAY_MIN_DIST = 0.1
 DISPLAY_NEIGHBORS = 15
 
-# Clustering embedding (G2): the geometry HDBSCAN sees. The standard
+# Clustering embedding: the geometry HDBSCAN sees. The standard
 # UMAP-for-clustering recipe — more neighbours for global structure, min_dist=0
 # so each dense region collapses to a point HDBSCAN can find.
 CLUSTER_MIN_DIST = 0.0
@@ -58,7 +58,7 @@ CLUSTER_NEIGHBORS = 30
 
 MIN_TRACKS_FOR_MAP = 10
 
-# HDBSCAN min_cluster_size scales with n (G2). The old min(5, n//2) forced
+# HDBSCAN min_cluster_size scales with n. The old min(5, n//2) forced
 # speck clusters at library scale (~6k tracks) — a 7-track dust cluster amid a
 # 71% blob. These anchor a linear scale between a small-library floor and a
 # proportional ceiling.
@@ -68,7 +68,7 @@ MIN_CLUSTER_CEIL_FLOOR = 20  # once past this many tracks, never below 20
 
 
 def scaled_min_cluster_size(n: int) -> int:
-    """HDBSCAN ``min_cluster_size`` for ``n`` tracks (G2).
+    """HDBSCAN ``min_cluster_size`` for ``n`` tracks.
 
     Scales with n so clusters are meaningful at library scale without vanishing
     on a tiny fixture: ``max(n // 200, 20)`` once the library is large, but never
@@ -181,13 +181,13 @@ def compute_track_map(
     """Project the library and compare its density structure to the playlists.
 
     ``matrix`` rows are percentile vectors aligned with ``track_ids``;
-    ``memberships`` maps playlist id -> track ids. ``genre_matrix`` (G3), when
+    ``memberships`` maps playlist id -> track ids. ``genre_matrix``, when
     given, is a pre-weighted per-track genre block (rows aligned with
     ``track_ids``) concatenated onto the acoustic block before projection so
     genre-distinct groups separate. Returns None below MIN_TRACKS_FOR_MAP — a
     projection of a handful of points is noise wearing axes.
 
-    Two embeddings (G2): a display embedding (min_dist=0.1) for the on-screen
+    Two embeddings: a display embedding (min_dist=0.1) for the on-screen
     x/y, and a clustering embedding (nn=30, min_dist=0) that HDBSCAN clusters.
     The cluster labels are painted onto the display layout.
     """
@@ -201,7 +201,7 @@ def compute_track_map(
     from sklearn.metrics import adjusted_rand_score
     from umap import UMAP
 
-    # G3: blend the pre-weighted genre block onto the acoustic block. Both
+    # Blend the pre-weighted genre block onto the acoustic block. Both
     # embeddings project the same combined feature space.
     features = matrix
     if genre_matrix is not None and genre_matrix.size:
@@ -217,7 +217,7 @@ def compute_track_map(
     ).fit_transform(features)
     embedding = np.asarray(embedding, dtype=float)
 
-    # Clustering embedding (G2): tuned for density — HDBSCAN clusters THIS, not
+    # Clustering embedding: tuned for density — HDBSCAN clusters THIS, not
     # the raw matrix, so hulls match the geography and the blob breaks apart.
     cluster_embedding = UMAP(
         n_components=2,

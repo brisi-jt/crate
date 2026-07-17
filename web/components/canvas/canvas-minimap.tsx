@@ -5,7 +5,7 @@ import { minimapLayout, viewportRect } from "@/lib/canvas/minimap";
 import { readCanvasTokens } from "@/lib/graph/canvas-tokens";
 
 /**
- * G7 — corner mini-map. A small overview of the whole field with the current
+ * Corner mini-map. A small overview of the whole field with the current
  * camera viewport marked, so a dense field (5,862 → 40k points) is orientable.
  * Drawn on its own tiny canvas from the field's graph-space points + the live
  * camera extent (polled on a RAF while mounted).

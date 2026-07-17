@@ -353,7 +353,7 @@ def compute_track_map_payload(
         dtype=float,
     ).reshape(len(track_ids), len(cluster_features))
 
-    # G3: per-track genre block, blended into the clustering distance. Weighted
+    # Per-track genre block, blended into the clustering distance. Weighted
     # so genre pulls against the acoustic axes without swamping them.
     genre_vectors, _genre_names = load_genre_vectors(session, track_ids)
     genre_matrix = None

@@ -11,7 +11,7 @@ import { clampCardPosition } from "@/lib/canvas/hover-card";
 import { type Oklch, oklchString } from "@/lib/color/acoustic";
 
 /**
- * G1 — the shared rich hover-card shell. A DOM overlay positioned over the
+ * The shared rich hover-card shell. A DOM overlay positioned over the
  * canvas (never canvas-drawn — image decode + text layout on the 2D context
  * during pan would tank frame rate). The card is tinted by the node's own
  * acoustic colour (synesthesia: the card is literally the sound's colour) with

@@ -1,5 +1,5 @@
 /**
- * G7 — corner mini-map geometry.
+ * Corner mini-map geometry.
  *
  * Projects the field's graph-space extent into a small fixed box (aspect
  * preserved, centred) and marks the camera viewport as a rect inside it, so a

@@ -71,7 +71,7 @@ interface ArtistGalaxyCanvasProps {
   onSelect: (artistId: string | null) => void;
   rightInset: number;
   reducedMotion: boolean;
-  /** G5 — camera fly-to target for the galaxy (search-to-focus). */
+  /** Camera fly-to target for the galaxy (search-to-focus). */
   flyTo?: FlyTarget | null;
 }
 
@@ -214,7 +214,7 @@ export default function ArtistGalaxyCanvas({
     return () => clearTimeout(timer);
   }, [graphMounted]);
 
-  // G5 — fly-to (search-to-focus): glide to the searched artist, once per nonce.
+  // Fly-to (search-to-focus): glide to the searched artist, once per nonce.
   const lastFlyNonce = useRef(0);
   useEffect(() => {
     const fg = fgRef.current;
@@ -443,7 +443,7 @@ export default function ArtistGalaxyCanvas({
     [],
   );
 
-  // G1 — artist hover card on dwell (photo + genres + similar). Hidden while
+  // Artist hover card on dwell (photo + genres + similar). Hidden while
   // panning/zooming so it never chases the cursor mid-gesture.
   const handleHover = useCallback((node: GalaxyNode | null) => {
     setHoveredId(node ? node.id : null);

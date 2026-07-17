@@ -43,7 +43,7 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const sync = useTriggerSync();
 
-  // Search-to-focus (G5) targets: tracks + artists. Only fetched while the
+  // Search-to-focus targets: tracks + artists. Only fetched while the
   // palette is open (the queries are already cached by the map views).
   const trackMap = useTrackMap();
   const galaxy = useArtistGalaxy();

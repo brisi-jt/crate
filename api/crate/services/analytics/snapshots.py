@@ -16,7 +16,7 @@ from crate.model.orm.base import utcnow
 # Snapshot kinds whose payload depends only on the enriched track set and its
 # features — NOT on playlist membership. A membership-only mutation leaves
 # these untouched so the triage ritual's rapid applies don't storm the
-# expensive UMAP/HDBSCAN recompute (P1-4). Enrichment (which changes features)
+# expensive UMAP/HDBSCAN recompute. Enrichment (which changes features)
 # and sync (which changes the track set) still evict everything.
 MEMBERSHIP_INDEPENDENT_KINDS: frozenset[SnapshotKind] = frozenset({SnapshotKind.track_map})
 

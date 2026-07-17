@@ -1,5 +1,5 @@
 /**
- * G4 — colour variety by rank-equalization.
+ * Colour variety by rank-equalization.
  *
  * The acoustic colour formula (lib/color/acoustic.ts) is correct and binding;
  * the problem is its *inputs*. The library's driving features are centred
@@ -142,11 +142,11 @@ const GOLDEN_ANGLE = 137.508;
 const HUE_ANCHOR = 40;
 
 /**
- * Cluster-keyed palette (G4 optional mode): each cluster gets a distinct base
+ * Cluster-keyed palette (optional mode): each cluster gets a distinct base
  * hue; lightness/chroma vary within the cluster from the track's own acoustics.
- * The dominant genre-less cluster (per the 4a clustering handoff — ~43% of the
- * library has no genre and shares one acoustically-central cluster) gets a
- * neutral tint so it reads as "mixed / uncategorised", not a false identity.
+ * The dominant genre-less cluster (~43% of the library has no genre and shares
+ * one acoustically-central cluster) gets a neutral tint so it reads as
+ * "mixed / uncategorised", not a false identity.
  * Noise (−1) is the grey out-of-gamut state.
  */
 export interface ClusterPalette {

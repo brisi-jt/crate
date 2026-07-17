@@ -1,5 +1,5 @@
 /**
- * G1 — hover-card image LRU cache.
+ * Hover-card image LRU cache.
  *
  * Rich hover cards show album art, artist photos, and playlist-cover mosaics.
  * Images are decoded lazily on hover dwell and cached so re-hovering is instant

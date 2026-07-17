@@ -4,7 +4,7 @@ Clusters the CURRENT triage queue and proposes a playlist per dense cluster
 (suggested name from the cluster's dominant genres/feature character, founding
 members listed). The panel always shows this, quiet unless existing fit is weak.
 
-P1-1 — this must NEVER recreate the map crash in the request path:
+This must NEVER recreate the map crash in the request path:
 
 - UMAP/HDBSCAN runs only in ``precompute_triage_cluster`` (a background task,
   same 202 pattern as the track map), never in ``read_cluster_proposal``.
@@ -152,7 +152,7 @@ def precompute_triage_cluster(session: Session, user: User, source: QueueSource)
         matrix = np.array(
             [[vectors[tid][f] for f in cluster_feats] for tid in aligned], dtype=float
         ).reshape(len(aligned), len(cluster_feats))
-        # G3: blend genre into the queue's cluster distance too, so the
+        # Blend genre into the queue's cluster distance too, so the
         # new-category proposal is genre-legible (matches the track map).
         genre_vectors, genre_names = load_genre_vectors(session, aligned)
         genre_matrix = None

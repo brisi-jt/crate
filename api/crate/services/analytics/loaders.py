@@ -130,11 +130,11 @@ def load_track_credits(session: Session, track_ids: list[int]) -> dict[int, list
 
 
 # How many of the library's most-common ENAO genres form the genre-vector
-# dimensions (G3). A cap keeps the blended matrix small; the long tail of rare
+# dimensions. A cap keeps the blended matrix small; the long tail of rare
 # genres carries little clustering signal and would only add sparse noise.
 GENRE_VECTOR_DIMS = 24
 
-# G3 — how strongly the (L2-normalized) per-track genre block weighs against the
+# How strongly the (L2-normalized) per-track genre block weighs against the
 # acoustic percentile block in the clustering distance. Each acoustic axis has
 # unit-ish spread in [0,1]; a track's genre vector is a unit vector, so this
 # scale sets genre's pull relative to the ~8 acoustic axes. 2.0 lets genre carve
@@ -145,7 +145,7 @@ GENRE_CLUSTER_WEIGHT = 2.0
 def load_genre_vectors(
     session: Session, track_ids: list[int], *, dims: int = GENRE_VECTOR_DIMS
 ) -> tuple[dict[int, np.ndarray], list[str]]:
-    """Per-track genre vector over the library's top-``dims`` ENAO genres (G3).
+    """Per-track genre vector over the library's top-``dims`` ENAO genres.
 
     Joins each track's credited artists (casefolded name — the ENAO dump has no
     Spotify artist ids, so name is the working key, as radio/insights do) to

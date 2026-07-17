@@ -45,7 +45,7 @@ export default function ArtistGalaxy({
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
   const [pins, setPins] = useState<number[]>([]);
 
-  // G4 — equalize artist colours across the galaxy so they fill the gamut.
+  // Equalize artist colours across the galaxy so they fill the gamut.
   const equalizer = useMemo(() => {
     const centroids = (galaxy.data?.nodes ?? [])
       .map((n) => n.centroid)

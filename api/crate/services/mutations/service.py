@@ -299,7 +299,7 @@ class MutationService:
     async def unsave_tracks(self, track_ids: list[int]) -> MutationJournal:
         """Remove tracks from Liked Songs — journaled, remote-before-local.
 
-        P0-3: the Spotify DELETE must land BEFORE the local ``is_removed`` flip
+        The Spotify DELETE must land BEFORE the local ``is_removed`` flip
         commits. If the remote write fails, the local row stays saved so it
         agrees with the (still-saved) remote — the nightly saved-tracks sync
         can never resurrect a locally-removed-but-remotely-present like.
@@ -335,7 +335,7 @@ class MutationService:
         new_playlist: dict[str, Any] | None = None,
         unsave: bool = False,
     ) -> MutationJournal:
-        """One triage filing as ONE journaled action (P0-1 net-new composite).
+        """One triage filing as ONE journaled action.
 
         Adds ``track_id`` to every destination playlist, optionally creates a
         new playlist seeded with ``{name, seed_track_ids}`` (the filed track is
@@ -352,7 +352,7 @@ class MutationService:
             seed_ids = list(dict.fromkeys([track_id, *new_playlist.get("seed_track_ids", [])]))
             self._require_tracks(seed_ids)
 
-        # P0-2: the composite inverse carries every limb it must restore —
+        # The composite inverse carries every limb it must restore —
         # pre-filing listings for existing destinations, created playlist ids,
         # and the saved track ids (the restore_bulk branch has no saved
         # vocabulary; restore_filing must).
@@ -435,8 +435,8 @@ class MutationService:
                 await self._restore_saved(inverse["track_ids"])
             elif kind == "restore_filing":
                 # Restore every limb the composite filing touched. Remote
-                # re-save first (P0-3 ordering) so the local flip only follows
-                # a successful write.
+                # re-save first — same remote-before-local ordering as unsave,
+                # so the local flip only follows a successful write.
                 if inverse.get("saved"):
                     await self._restore_saved(inverse["saved"])
                 for listing in inverse.get("listings", []):
@@ -615,7 +615,7 @@ class MutationService:
     def _flip_saved(self, track_ids: list[int], *, removed: bool) -> None:
         """Mirror an unsave/re-save locally: flip is_removed on the SavedTrack rows.
 
-        Only runs AFTER the corresponding remote write succeeded (P0-3), so the
+        Only runs AFTER the corresponding remote write succeeded, so the
         local state never claims a removal Spotify hasn't performed.
         """
         rows = self._session.exec(
