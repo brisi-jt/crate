@@ -24,7 +24,9 @@ class LibrarySnapshot:
     # playlist id -> track ids in position order (repeats preserved)
     occurrences: dict[int, list[int]] = field(default_factory=dict)
     playlist_names: dict[int, str] = field(default_factory=dict)
-    # track id -> {"spotify_id", "isrc", "name", "artist"}
+    # playlist id -> Spotify cover url, when it has one
+    playlist_images: dict[int, str | None] = field(default_factory=dict)
+    # track id -> {"spotify_id", "isrc", "name", "artist", "album_image_url"}
     track_meta: dict[int, dict[str, Any]] = field(default_factory=dict)
     # track id -> raw feature values (present rows only)
     features: dict[int, dict[str, float | None]] = field(default_factory=dict)
@@ -57,6 +59,7 @@ def load_library(session: Session, user_id: int, owned_only: bool = False) -> Li
     for playlist in playlists:
         assert playlist.id is not None
         snapshot.playlist_names[playlist.id] = playlist.name
+        snapshot.playlist_images[playlist.id] = playlist.image_url
         snapshot.memberships[playlist.id] = set()
         snapshot.occurrences[playlist.id] = []
 
@@ -82,6 +85,9 @@ def load_library(session: Session, user_id: int, owned_only: bool = False) -> Li
                 "isrc": track.isrc,
                 "name": track.name,
                 "artist": primary_artist(track),
+                # Small album-art thumb for the map/field hover card; null until
+                # a sync or backfill has imaged the track's album.
+                "album_image_url": track.image_url_sm,
             }
 
     track_ids = list(snapshot.track_meta)

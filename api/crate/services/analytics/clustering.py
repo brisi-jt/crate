@@ -3,6 +3,14 @@
 UMAP runs with a fixed random_state (which forces single-threaded, exactly
 reproducible layouts), so the same library always produces the same map.
 HDBSCAN comes from scikit-learn — no separate hdbscan package.
+
+Loudness is excluded from the clustering distance metric (M3, decorrelation):
+measured on the real owned library, loudness ranks correlate with energy ranks
+at r=0.72 — loudness is very nearly a duplicate energy axis, so including both
+lets "energy" count ~1.7x in the euclidean distance UMAP/HDBSCAN see, lowering
+the effective rank of the space and blurring cluster structure. Loudness is
+still calibrated, stored, and used for display/color; only the clustering
+matrix drops it. See ``clustering_features``.
 """
 
 import hashlib
@@ -16,6 +24,20 @@ UMAP_NEIGHBORS = 15
 
 MIN_TRACKS_FOR_MAP = 10
 MIN_CLUSTER_SIZE = 5
+
+# Features dropped from the clustering distance metric (M3). Loudness ~ energy
+# at r=0.72 on the real library, so it double-counts energy; kept for display.
+CLUSTERING_EXCLUDED_FEATURES = ("loudness",)
+
+
+def clustering_features(features: tuple[str, ...]) -> tuple[str, ...]:
+    """The feature list to cluster on: ``features`` minus the decorrelated ones.
+
+    Preserves order and every non-excluded feature, so the caller can build a
+    column-aligned matrix.
+    """
+    return tuple(f for f in features if f not in CLUSTERING_EXCLUDED_FEATURES)
+
 
 # A playlist is a split candidate when >= 2 clusters each hold this share of
 # its clustered tracks (and at least MIN_CLUSTER_SIZE tracks).

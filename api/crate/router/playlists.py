@@ -32,6 +32,9 @@ class PlaylistResource(BaseModel):
     name: str
     description: str | None
     snapshot_id: str | None = Field(description="Spotify snapshot at the last sync.")
+    image_url: str | None = Field(
+        default=None, description="Spotify playlist cover, when it has one."
+    )
     is_owned: bool = Field(description="True when the account owns the playlist (vs follows it).")
     is_deleted: bool = Field(description="True when the playlist is gone from Spotify.")
     status: PlaylistSyncStatus
@@ -59,6 +62,9 @@ class TrackResource(BaseModel):
         description="Ordered artists as {spotify_id, name} objects."
     )
     album_name: str | None
+    album_image_url: str | None = Field(
+        default=None, description="Small album-art thumb; null until the album is imaged."
+    )
     duration_ms: int | None
 
 
@@ -147,6 +153,7 @@ def list_playlists(
             name=row.name,
             description=row.description,
             snapshot_id=row.snapshot_id,
+            image_url=row.image_url,
             is_owned=row.is_owned,
             is_deleted=row.is_deleted,
             status=row.status,
@@ -220,6 +227,7 @@ def list_playlist_tracks(
                 name=track.name,
                 artists=track.artists,
                 album_name=track.album_name,
+                album_image_url=track.image_url_sm,
                 duration_ms=track.duration_ms,
             ),
         )

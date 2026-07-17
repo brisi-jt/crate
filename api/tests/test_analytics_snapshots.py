@@ -68,6 +68,21 @@ def test_invalidate_without_user_clears_everything(session: Session, user: User)
     assert session.exec(select(AnalyticsSnapshot)).all() == []
 
 
+def test_invalidate_kinds_drops_only_named_kinds(session: Session, user: User) -> None:
+    get_or_compute(session, user, SnapshotKind.graph, lambda: {"k": "graph"})
+    get_or_compute(session, user, SnapshotKind.track_map, lambda: {"k": "track_map"})
+    get_or_compute(session, user, SnapshotKind.temporal, lambda: {"k": "temporal"})
+
+    removed = invalidate_snapshots(
+        session, user.id, kinds=[SnapshotKind.graph, SnapshotKind.temporal]
+    )
+    session.commit()
+
+    assert removed == 2
+    remaining = session.exec(select(AnalyticsSnapshot)).all()
+    assert {row.kind for row in remaining} == {SnapshotKind.track_map}
+
+
 async def test_sync_with_changes_invalidates_snapshots(session: Session, user: User) -> None:
     get_or_compute(session, user, SnapshotKind.graph, lambda: {"stale": True})
 

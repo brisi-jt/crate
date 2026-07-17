@@ -8,9 +8,23 @@ exactly 1.0.
 import numpy as np
 import pytest
 
-from crate.services.analytics.clustering import compute_track_map
+from crate.services.analytics.clustering import (
+    CLUSTERING_EXCLUDED_FEATURES,
+    clustering_features,
+    compute_track_map,
+)
 
 pytestmark = pytest.mark.unit
+
+
+def test_clustering_features_drops_loudness() -> None:
+    """M3: loudness (r=0.72 with energy) is dropped from the clustering metric."""
+    features = ("energy", "valence", "loudness", "tempo")
+    assert "loudness" in CLUSTERING_EXCLUDED_FEATURES
+    kept = clustering_features(features)
+    assert "loudness" not in kept
+    # Order and every other feature preserved.
+    assert kept == ("energy", "valence", "tempo")
 
 
 def two_blob_fixture() -> tuple[np.ndarray, list[int], dict[int, set[int]]]:

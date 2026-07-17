@@ -170,6 +170,29 @@ async def test_add_tracks_invalidates_analytics_snapshots(
     assert session.exec(select(AnalyticsSnapshot)).all() == []
 
 
+async def test_add_tracks_leaves_track_map_snapshot_intact(
+    session: Session, user: User, fake: FakeSpotify
+) -> None:
+    """P1-4: a membership-only mutation must NOT evict the expensive track_map
+    snapshot (it depends on the feature/track-set, not playlist membership) —
+    otherwise the triage ritual storms background UMAP recomputes."""
+    lib = seed_library(session, user, fake, {"Gym": ["t1"], "Pool": ["t2"]})
+    session.add(AnalyticsSnapshot(user_id=user.id, kind="track_map", payload={"kept": True}))
+    session.add(AnalyticsSnapshot(user_id=user.id, kind="graph", payload={}))
+    session.commit()
+    svc = service(session, fake, user)
+
+    await svc.add_tracks(lib["Gym"].id, track_ids_for(session, ["t2"]))
+
+    kinds = {row.kind.value for row in session.exec(select(AnalyticsSnapshot)).all()}
+    # Membership-dependent graph evicted; membership-independent track_map survives.
+    assert "graph" not in kinds
+    track_map = session.exec(
+        select(AnalyticsSnapshot).where(AnalyticsSnapshot.kind == "track_map")
+    ).one()
+    assert track_map.payload == {"kept": True}
+
+
 async def test_add_to_unknown_playlist_404s(
     session: Session, user: User, fake: FakeSpotify
 ) -> None:

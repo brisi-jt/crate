@@ -14,15 +14,63 @@ class SpotifyExternalIds(BaseModel):
     isrc: str | None = None
 
 
+class SpotifyImage(BaseModel):
+    """One image in a Spotify image set (cover art, artist photo, playlist cover)."""
+
+    url: str
+    height: int | None = None
+    width: int | None = None
+
+
+def largest_image_url(images: list[SpotifyImage]) -> str | None:
+    """URL of the biggest image, by pixel area; None for an empty set.
+
+    Spotify usually orders images largest-first, but that is not guaranteed —
+    pick by area so the anchor is always the highest resolution available.
+    """
+    if not images:
+        return None
+    return max(images, key=_image_area).url
+
+
+def smallest_image_url(images: list[SpotifyImage]) -> str | None:
+    """URL of the smallest image, by pixel area; None for an empty set.
+
+    The list thumb: never decode the full-size art for a hover card.
+    """
+    if not images:
+        return None
+    return min(images, key=_image_area).url
+
+
+def _image_area(image: SpotifyImage) -> int:
+    # Missing dimensions sort as unknown-largest so a sizeless entry never
+    # wins the thumb slot; a fully sizeless set keeps its given order.
+    if image.height is None or image.width is None:
+        return 1 << 30
+    return image.height * image.width
+
+
 class SpotifyArtistRef(BaseModel):
-    # Both null for local files.
+    # Both null for local files. Track artist refs never carry images —
+    # artist photos come from the full /v1/artists objects (SpotifyArtist).
     id: str | None = None
     name: str | None = None
+
+
+class SpotifyArtist(BaseModel):
+    """Full artist object from GET /v1/artists — carries the photo set."""
+
+    id: str
+    name: str
+    images: list[SpotifyImage] = Field(default_factory=list)
 
 
 class SpotifyAlbumRef(BaseModel):
     id: str | None = None
     name: str | None = None
+    # Album art, present on the album object embedded in a track.
+    images: list[SpotifyImage] = Field(default_factory=list)
 
 
 class SpotifyTrack(BaseModel):
@@ -110,6 +158,8 @@ class SpotifyPlaylistSummary(BaseModel):
     snapshot_id: str
     owner: SpotifyOwner | None = None
     tracks: SpotifyTracksRef = Field(default_factory=SpotifyTracksRef)
+    # Spotify's playlist cover set, when the playlist has one.
+    images: list[SpotifyImage] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod

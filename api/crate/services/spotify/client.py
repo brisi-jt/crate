@@ -17,6 +17,7 @@ from crate.services.spotify.models import (
     PlayHistoryItem,
     PlaylistTrackItem,
     SavedTrackItem,
+    SpotifyArtist,
     SpotifyPlaylistSummary,
     SpotifyTopArtist,
     SpotifyTrack,
@@ -335,6 +336,29 @@ class SpotifyClient:
             "GET", f"{API_BASE_URL}/albums", params={"ids": ",".join(album_ids)}
         )
         return [album for album in response.json().get("albums", []) if album]
+
+    # Several artists per call — Spotify caps /artists at 50 ids.
+    _ARTISTS_BATCH = 50
+
+    async def get_artists(self, artist_ids: list[str]) -> list[SpotifyArtist]:
+        """Full artist objects for up to 50 ids, in request order.
+
+        Carries the artist photo set (`images`) that the track-embedded artist
+        refs never include; missing ids yield None entries which are filtered
+        out. Used by the artist-image backfill.
+        """
+        if not artist_ids:
+            return []
+        if len(artist_ids) > self._ARTISTS_BATCH:
+            raise ValueError(f"get_artists accepts at most {self._ARTISTS_BATCH} ids")
+        response = await self._request(
+            "GET", f"{API_BASE_URL}/artists", params={"ids": ",".join(artist_ids)}
+        )
+        return [
+            SpotifyArtist.model_validate(artist)
+            for artist in response.json().get("artists", [])
+            if artist
+        ]
 
     # -- writes ------------------------------------------------------------
 

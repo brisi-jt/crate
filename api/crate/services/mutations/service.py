@@ -36,7 +36,10 @@ from crate.model.orm import (
     User,
     utcnow,
 )
-from crate.services.analytics.snapshots import invalidate_snapshots
+from crate.services.analytics.snapshots import (
+    MEMBERSHIP_MUTATION_KINDS,
+    invalidate_snapshots,
+)
 from crate.services.mutations.planner import AddStep, MoveStep, RemoveStep, plan_reconcile
 from crate.services.mutations.writer import SpotifyWriter
 from crate.services.spotify.client import SpotifyError
@@ -287,7 +290,7 @@ class MutationService:
         }
         journal.status = MutationStatus.applied if all_ok else MutationStatus.partial
         self._session.add(journal)
-        invalidate_snapshots(self._session, self._user.id)
+        invalidate_snapshots(self._session, self._user.id, kinds=MEMBERSHIP_MUTATION_KINDS)
         self._session.commit()
         self._session.refresh(journal)
         return journal
@@ -343,7 +346,7 @@ class MutationService:
         journal.status = MutationStatus.undone
         journal.undone_at = utcnow()
         self._session.add(journal)
-        invalidate_snapshots(self._session, self._user.id)
+        invalidate_snapshots(self._session, self._user.id, kinds=MEMBERSHIP_MUTATION_KINDS)
         self._session.commit()
         self._session.refresh(journal)
         return journal
@@ -420,7 +423,7 @@ class MutationService:
     def _finish_journal(self, journal: MutationJournal) -> None:
         journal.status = MutationStatus.applied
         self._session.add(journal)
-        invalidate_snapshots(self._session, self._user.id)
+        invalidate_snapshots(self._session, self._user.id, kinds=MEMBERSHIP_MUTATION_KINDS)
         self._session.commit()
         self._session.refresh(journal)
 

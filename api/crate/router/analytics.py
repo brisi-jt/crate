@@ -7,16 +7,17 @@ All feature-derived numbers are library percentiles (0..1), not raw values.
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from crate.deps import CurrentUserDep, SessionDep
+from crate.deps import CurrentUserDep, MapPrecomputerDep, SessionDep
 from crate.errors import AppError, ProblemDetail
 from crate.model.enums import SnapshotKind
 from crate.model.orm import Playlist, User
 from crate.services.analytics import engine
-from crate.services.analytics.snapshots import get_or_compute
+from crate.services.analytics.snapshots import get_or_compute, read_snapshot
 
 router = APIRouter(tags=["analytics"])
 
@@ -49,6 +50,11 @@ class AcousticCentroid(BaseModel):
 class GraphNode(BaseModel):
     id: int = Field(description="Playlist id — matches /v1/playlists ids.")
     name: str
+    image_url: str | None = Field(
+        default=None,
+        description="Spotify playlist cover, when it has one; null otherwise "
+        "(the client builds a member-album mosaic in that case).",
+    )
     track_count: int
     centroid: AcousticCentroid | None = Field(
         description="Null until the playlist has at least one enriched track."
@@ -98,6 +104,11 @@ class GalaxySimilarArtist(BaseModel):
 class GalaxyNode(BaseModel):
     id: str = Field(description="Stable artist key (lowercase name) — edge endpoints reference it.")
     name: str
+    image_url: str | None = Field(
+        default=None,
+        description="Small artist photo for the galaxy hover card; null until "
+        "the artist image backfill has reached them.",
+    )
     track_count: int = Field(description="Distinct library tracks crediting the artist.")
     playlist_count: int = Field(description="Playlists in scope holding the artist.")
     playlist_ids: list[int]
@@ -154,6 +165,11 @@ class MapPointResource(BaseModel):
     track_id: int
     name: str
     artist: str
+    album_image_url: str | None = Field(
+        default=None,
+        description="Small album-art thumb for the hover card; null until "
+        "the track's album has been imaged.",
+    )
     x: float
     y: float
     cluster: int = Field(description="Density cluster label; -1 means no cluster (noise).")
@@ -447,6 +463,16 @@ def artist_galaxy(
     )
 
 
+class TrackMapPending(BaseModel):
+    """202 body: the map is being computed in the background — retry shortly."""
+
+    status: str = Field(default="pending", description="Always 'pending' for a 202.")
+    detail: str = Field(
+        default="The track map is being computed. Retry this request shortly.",
+    )
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
 @router.get(
     "/v1/map/tracks",
     summary="Track map",
@@ -454,26 +480,46 @@ def artist_galaxy(
         "Every enriched track projected onto a 2D sound map, grouped into "
         "density clusters and compared against the playlists: playlists "
         "spanning several clusters are split candidates, playlists sharing "
-        "one cluster are merge candidates."
+        "one cluster are merge candidates.\n\n"
+        "The projection (UMAP + HDBSCAN) is expensive, so it is never computed "
+        "in the request path. A warm cache answers 200 with the map; a cold "
+        "cache answers 202 (pending), kicks off the compute in the background, "
+        "and the next request returns 200. Sync and enrichment warm the cache "
+        "ahead of time, so a cold 202 is rare."
     ),
+    response_model=None,
+    responses={
+        200: {"model": TrackMapResponse, "description": "The computed track map."},
+        202: {"model": TrackMapPending, "description": "Map is being computed."},
+    },
 )
 def track_map(
-    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
-) -> TrackMapResponse:
-    payload = get_or_compute(
-        session,
-        user,
-        SnapshotKind.track_map,
-        lambda: engine.compute_track_map_payload(session, user, owned_only=owned_only),
-        owned_only=owned_only,
-    )
-    return TrackMapResponse(
+    user: CurrentUserDep,
+    session: SessionDep,
+    background: BackgroundTasks,
+    precompute: MapPrecomputerDep,
+    owned_only: OwnedOnlyParam = True,
+) -> Response:
+    payload = read_snapshot(session, user, SnapshotKind.track_map, owned_only=owned_only)
+    if payload is None:
+        assert user.id is not None
+        background.add_task(precompute, user.id, owned_only)
+        pending = TrackMapPending(
+            links={
+                "self": HalLink(href="/v1/map/tracks"),
+                "graph": HalLink(href="/v1/graph/playlists"),
+            }
+        )
+        return JSONResponse(status_code=202, content=pending.model_dump(by_alias=True))
+
+    response = TrackMapResponse(
         **payload,
         links={
             "self": HalLink(href="/v1/map/tracks"),
             "graph": HalLink(href="/v1/graph/playlists"),
         },
     )
+    return JSONResponse(content=response.model_dump(by_alias=True))
 
 
 @router.get(

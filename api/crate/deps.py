@@ -7,10 +7,11 @@ from typing import Annotated, Protocol
 from fastapi import Depends
 from sqlmodel import Session, select
 
-from crate.db import get_session
+from crate.db import get_engine, get_session
 from crate.errors import AppError
 from crate.model.orm import RadioSession, User
 from crate.services.account.wiring import AccountSyncReport, run_account_sync_for_user
+from crate.services.analytics import engine as analytics_engine
 from crate.services.discovery.wiring import DiscoveryReport, run_discovery
 from crate.services.enrichment.orchestrator import EnrichmentReport, Stage, run_enrichment
 from crate.services.mutations.wiring import spotify_writer_for_user
@@ -143,6 +144,28 @@ class PreviewRefresher(Protocol):
 
 def get_preview_refresher() -> PreviewRefresher:
     return refresh_preview_for_user
+
+
+# (user_id, owned_only) -> None. Runs the heavy track-map compute OUTSIDE the
+# request path — a FastAPI BackgroundTask after a 202. Opens its own session
+# because the request session is closed by the time the task runs. Tests
+# override with a synchronous recorder.
+MapPrecomputer = Callable[[int, bool], Awaitable[None]]
+
+
+async def _precompute_track_map(user_id: int, owned_only: bool) -> None:
+    with Session(get_engine()) as session:
+        user = session.get(User, user_id)
+        if user is None:  # pragma: no cover - defensive
+            return
+        analytics_engine.precompute_track_map(session, user, owned_only=owned_only)
+
+
+def get_map_precomputer() -> MapPrecomputer:
+    return _precompute_track_map
+
+
+MapPrecomputerDep = Annotated[MapPrecomputer, Depends(get_map_precomputer)]
 
 
 def get_auth_gateway() -> SpotifyAuthGateway:

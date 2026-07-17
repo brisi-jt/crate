@@ -37,6 +37,8 @@ from crate.services.spotify.client import SpotifyClient, SpotifyReauthRequired
 from crate.services.spotify.models import (
     SpotifyPlaylistSummary,
     SpotifyTrack,
+    largest_image_url,
+    smallest_image_url,
 )
 from crate.services.spotify.problems import reauth_conflict
 from crate.services.storage import ping_engine
@@ -96,6 +98,13 @@ def upsert_track(
     row.artists = artists_json
     row.album_spotify_id = remote.album.id if remote.album else None
     row.album_name = clean_optional_name(remote.album.name) if remote.album else None
+    # Album art rides along on the track's album object — persist it, but only
+    # overwrite with a value present so a later imageless payload never wipes a
+    # backfilled url.
+    album_images = remote.album.images if remote.album else []
+    if album_images:
+        row.image_url = largest_image_url(album_images)
+        row.image_url_sm = smallest_image_url(album_images)
     row.duration_ms = remote.duration_ms
     session.add(row)
     session.flush()
@@ -187,6 +196,7 @@ class SyncService:
             name=clean_name(summary.name),
             description=clean_optional_name(summary.description) or None,
             snapshot_id=summary.snapshot_id,
+            image_url=largest_image_url(summary.images),
             is_owned=self._is_owned(summary),
             status=PlaylistSyncStatus.synced,
             last_synced_at=utcnow(),
@@ -224,6 +234,11 @@ class SyncService:
             report.playlists_synced += 1
 
         row.description = summary.description or None
+        # Only overwrite the cover with a present value, so a cover-less summary
+        # never wipes one a prior sync or backfill stored.
+        cover = largest_image_url(summary.images)
+        if cover is not None:
+            row.image_url = cover
         row.is_owned = self._is_owned(summary)
         row.snapshot_id = summary.snapshot_id
         row.status = PlaylistSyncStatus.synced

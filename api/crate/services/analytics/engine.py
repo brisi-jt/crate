@@ -26,7 +26,7 @@ from crate.model.orm import (
     Genre,
     User,
 )
-from crate.services.analytics.clustering import compute_track_map
+from crate.services.analytics.clustering import clustering_features, compute_track_map
 from crate.services.analytics.flow import TrackAudio, flow_score, suggest_order, transition_score
 from crate.services.analytics.galaxy import (
     MAX_GALAXY_EDGES,
@@ -161,6 +161,7 @@ def compute_graph_payload(
         {
             "id": playlist_id,
             "name": library.playlist_names[playlist_id],
+            "image_url": library.playlist_images.get(playlist_id),
             "track_count": len(library.occurrences[playlist_id]),
             "centroid": _centroid(library.memberships[playlist_id], vectors),
         }
@@ -342,10 +343,13 @@ def compute_track_map_payload(
     library, vectors = ctx.library, ctx.vectors
 
     track_ids = sorted(vectors)
+    # Cluster on the decorrelated feature set (loudness dropped, M3); the color
+    # features below still use the full percentile vector.
+    cluster_features = clustering_features(ctx.space.features)
     matrix = np.array(
-        [[vectors[tid][feature] for feature in ctx.space.features] for tid in track_ids],
+        [[vectors[tid][feature] for feature in cluster_features] for tid in track_ids],
         dtype=float,
-    ).reshape(len(track_ids), len(ctx.space.features))
+    ).reshape(len(track_ids), len(cluster_features))
 
     result = compute_track_map(matrix, track_ids, library.memberships)
     if result is None:
@@ -371,6 +375,9 @@ def compute_track_map_payload(
                 "track_id": point.track_id,
                 "name": library.track_meta.get(point.track_id, {}).get("name", ""),
                 "artist": library.track_meta.get(point.track_id, {}).get("artist", ""),
+                "album_image_url": library.track_meta.get(point.track_id, {}).get(
+                    "album_image_url"
+                ),
                 "x": round(point.x, 4),
                 "y": round(point.y, 4),
                 "cluster": point.cluster,
@@ -473,12 +480,17 @@ def compute_artist_galaxy_payload(
     kept = ordered[:MAX_GALAXY_NODES]
     kept_set = set(kept)
 
-    # Catalog rows (where they exist) unlock the similarity layer.
+    # Catalog rows (where they exist) unlock the similarity layer and the
+    # artist photo (keyed by casefolded name — the node identity).
     catalog_ids: dict[int, str] = {}
+    artist_images: dict[str, str | None] = {}
     for artist in session.exec(select(Artist)).all():
         key = artist.name.casefold()
-        if key in kept_set and artist.id is not None:
-            catalog_ids.setdefault(artist.id, key)
+        if key in kept_set:
+            if artist.id is not None:
+                catalog_ids.setdefault(artist.id, key)
+            if artist.image_url_sm and key not in artist_images:
+                artist_images[key] = artist.image_url_sm
 
     similar_weights: dict[str, dict[str, float]] = {}
     pair_weights: dict[tuple[str, str], float] = {}
@@ -533,6 +545,7 @@ def compute_artist_galaxy_payload(
             {
                 "id": key,
                 "name": display[key],
+                "image_url": artist_images.get(key),
                 "track_count": track_counts[key],
                 "playlist_count": len(artist_playlists.get(key, ())),
                 "playlist_ids": sorted(artist_playlists.get(key, ())),
@@ -692,3 +705,21 @@ def recompute_all(session: Session, user: User, owned_only: bool = True) -> dict
         session.exec(select(AnalyticsSnapshot.id).where(AnalyticsSnapshot.user_id == user.id)).all()
     )
     return {"invalidated": invalidated, "computed": computed}
+
+
+def precompute_track_map(session: Session, user: User, owned_only: bool = True) -> None:
+    """Fill the track_map snapshot for one scope if it is missing.
+
+    The heavy UMAP+HDBSCAN never runs in the request path (it once crashed the
+    server): the map endpoint returns 202 on a cache miss and schedules this,
+    and the post-sync hook calls it warm. get_or_compute is a no-op when the
+    snapshot already exists, so a burst of cold-cache requests coalesces onto
+    one compute rather than storming many.
+    """
+    get_or_compute(
+        session,
+        user,
+        SnapshotKind.track_map,
+        lambda: compute_track_map_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
+    )

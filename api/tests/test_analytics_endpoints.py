@@ -24,7 +24,7 @@ from sqlmodel import Session, select
 
 from crate.app import create_app
 from crate.db import get_session
-from crate.deps import get_current_user
+from crate.deps import get_current_user, get_map_precomputer
 from crate.model.enums import FeatureSource, FeatureStatus, PlaylistSyncStatus, SnapshotKind
 from crate.model.orm import (
     AnalyticsSnapshot,
@@ -55,6 +55,14 @@ def client(session: Session, user: User) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_current_user] = lambda: user
+
+    # The map precomputer runs the (otherwise background) compute synchronously
+    # against the test session, so a 202 request warms the cache before the test
+    # inspects it. TestClient runs BackgroundTasks inline after the response.
+    async def _precompute(user_id: int, owned_only: bool) -> None:
+        engine.precompute_track_map(session, user, owned_only=owned_only)
+
+    app.dependency_overrides[get_map_precomputer] = lambda: _precompute
     return TestClient(app)
 
 
@@ -213,7 +221,7 @@ def test_graph_shape_matches_web_contract(client: TestClient, session: Session, 
 
     assert set(body) == {"nodes", "edges", "coverage", "_links"}
     for node in body["nodes"]:
-        assert set(node) == {"id", "name", "track_count", "centroid"}
+        assert set(node) == {"id", "name", "image_url", "track_count", "centroid"}
     for edge in body["edges"]:
         assert set(edge) == {"source", "target", "shared", "subset"}
     assert set(body["coverage"]) == {"enriched_tracks", "total_tracks"}
@@ -387,9 +395,43 @@ def test_library_stats_duplicates_and_null_clusters(
     assert body["drift"][0]["quarter"] == "2025Q1"
 
 
-def test_map_endpoint_empty_library_shape(client: TestClient, session: Session, user: User):
+def test_map_cold_cache_returns_202_and_schedules_compute(
+    client: TestClient, session: Session, user: User
+):
+    """M1: a cold cache never computes UMAP in-request — it 202s and schedules
+    the compute in the background."""
     seed_library(session, user)
-    body = client.get("/v1/map/tracks").json()
+    # No snapshot yet: the read path must NOT compute in-request.
+    assert (
+        session.exec(
+            select(AnalyticsSnapshot).where(AnalyticsSnapshot.kind == SnapshotKind.track_map)
+        ).first()
+        is None
+    )
+
+    response = client.get("/v1/map/tracks")
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "pending"
+    assert "_links" in body
+    # The background compute ran (TestClient runs BackgroundTasks inline) and
+    # warmed exactly one track_map snapshot — the request path itself never
+    # computed (it returned 202 before scheduling).
+    rows = session.exec(
+        select(AnalyticsSnapshot).where(AnalyticsSnapshot.kind == SnapshotKind.track_map)
+    ).all()
+    assert len(rows) == 1
+
+
+def test_map_warm_cache_returns_200_shape(client: TestClient, session: Session, user: User):
+    seed_library(session, user)
+    # First call schedules + runs the compute (via the test precomputer),
+    # warming the cache.
+    assert client.get("/v1/map/tracks").status_code == 202
+
+    response = client.get("/v1/map/tracks")
+    assert response.status_code == 200
+    body = response.json()
     assert set(body) == {
         "points",
         "cluster_count",
@@ -403,6 +445,22 @@ def test_map_endpoint_empty_library_shape(client: TestClient, session: Session, 
     # 5 enriched tracks < the 10-track projection minimum.
     assert body["points"] == []
     assert body["layout_hash"] is None
+
+
+def test_map_burst_of_cold_requests_stays_up(client: TestClient, session: Session, user: User):
+    """A storm of cold-cache requests must never compute in-request; each 202s,
+    and get_or_compute coalesces the background computes onto one snapshot."""
+    seed_library(session, user)
+    statuses = [client.get("/v1/map/tracks").status_code for _ in range(5)]
+    # Never a 500; the first is 202, later ones may already be warm (200) since
+    # the test precomputer runs inline — both are healthy.
+    assert all(status in (200, 202) for status in statuses)
+    assert statuses[0] == 202
+    # Exactly one track_map snapshot exists — the computes coalesced.
+    rows = session.exec(
+        select(AnalyticsSnapshot).where(AnalyticsSnapshot.kind == SnapshotKind.track_map)
+    ).all()
+    assert len(rows) == 1
 
 
 # ----------------------------------------------------- caching + recompute

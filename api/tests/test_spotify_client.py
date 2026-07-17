@@ -467,6 +467,59 @@ async def test_get_albums_rejects_over_batch_cap() -> None:
     await client.aclose()
 
 
+async def test_get_artists_requests_ids_and_parses_images() -> None:
+    """/artists?ids=... returns SpotifyArtist objects carrying the photo set."""
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "artists": [
+                    {
+                        "id": "art1",
+                        "name": "Boards of Canada",
+                        "images": [
+                            {"url": "https://img/big.jpg", "height": 640, "width": 640},
+                            {"url": "https://img/small.jpg", "height": 64, "width": 64},
+                        ],
+                    },
+                    None,
+                    {"id": "art3", "name": "Aphex Twin", "images": []},
+                ]
+            },
+        )
+
+    client = make_client(handler)
+    artists = await client.get_artists(["art1", "art2", "art3"])
+    await client.aclose()
+
+    assert requests[0].url.params["ids"] == "art1,art2,art3"
+    assert [a.id for a in artists] == ["art1", "art3"]
+    assert artists[0].images[0].url == "https://img/big.jpg"
+
+
+async def test_get_artists_empty_list_makes_no_request() -> None:
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"artists": []})
+
+    client = make_client(handler)
+    assert await client.get_artists([]) == []
+    await client.aclose()
+    assert calls == []
+
+
+async def test_get_artists_rejects_over_batch_cap() -> None:
+    client = make_client(lambda _request: httpx.Response(200, json={"artists": []}))
+    with pytest.raises(ValueError):
+        await client.get_artists([f"a{i}" for i in range(51)])
+    await client.aclose()
+
+
 def test_playlist_item_parses_local_file_with_null_artist_fields() -> None:
     """Local files come back with null artist id AND name; parsing must not raise.
 

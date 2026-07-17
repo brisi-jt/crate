@@ -76,6 +76,10 @@ class Playlist(TimestampedModel, table=True):
     name: str = Field(max_length=512)
     description: str | None = Field(default=None, sa_column=Column(Text))
     snapshot_id: str | None = Field(default=None, max_length=128)
+    # Spotify's playlist cover, when it has one (many owned playlists don't —
+    # Spotify then shows a mosaic of member albums, which the graph builds
+    # itself). Null until a sync or backfill has seen the playlist's images.
+    image_url: str | None = Field(default=None, max_length=512)
     is_owned: bool = Field(default=True)
     # Set when a sync pass no longer sees the playlist on Spotify. The row and
     # its membership stay for event history.
@@ -102,6 +106,12 @@ class Track(TimestampedModel, table=True):
     )
     album_spotify_id: str | None = Field(default=None, max_length=64)
     album_name: str | None = Field(default=None, max_length=512)
+    # Album art, from the track's album object. image_url is the large art
+    # (~640px) for detail cards; image_url_sm is a ~64px thumb for lists and
+    # hover cards, so those never decode the full-size image. Both null until
+    # a sync or backfill has seen the album's images.
+    image_url: str | None = Field(default=None, max_length=512)
+    image_url_sm: str | None = Field(default=None, max_length=512)
     duration_ms: int | None = Field(default=None)
     # Album release date as Spotify reports it, backfilled from /v1/albums.
     # Precision records how much of the date Spotify knew: a "year" release
@@ -121,6 +131,11 @@ class Artist(TimestampedModel, table=True):
     spotify_id: str = Field(unique=True, max_length=64)
     name: str = Field(max_length=512)
     mbid: str | None = Field(default=None, max_length=64)
+    # Artist photo. image_url is the large image; image_url_sm a ~64px thumb
+    # for the galaxy hover card. Spotify only ships these on /v1/artists (not
+    # on the track's artist refs), so they arrive via the backfill, not sync.
+    image_url: str | None = Field(default=None, max_length=512)
+    image_url_sm: str | None = Field(default=None, max_length=512)
     # When the identity stage last attempted an MBID for this artist (even a
     # miss). Set on attempt so the un-resolvable long tail is not re-selected
     # every pass and the identity backlog drains; clear it (null) to re-attempt
