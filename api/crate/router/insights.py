@@ -19,7 +19,9 @@ from crate.model.orm import InsightEdition
 from crate.services.analytics.engine import compute_artist_galaxy_payload
 from crate.services.analytics.snapshots import get_or_compute
 from crate.services.insights import editions as editions_service
+from crate.services.insights import pin_candidates as pin_candidates_service
 from crate.services.insights.engine import compute_insights_payload
+from crate.services.insights.engine_extended import compute_extended_insights_payload
 from crate.services.insights.pins import compute_pins_payload
 
 router = APIRouter(tags=["insights"])
@@ -70,6 +72,54 @@ class InsightsResponse(BaseModel):
     archaeology: dict[str, Any]
     eras: dict[str, Any]
     extremes: list[dict[str, Any]]
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
+class ExtendedInsightsResponse(BaseModel):
+    """The extended survey (I1-I24) over the previously-untapped tables.
+
+    Sections mirror their source tables: play_events (listening clock, context
+    mix, rotation velocity, play/collect gap, play-mood by hour, deep cuts vs
+    hits), saved (Liked-vs-playlist fingerprint, save→file latency, unsave
+    churn, orphan saves), feedback (source efficacy, taste-of-yes, per-artist
+    affinity, candidate funnel), top_items (top-vs-library sound, affinity
+    churn, short-vs-long divergence), radio (keep rate, discovery conversion),
+    journal (curation intensity, bulk-algebra usage), and cross_table (listened
+    vs neglected, calibration drift, era-of-add vs release). Each section
+    carries its own coverage so pending states render without guessing.
+    """
+
+    coverage: dict[str, Any]
+    play_events: dict[str, Any]
+    saved: dict[str, Any]
+    feedback: dict[str, Any]
+    top_items: dict[str, Any]
+    radio: dict[str, Any]
+    journal: dict[str, Any]
+    cross_table: dict[str, Any]
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
+class PinCandidateResource(BaseModel):
+    family: str = Field(description="Insight family — the sampler's max-1-per-family quota key.")
+    category: str = Field(description="Category tag (currently mirrors family).")
+    metric_ref: str = Field(description="Glossary key the web attaches an explain to.")
+    anchor: str = Field(description="What the pin attaches to within the surface.")
+    line: str = Field(description="The field-manual annotation.")
+    dismissible_id: str = Field(description="Stable id for dismissal + recently-shown weighting.")
+    salience: float = Field(description="0..1 ranking weight; the shuffle's weight source.")
+
+
+class PinCandidatesResponse(BaseModel):
+    """A wide, family-tagged pin pool the client samples down.
+
+    The api ships the whole pool (target 15-25); the web sampler enforces
+    max-one-per-family quotas, a session-seeded weighted shuffle, and anti-repeat
+    down-weighting of recently-shown ids. Nothing is truncated server-side.
+    """
+
+    surface: str
+    candidates: list[PinCandidateResource]
     links: dict[str, HalLink] = Field(serialization_alias="_links")
 
 
@@ -171,6 +221,44 @@ def insights_survey(
             "editions": HalLink(href="/v1/insights/editions"),
             "pins": HalLink(href="/v1/insights/pins"),
             "map": HalLink(href="/v1/map/tracks"),
+        },
+    )
+
+
+@router.get(
+    "/v1/insights/extended",
+    summary="Extended insights survey",
+    description=(
+        "A second survey drawn from the parts of your history the main survey "
+        "leaves untouched: what you actually play (listening clock, where plays "
+        "come from, whether you spin new arrivals or the deep catalog, tracks "
+        "you play more than you file), your Liked Songs (its sound vs your "
+        "playlists, how long you wait to file a like, what you later un-like, "
+        "the likes filed nowhere), how you review suggestions (which source "
+        "earns its picks, the sound of your yes vs your no, artists you always "
+        "accept), your Spotify affinity (top tracks vs your library, what's "
+        "rising vs cooling), radio (what you keep), your editing tempo, and "
+        "cross-cuts like playlists you love but never touch and the age gap "
+        "between when you add tracks and when they came out. Everything is "
+        "measured against your own library."
+    ),
+)
+def extended_insights_survey(
+    session: SessionDep, user: CurrentUserDep, owned_only: OwnedOnlyParam = True
+) -> ExtendedInsightsResponse:
+    payload = get_or_compute(
+        session,
+        user,
+        SnapshotKind.insights_extended,
+        lambda: compute_extended_insights_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
+    )
+    return ExtendedInsightsResponse(
+        **payload,
+        links={
+            "self": HalLink(href="/v1/insights/extended"),
+            "insights": HalLink(href="/v1/insights"),
+            "candidates": HalLink(href="/v1/insights/pins/candidates?surface=insights"),
         },
     )
 
@@ -301,6 +389,69 @@ def insight_pins(
         **pins_payload,
         links={
             "self": HalLink(href=f"/v1/insights/pins?surface={surface}"),
+            "insights": HalLink(href="/v1/insights"),
+        },
+    )
+
+
+# Surfaces that expose a wide candidate pool for client-side sampling. The
+# insights page draws from every extended family; the canvas surfaces keep the
+# deterministic top-N pins (their anchors are coordinate-bound).
+_CANDIDATE_SURFACES = frozenset({"insights"})
+
+CandidateSurfaceParam = Annotated[
+    str,
+    Query(
+        description=(
+            "Which surface's candidate pool to return. Currently 'insights' — "
+            "the page that samples a fresh, quota-limited set each session."
+        )
+    ),
+]
+
+
+@router.get(
+    "/v1/insights/pins/candidates",
+    summary="Insight pin candidate pool",
+    description=(
+        "A wide, family-tagged pool of insight pins for the client to sample. "
+        "The client keeps at most one pin per family per refresh, shuffles by "
+        "salience with a per-session seed, and down-weights recently-shown pins "
+        "— so the surface stays fresh across sessions instead of repeating the "
+        "same few. Nothing is truncated server-side; each candidate carries its "
+        "family, a stable dismissible id, and a salience weight."
+    ),
+    responses={422: {"model": ProblemDetail, "description": "Unknown surface."}},
+)
+def insight_pin_candidates(
+    session: SessionDep,
+    user: CurrentUserDep,
+    surface: CandidateSurfaceParam = "insights",
+    owned_only: OwnedOnlyParam = True,
+) -> PinCandidatesResponse:
+    if surface not in _CANDIDATE_SURFACES:
+        raise AppError(
+            422,
+            "Unknown surface",
+            detail=(
+                f"candidate surface must be one of {sorted(_CANDIDATE_SURFACES)} (got {surface!r})."
+            ),
+            error_code="UNKNOWN_SURFACE",
+        )
+    payload = get_or_compute(
+        session,
+        user,
+        SnapshotKind.insights_extended,
+        lambda: compute_extended_insights_payload(session, user, owned_only=owned_only),
+        owned_only=owned_only,
+    )
+    candidates = pin_candidates_service.insights_candidates(payload)
+    return PinCandidatesResponse(
+        surface=surface,
+        candidates=[PinCandidateResource(**pin) for pin in candidates],
+        links={
+            "self": HalLink(href=f"/v1/insights/pins/candidates?surface={surface}"),
+            "extended": HalLink(href="/v1/insights/extended"),
             "insights": HalLink(href="/v1/insights"),
         },
     )

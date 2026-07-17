@@ -118,6 +118,12 @@ class SnapshotKind(StrEnum):
     frontier = "frontier"
     insights = "insights"
     insight_pins = "insight_pins"
+    # The extended survey (I1-I24) over play_events, saved_tracks,
+    # suggestion_feedback, discovery_candidates, top_items_snapshots, radio_*,
+    # mutation_journal and feature_calibrations — the tables the original
+    # insights payload never read. Cached separately so its heavier table reads
+    # don't bloat the base insights load.
+    insights_extended = "insights_extended"
     # Cluster proposal for the current triage queue — keyed by source and
     # filter, invalidated when the queue's content hash changes. Rides the same
     # 202 + background-compute path as track_map so UMAP/HDBSCAN never runs in
