@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FieldGuideCard } from "@/components/chrome/field-guide-card";
+import { OklchLegend } from "@/components/explain/oklch-legend";
 import ArtistGalaxyCanvas, {
   type GalaxyRenderNode,
 } from "@/components/galaxy/artist-galaxy-canvas";
@@ -199,6 +200,7 @@ export default function ArtistGalaxy({
         }}
         position="bottom-left"
       />
+      <OklchLegend position="bottom-right" />
     </div>
   );
 }

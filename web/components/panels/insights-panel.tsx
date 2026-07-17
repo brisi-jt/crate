@@ -1,6 +1,7 @@
 "use client";
 
 import { FieldGuideCard } from "@/components/chrome/field-guide-card";
+import { Explain } from "@/components/explain/explain";
 import { CoreSampleStrip } from "@/components/insights/core-sample-strip";
 import { DormancyList } from "@/components/insights/dormancy-list";
 import { EditionBand } from "@/components/insights/edition-band";
@@ -103,15 +104,19 @@ export function InsightsPanelContent() {
         >
           <div className="flex flex-col gap-lg">
             <div className="flex flex-col gap-2xs">
-              <span className="micro-caps text-text-muted">
-                Adds over time — core sample
-              </span>
+              <Explain metric="core_sample">
+                <span className="micro-caps text-text-muted">
+                  Adds over time — core sample
+                </span>
+              </Explain>
               <CoreSampleStrip adds={archaeology.adds_over_time} />
             </div>
             <div className="flex flex-col gap-xs">
-              <span className="micro-caps text-text-muted">
-                Abandoned playlists — dustiest first
-              </span>
+              <Explain metric="dormancy">
+                <span className="micro-caps text-text-muted">
+                  Abandoned playlists — dustiest first
+                </span>
+              </Explain>
               <DormancyList playlists={archaeology.abandoned_playlists} />
             </div>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Explain } from "@/components/explain/explain";
 import type { GenreShare, RarestGenre } from "@/lib/api/schemas";
 import { useUiStore } from "@/lib/store/ui";
 
@@ -57,9 +58,11 @@ export function TerritorySection({
 
       <section className="flex flex-col gap-xs">
         <div className="flex items-baseline gap-sm">
-          <span className="micro-caps text-text-muted">
-            Rarest genres — mean rarity {meanRarity.toFixed(2)}
-          </span>
+          <Explain metric="mean_rarity">
+            <span className="micro-caps text-text-muted">
+              Rarest genres — mean rarity {meanRarity.toFixed(2)}
+            </span>
+          </Explain>
         </div>
         {rarest.length === 0 ? (
           <span className="micro-caps text-text-muted">NO RARE GENRES</span>

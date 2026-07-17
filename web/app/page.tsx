@@ -11,6 +11,8 @@ import { PinsSwitch } from "@/components/chrome/pins-switch";
 import { SyncReadout } from "@/components/chrome/sync-readout";
 import { TransportStrip } from "@/components/chrome/transport-strip";
 import { ListeningDeck } from "@/components/deck/listening-deck";
+import { GlossaryPanel } from "@/components/explain/glossary-panel";
+import { OklchLegend } from "@/components/explain/oklch-legend";
 import type {
   FlyToRequest,
   GhostRender,
@@ -274,6 +276,12 @@ export default function MapPage() {
             position="bottom-left"
           />
         )}
+
+        {/* OKLCH colour legend — colour = sound is the app's central claim,
+            so every canvas carries a quiet decoder chip. */}
+        {graph.data && mapMode === "playlists" && (
+          <OklchLegend position="bottom-right" />
+        )}
         <div className="absolute top-md right-lg z-10 flex items-center gap-md">
           {graph.data && <PinsSwitch />}
           {/* Inbox cue: a 6px amber tick beside the readout while an unread
@@ -447,6 +455,7 @@ export default function MapPage() {
       <TransportStrip onArtworkClick={flyToNode} />
 
       <CommandPalette nodes={nodes} />
+      <GlossaryPanel />
 
       {/* Undo toasts (tier-1 writes): bottom-left, clear of the transport. */}
       <Toaster

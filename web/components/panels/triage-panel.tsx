@@ -12,6 +12,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Explain } from "@/components/explain/explain";
 import { Readout } from "@/components/panels/right-dock";
 import { TriageRemovalPopup } from "@/components/panels/triage-removal-popup";
 import { SourcePicker } from "@/components/panels/triage-source-picker";
@@ -215,6 +216,9 @@ function SourceControls({
 
   return (
     <section className="flex flex-col gap-md">
+      <Explain metric="triage_source">
+        <span className="micro-caps text-text-muted">Triage source</span>
+      </Explain>
       <div className="flex items-center gap-2xs rounded-md border border-border-subtle bg-surface-2 p-2xs">
         <SegmentButton
           active={source === "liked"}
@@ -262,9 +266,11 @@ function SourceControls({
       {source === "liked" && (
         <div className="flex flex-col gap-2xs">
           <div className="flex items-center justify-between">
-            <span className="micro-caps text-text-muted">
-              Show songs in ≤ N playlists
-            </span>
+            <Explain metric="orphan_filter">
+              <span className="micro-caps text-text-muted">
+                Show songs in ≤ N playlists
+              </span>
+            </Explain>
             <span className="data-readout text-micro text-text-secondary">
               N = {maxPlaylists}
               {maxPlaylists === 0 ? " · orphans" : ""}
@@ -550,9 +556,11 @@ function SuggestionsPanel({
     <section className="flex flex-col gap-sm">
       <div className="flex items-center gap-sm">
         <Sparkles className="size-[14px] text-text-muted" />
-        <span className="micro-caps text-text-muted">
-          Suggested destinations
-        </span>
+        <Explain metric="suggestion_rank">
+          <span className="micro-caps text-text-muted">
+            Suggested destinations
+          </span>
+        </Explain>
       </div>
       {top.length === 0 ? (
         <span className="text-sm text-text-secondary">
@@ -646,9 +654,11 @@ function SuggestionRow({
                   key={row.kind}
                   className="grid grid-cols-[120px_1fr] items-baseline gap-sm"
                 >
-                  <span className="micro-caps text-text-muted">
-                    {row.label}
-                  </span>
+                  <Explain metric={row.kind}>
+                    <span className="micro-caps text-text-muted">
+                      {row.label}
+                    </span>
+                  </Explain>
                   <span className="text-micro text-text-secondary">
                     {row.summary}
                   </span>
@@ -706,7 +716,9 @@ function NewCategoryPanel({
     >
       <div className="flex items-center gap-sm">
         <Plus className="size-[14px] text-text-muted" />
-        <span className="micro-caps text-text-muted">New playlist</span>
+        <Explain metric="cluster_proposal">
+          <span className="micro-caps text-text-muted">New playlist</span>
+        </Explain>
       </div>
 
       {active ? (

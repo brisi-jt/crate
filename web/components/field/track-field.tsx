@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FieldGuideCard } from "@/components/chrome/field-guide-card";
+import { OklchLegend } from "@/components/explain/oklch-legend";
 import type { FieldRenderPoint } from "@/components/field/track-field-canvas";
 import TrackFieldCanvas from "@/components/field/track-field-canvas";
 import { useMembershipIndex } from "@/hooks/api/use-membership";
@@ -221,6 +222,7 @@ export default function TrackField({
         }}
         position="bottom-left"
       />
+      <OklchLegend position="bottom-right" />
     </div>
   );
 }

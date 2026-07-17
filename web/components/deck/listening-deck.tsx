@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { DeckEmptyState } from "@/components/deck/deck-empty-state";
 import { FingerprintBars } from "@/components/deck/fingerprint-bars";
+import { Explain } from "@/components/explain/explain";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUndoJournal } from "@/hooks/api/use-journal";
 import {
@@ -470,6 +471,17 @@ export function ListeningDeck({
                 via {current.source}
               </span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-md">
+            <Explain metric="percentile">
+              <span className="micro-caps text-text-muted">
+                Percentile bars
+              </span>
+            </Explain>
+            <Explain metric="profile_tick">
+              <span className="micro-caps text-text-muted">Playlist tick</span>
+            </Explain>
           </div>
 
           <FingerprintBars

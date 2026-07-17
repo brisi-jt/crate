@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
+import { Explain } from "@/components/explain/explain";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useJournal, useUndoJournal } from "@/hooks/api/use-journal";
 import type { JournalEntry } from "@/lib/api/schemas";
@@ -125,6 +126,14 @@ export function OpsLogPanelContent() {
 
   return (
     <div className="flex flex-col">
+      <div className="flex items-center gap-md pb-sm">
+        <Explain metric="op_status">
+          <span className="micro-caps text-text-muted">Status</span>
+        </Explain>
+        <Explain metric="dedupe">
+          <span className="micro-caps text-text-muted">De-duplicate</span>
+        </Explain>
+      </div>
       {items.map((entry) => (
         <OpsLogRow key={entry.id} entry={entry} />
       ))}

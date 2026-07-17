@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Explain, ExplainReadout } from "@/components/explain/explain";
 import { Readout } from "@/components/panels/right-dock";
 import { useSetBirthYear } from "@/hooks/api/use-me";
 import type { Eras } from "@/lib/api/schemas";
@@ -60,7 +61,8 @@ export function EraSection({ eras, birthYear }: EraSectionProps) {
   return (
     <div className="flex flex-col gap-md">
       <div className="flex flex-wrap gap-lg">
-        <Readout
+        <ExplainReadout
+          metric="center_of_gravity"
           label="Center of gravity"
           value={center_of_gravity !== null ? String(center_of_gravity) : "—"}
         />
@@ -168,9 +170,11 @@ function BirthYearInput({ birthYear }: { birthYear: number | null }) {
 
   return (
     <div className="flex flex-col gap-2xs">
-      <span className="micro-caps text-text-muted">
-        Birth year — draws your 16–24 window
-      </span>
+      <Explain metric="taste_freeze">
+        <span className="micro-caps text-text-muted">
+          Birth year — draws your 16–24 window
+        </span>
+      </Explain>
       <div className="flex items-center gap-sm">
         <input
           type="text"

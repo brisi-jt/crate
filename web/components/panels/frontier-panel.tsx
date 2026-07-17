@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FieldGuideCard } from "@/components/chrome/field-guide-card";
-import { Readout } from "@/components/panels/right-dock";
+import { Explain, ExplainReadout } from "@/components/explain/explain";
 import { TargetPicker } from "@/components/panels/target-picker";
 import { Separator } from "@/components/ui/separator";
 import { useFrontier, useSeedDiscovery } from "@/hooks/api/use-frontier";
@@ -82,9 +82,18 @@ export function FrontierPanelContent() {
       />
 
       <div className="flex gap-xl">
-        <Readout label="Territory" value={`${territory.length} GENRES`} />
-        <Readout label="Frontier" value={String(frontierGenres.length)} />
-        <Readout
+        <ExplainReadout
+          metric="territory"
+          label="Territory"
+          value={`${territory.length} GENRES`}
+        />
+        <ExplainReadout
+          metric="frontier"
+          label="Frontier"
+          value={String(frontierGenres.length)}
+        />
+        <ExplainReadout
+          metric="matched_artists"
           label="Atlas match"
           value={`${coverage.matched_artists}/${coverage.library_artists} ARTISTS`}
         />
@@ -93,9 +102,11 @@ export function FrontierPanelContent() {
       <Separator />
 
       <section className="flex flex-col gap-xs">
-        <span className="micro-caps text-text-muted">
-          Territory — strongest first
-        </span>
+        <Explain metric="presence">
+          <span className="micro-caps text-text-muted">
+            Territory — strongest first
+          </span>
+        </Explain>
         <div className="flex flex-col gap-2xs">
           {territory.slice(0, TERRITORY_SHOWN).map((genre, index) => (
             <div key={genre.genre_id} className="flex items-center gap-sm">

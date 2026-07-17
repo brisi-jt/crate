@@ -3,6 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Explain } from "@/components/explain/explain";
 import { Readout } from "@/components/panels/right-dock";
 import { TargetPicker } from "@/components/panels/target-picker";
 import { Separator } from "@/components/ui/separator";
@@ -97,6 +98,14 @@ function SeedStage({ onStarted }: { onStarted: (id: number) => void }) {
         ordered for harmonic and tempo flow, with discovery candidates dropped
         in about one slot in five.
       </p>
+      <div className="flex items-center gap-md">
+        <Explain metric="harmonic_flow">
+          <span className="micro-caps text-text-muted">Harmonic flow</span>
+        </Explain>
+        <Explain metric="discovery_ratio">
+          <span className="micro-caps text-text-muted">Discovery rate</span>
+        </Explain>
+      </div>
 
       <Separator />
 

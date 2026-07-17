@@ -1,5 +1,6 @@
 "use client";
 
+import { Explain, ExplainReadout } from "@/components/explain/explain";
 import { FingerprintRadial } from "@/components/insights/fingerprint-radial";
 import { Readout } from "@/components/panels/right-dock";
 import type { InsightsCoverage, TasteIdentity } from "@/lib/api/schemas";
@@ -41,10 +42,17 @@ export function IdentitySection({ identity, coverage }: IdentitySectionProps) {
   return (
     <div className="flex flex-col gap-lg">
       <div className="flex flex-wrap items-center gap-xl">
-        <FingerprintRadial
-          fingerprint={identity.fingerprint}
-          centroid={centroid}
-        />
+        <div className="flex flex-col items-center gap-xs">
+          <FingerprintRadial
+            fingerprint={identity.fingerprint}
+            centroid={centroid}
+          />
+          <Explain metric="fingerprint">
+            <span className="micro-caps text-text-muted">
+              Sound fingerprint
+            </span>
+          </Explain>
+        </div>
 
         <div className="flex flex-1 flex-col gap-md">
           {/* Classification stamp — the shareable object */}
@@ -56,19 +64,23 @@ export function IdentitySection({ identity, coverage }: IdentitySectionProps) {
           </div>
 
           <div className="flex flex-wrap gap-lg">
-            <Readout
+            <ExplainReadout
+              metric="genre_entropy"
               label="Genre entropy"
               value={`${genre_entropy.entropy_bits.toFixed(2)} bits`}
             />
-            <Readout
+            <ExplainReadout
+              metric="effective_genres"
               label="Effective genres"
               value={genre_entropy.effective_genres.toFixed(0)}
             />
-            <Readout
+            <ExplainReadout
+              metric="gs_score"
               label="Acoustic sprawl"
               value={gs_score !== null ? gs_score.toFixed(2) : "—"}
             />
-            <Readout
+            <ExplainReadout
+              metric="mean_rarity"
               label="Mean rarity"
               value={genre_rarity.mean_rarity.toFixed(2)}
             />
@@ -76,7 +88,9 @@ export function IdentitySection({ identity, coverage }: IdentitySectionProps) {
 
           {/* Archetype sub-axes as small ticks */}
           <div className="flex flex-col gap-2xs">
-            <span className="micro-caps text-text-muted">Archetype axes</span>
+            <Explain metric="archetype_axes">
+              <span className="micro-caps text-text-muted">Archetype axes</span>
+            </Explain>
             <SubAxis label="Genre breadth" value={typology.genre_breadth} />
             <SubAxis label="Acoustic sprawl" value={typology.acoustic_sprawl} />
             <SubAxis label="Rarity" value={typology.rarity} />
