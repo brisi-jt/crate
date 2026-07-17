@@ -47,6 +47,12 @@ class User(TimestampedModel, table=True):
     # reading — the 16-24 coming-of-age band overlays the era profile only when
     # this is set. Validated 1900..(current year - 13) at the API boundary.
     birth_year: int | None = Field(default=None)
+    # The account's triage source. Null = Liked Songs (the natural default);
+    # a set id names an owned playlist to triage from. No server-side FK
+    # (Vitess has none, and the playlist can be soft-deleted while the id
+    # persists), so liveness/ownership is validated in app code at read/apply
+    # time — a stale id falls back to no source rather than erroring on read.
+    triage_playlist_id: int | None = Field(default=None)
 
 
 class SpotifyCredential(TimestampedModel, table=True):

@@ -118,6 +118,11 @@ class SnapshotKind(StrEnum):
     frontier = "frontier"
     insights = "insights"
     insight_pins = "insight_pins"
+    # Cluster proposal for the current triage queue — keyed by source and
+    # filter, invalidated when the queue's content hash changes. Rides the same
+    # 202 + background-compute path as track_map so UMAP/HDBSCAN never runs in
+    # the request path.
+    triage_cluster = "triage_cluster"
 
 
 class MutationOpType(StrEnum):
@@ -130,6 +135,13 @@ class MutationOpType(StrEnum):
     reorder = "reorder"
     # One bulk-algebra apply: a previewed delta across one or more playlists.
     bulk = "bulk"
+    # Remove tracks from the Liked Songs library (DELETE /me/tracks). Inverse
+    # re-saves them (PUT /me/tracks).
+    unsave_track = "unsave_track"
+    # One triage filing: add a track to N playlists (optionally creating and
+    # seeding a new one) and optionally unsave it — one journal entry with one
+    # composite inverse, so the whole filing is one-click undoable.
+    file_track = "file_track"
 
 
 class MutationStatus(StrEnum):
@@ -243,3 +255,20 @@ class TopTimeRange(StrEnum):
     short = "short"
     medium = "medium"
     long = "long"
+
+
+class EvidenceKind(StrEnum):
+    """A named triage-suggestion signal.
+
+    Each destination suggestion carries one evidence row per kind, separately
+    labeled — never a single blended score. sonic_fit is proximity to the
+    playlist's centroid in percentile space; artist_overlap counts the track's
+    artists already present; placement_history looks at where feature-space
+    neighbours were filed; vibe_match overlaps the playlist name/description
+    tokens against the track's genre tokens.
+    """
+
+    sonic_fit = "sonic_fit"
+    artist_overlap = "artist_overlap"
+    placement_history = "placement_history"
+    vibe_match = "vibe_match"
