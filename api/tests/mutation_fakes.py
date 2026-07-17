@@ -35,6 +35,10 @@ class FakeSpotify:
 
     def __init__(self) -> None:
         self.playlists: dict[str, FakePlaylistState] = {}
+        # Remote Liked Songs library, as track spotify ids. The unsave/re-save
+        # writes mutate this exactly as Spotify's /me/tracks would, so the
+        # resurrection suite can drive a real sync against it.
+        self.saved: set[str] = set()
         self.write_calls: int = 0
         # Raise on write call number (1-based) > fail_after. None = never fail.
         self.fail_after: int | None = None
@@ -45,6 +49,9 @@ class FakeSpotify:
 
     def seed(self, spotify_id: str, name: str, uris: list[str]) -> None:
         self.playlists[spotify_id] = FakePlaylistState(name=name, uris=list(uris))
+
+    def seed_saved(self, *track_spotify_ids: str) -> None:
+        self.saved.update(track_spotify_ids)
 
     def listing(self, spotify_id: str) -> list[str]:
         return list(self.playlists[spotify_id].uris)
@@ -122,3 +129,11 @@ class FakeSpotify:
         self._write()
         if playlist_spotify_id in self.playlists:
             self.playlists[playlist_spotify_id].followed = False
+
+    async def add_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        self._write()
+        self.saved.update(track_spotify_ids)
+
+    async def remove_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        self._write()
+        self.saved.difference_update(track_spotify_ids)

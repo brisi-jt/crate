@@ -41,6 +41,10 @@ class SpotifyWriter(Protocol):
 
     async def unfollow_playlist(self, playlist_spotify_id: str) -> None: ...
 
+    async def add_saved_tracks(self, track_spotify_ids: list[str]) -> None: ...
+
+    async def remove_saved_tracks(self, track_spotify_ids: list[str]) -> None: ...
+
 
 class ClientWriter:
     """SpotifyWriter over the real API client."""
@@ -89,3 +93,9 @@ class ClientWriter:
 
     async def unfollow_playlist(self, playlist_spotify_id: str) -> None:
         await self._client.unfollow_playlist(playlist_spotify_id)
+
+    async def add_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        await self._client.add_saved_tracks(track_spotify_ids)
+
+    async def remove_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        await self._client.remove_saved_tracks(track_spotify_ids)

@@ -84,6 +84,12 @@ class LocalEchoWriter:
     async def unfollow_playlist(self, playlist_spotify_id: str) -> None:
         return None
 
+    async def add_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        return None
+
+    async def remove_saved_tracks(self, track_spotify_ids: list[str]) -> None:
+        return None
+
 
 @asynccontextmanager
 async def spotify_client_for_user(session: Session, user: User) -> AsyncIterator[SpotifyClient]:

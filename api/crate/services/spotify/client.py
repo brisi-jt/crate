@@ -454,3 +454,18 @@ class SpotifyClient:
     async def unfollow_playlist(self, playlist_id: str) -> None:
         """Remove the playlist from the library (Spotify's closest thing to delete)."""
         await self._request("DELETE", f"{API_BASE_URL}/playlists/{playlist_id}/followers")
+
+    # /me/tracks caps ids at 50 per call — half the playlist-item cap.
+    _SAVED_CHUNK = 50
+
+    async def add_saved_tracks(self, track_ids: list[str]) -> None:
+        """Save tracks to Liked Songs (PUT /me/tracks), chunked at 50 ids."""
+        for offset in range(0, len(track_ids), self._SAVED_CHUNK):
+            chunk = track_ids[offset : offset + self._SAVED_CHUNK]
+            await self._request("PUT", f"{API_BASE_URL}/me/tracks", json={"ids": chunk})
+
+    async def remove_saved_tracks(self, track_ids: list[str]) -> None:
+        """Remove tracks from Liked Songs (DELETE /me/tracks), chunked at 50 ids."""
+        for offset in range(0, len(track_ids), self._SAVED_CHUNK):
+            chunk = track_ids[offset : offset + self._SAVED_CHUNK]
+            await self._request("DELETE", f"{API_BASE_URL}/me/tracks", json={"ids": chunk})

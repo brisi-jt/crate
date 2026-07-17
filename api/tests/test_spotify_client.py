@@ -554,3 +554,57 @@ def test_playlist_item_parses_catalog_ghost() -> None:
 
     item = PlaylistTrackItem.model_validate({"added_at": None, "track": None})
     assert item.track is None
+
+
+# -- saved-tracks writes (Liked Songs) -----------------------------------------
+
+
+async def test_remove_saved_tracks_chunks_at_fifty() -> None:
+    """DELETE /me/tracks removes ids in <=50-id chunks (the /me/tracks cap)."""
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "DELETE"
+        assert request.url.path == "/v1/me/tracks"
+        bodies.append(json.loads(request.content.decode()))
+        return httpx.Response(200)
+
+    client = make_client(handler)
+    await client.remove_saved_tracks([f"t{i}" for i in range(120)])
+    await client.aclose()
+
+    # 120 ids -> 50 + 50 + 20 across three calls.
+    assert [len(body["ids"]) for body in bodies] == [50, 50, 20]
+    assert bodies[0]["ids"][0] == "t0"
+    assert bodies[2]["ids"][-1] == "t119"
+
+
+async def test_add_saved_tracks_chunks_at_fifty() -> None:
+    """PUT /me/tracks re-saves ids in <=50-id chunks."""
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "PUT"
+        assert request.url.path == "/v1/me/tracks"
+        bodies.append(json.loads(request.content.decode()))
+        return httpx.Response(200)
+
+    client = make_client(handler)
+    await client.add_saved_tracks([f"t{i}" for i in range(51)])
+    await client.aclose()
+
+    assert [len(body["ids"]) for body in bodies] == [50, 1]
+
+
+async def test_remove_saved_tracks_empty_makes_no_request() -> None:
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200)
+
+    client = make_client(handler)
+    await client.remove_saved_tracks([])
+    await client.add_saved_tracks([])
+    await client.aclose()
+    assert calls == []

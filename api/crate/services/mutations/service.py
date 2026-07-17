@@ -31,6 +31,7 @@ from crate.model.orm import (
     OpPreview,
     Playlist,
     PlaylistTrack,
+    SavedTrack,
     SyncEvent,
     Track,
     User,
@@ -295,6 +296,110 @@ class MutationService:
         self._session.refresh(journal)
         return journal
 
+    async def unsave_tracks(self, track_ids: list[int]) -> MutationJournal:
+        """Remove tracks from Liked Songs — journaled, remote-before-local.
+
+        P0-3: the Spotify DELETE must land BEFORE the local ``is_removed`` flip
+        commits. If the remote write fails, the local row stays saved so it
+        agrees with the (still-saved) remote — the nightly saved-tracks sync
+        can never resurrect a locally-removed-but-remotely-present like.
+        """
+        tracks = self._require_tracks(track_ids)
+        spotify_ids = [t.spotify_id for t in tracks]
+
+        journal = self._journal_first(
+            MutationOpType.unsave_track,
+            payload={
+                "tracks": [
+                    {"track_id": t.id, "spotify_id": t.spotify_id, "name": t.name} for t in tracks
+                ],
+                "summary": _tracks_summary("Unsave", tracks, "from Liked Songs"),
+            },
+            inverse={"kind": "restore_saved", "track_ids": track_ids},
+        )
+        # Remote first — a failure raises before any local flip.
+        try:
+            await self._writer.remove_saved_tracks(spotify_ids)
+        except SpotifyError as exc:
+            self._fail_journal(journal, exc)
+            return journal  # pragma: no cover - _fail_journal always raises
+
+        self._flip_saved(track_ids, removed=True)
+        self._finish_journal(journal)
+        return journal
+
+    async def file_track(
+        self,
+        track_id: int,
+        destination_playlist_ids: list[int],
+        new_playlist: dict[str, Any] | None = None,
+        unsave: bool = False,
+    ) -> MutationJournal:
+        """One triage filing as ONE journaled action (P0-1 net-new composite).
+
+        Adds ``track_id`` to every destination playlist, optionally creates a
+        new playlist seeded with ``{name, seed_track_ids}`` (the filed track is
+        always included), and optionally unsaves the filed track. Records ONE
+        composite inverse so the whole filing is one-click undoable — without
+        the OpPreview/PREVIEW_STALE path.
+        """
+        track = self._require_tracks([track_id])[0]
+        destinations = [self._require_playlist(pid) for pid in destination_playlist_ids]
+        seed_ids: list[int] = []
+        if new_playlist is not None:
+            # The filed track always founds the new playlist; the cluster seed
+            # is added alongside it (deduped, order-stable).
+            seed_ids = list(dict.fromkeys([track_id, *new_playlist.get("seed_track_ids", [])]))
+            self._require_tracks(seed_ids)
+
+        # P0-2: the composite inverse carries every limb it must restore —
+        # pre-filing listings for existing destinations, created playlist ids,
+        # and the saved track ids (the restore_bulk branch has no saved
+        # vocabulary; restore_filing must).
+        listings = [{"playlist_id": pl.id, "order": self._local_uris(pl)} for pl in destinations]
+        journal = self._journal_first(
+            MutationOpType.file_track,
+            payload={
+                "track_id": track_id,
+                "track": {"spotify_id": track.spotify_id, "name": track.name},
+                "destination_playlist_ids": destination_playlist_ids,
+                "new_playlist": new_playlist,
+                "unsave": unsave,
+                "summary": _tracks_summary(
+                    "File", [track], f"→ {len(destinations) + (1 if new_playlist else 0)} playlists"
+                ),
+            },
+            inverse={"kind": "restore_filing", "listings": listings, "created": [], "saved": []},
+        )
+
+        created_ids: list[int] = []
+        saved_restore: list[int] = []
+        try:
+            for playlist in destinations:
+                target = self._local_uris(playlist) + [track_uri(track.spotify_id)]
+                await self._file_into(playlist, target)
+
+            if new_playlist is not None:
+                created = await self._create_and_seed(new_playlist["name"], seed_ids)
+                created_ids.append(created.id)
+
+            if unsave:
+                await self._writer.remove_saved_tracks([track.spotify_id])
+                self._flip_saved([track_id], removed=True)
+                saved_restore = [track_id]
+        except SpotifyError as exc:
+            self._fail_journal(journal, exc)
+            return journal  # pragma: no cover - _fail_journal always raises
+
+        journal.inverse_payload = {
+            "kind": "restore_filing",
+            "listings": listings,
+            "created": created_ids,
+            "saved": saved_restore,
+        }
+        self._finish_journal(journal)
+        return journal
+
     async def undo(self, journal_id: int) -> MutationJournal:
         journal = self._session.get(MutationJournal, journal_id)
         if journal is None or journal.user_id != self._user.id:
@@ -322,6 +427,18 @@ class MutationService:
             elif kind == "restore_details":
                 await self._restore_details(inverse)
             elif kind == "restore_bulk":
+                for listing in inverse.get("listings", []):
+                    await self._restore_listing(listing["playlist_id"], listing["order"])
+                for playlist_id in inverse.get("created", []):
+                    await self._undo_created_playlist(playlist_id)
+            elif kind == "restore_saved":
+                await self._restore_saved(inverse["track_ids"])
+            elif kind == "restore_filing":
+                # Restore every limb the composite filing touched. Remote
+                # re-save first (P0-3 ordering) so the local flip only follows
+                # a successful write.
+                if inverse.get("saved"):
+                    await self._restore_saved(inverse["saved"])
                 for listing in inverse.get("listings", []):
                     await self._restore_listing(listing["playlist_id"], listing["order"])
                 for playlist_id in inverse.get("created", []):
@@ -459,6 +576,65 @@ class MutationService:
             playlist.snapshot_id = snapshot_id
         self._session.add(playlist)
         self._finish_journal(journal)
+
+    async def _file_into(self, playlist: Playlist, target: list[str]) -> None:
+        """Reconcile a destination playlist to ``target`` WITHOUT its own journal
+        entry — the composite file_track owns the single journal. On a write
+        failure self-heals then re-raises for the composite to record."""
+        old = self._local_uris(playlist)
+        plan = plan_reconcile(old, target)
+        try:
+            snapshot_id = await self._execute_plan(playlist, plan)
+        except SpotifyError:
+            await self._self_heal(playlist)
+            raise
+        self._rewrite_membership(playlist, target)
+        if snapshot_id:
+            playlist.snapshot_id = snapshot_id
+        self._session.add(playlist)
+
+    async def _create_and_seed(self, name: str, seed_track_ids: list[int]) -> Playlist:
+        """Create a playlist and seed it with ``seed_track_ids`` (no own journal)."""
+        spotify_id, snapshot = await self._writer.create_playlist(name)
+        playlist = Playlist(
+            user_id=self._user.id,
+            spotify_id=spotify_id,
+            name=name,
+            snapshot_id=snapshot or None,
+            is_owned=True,
+            last_synced_at=utcnow(),
+        )
+        self._session.add(playlist)
+        self._session.flush()
+        self._emit(playlist, SyncEventType.playlist_created, detail={"track_count": 0})
+        if seed_track_ids:
+            seeds = self._require_tracks(seed_track_ids)
+            await self._file_into(playlist, [track_uri(t.spotify_id) for t in seeds])
+        return playlist
+
+    def _flip_saved(self, track_ids: list[int], *, removed: bool) -> None:
+        """Mirror an unsave/re-save locally: flip is_removed on the SavedTrack rows.
+
+        Only runs AFTER the corresponding remote write succeeded (P0-3), so the
+        local state never claims a removal Spotify hasn't performed.
+        """
+        rows = self._session.exec(
+            select(SavedTrack)
+            .where(SavedTrack.user_id == self._user.id)
+            .where(col(SavedTrack.track_id).in_(track_ids))
+        ).all()
+        for row in rows:
+            row.is_removed = removed
+            row.removed_at = utcnow() if removed else None
+            if not removed:
+                row.saved_at = utcnow()
+            self._session.add(row)
+
+    async def _restore_saved(self, track_ids: list[int]) -> None:
+        """Undo an unsave: remote re-save first, then flip the local rows back."""
+        tracks = self._session.exec(select(Track).where(col(Track.id).in_(track_ids))).all()
+        await self._writer.add_saved_tracks([t.spotify_id for t in tracks])
+        self._flip_saved(track_ids, removed=False)
 
     async def _execute_plan(self, playlist: Playlist, plan: list[Any]) -> str | None:
         snapshot: str | None = None
