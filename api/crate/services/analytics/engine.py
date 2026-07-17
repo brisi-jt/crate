@@ -36,7 +36,9 @@ from crate.services.analytics.galaxy import (
     order_by_degree,
 )
 from crate.services.analytics.loaders import (
+    GENRE_CLUSTER_WEIGHT,
     LibrarySnapshot,
+    load_genre_vectors,
     load_library,
     load_percentile_space,
     load_track_credits,
@@ -351,7 +353,21 @@ def compute_track_map_payload(
         dtype=float,
     ).reshape(len(track_ids), len(cluster_features))
 
-    result = compute_track_map(matrix, track_ids, library.memberships)
+    # G3: per-track genre block, blended into the clustering distance. Weighted
+    # so genre pulls against the acoustic axes without swamping them.
+    genre_vectors, _genre_names = load_genre_vectors(session, track_ids)
+    genre_matrix = None
+    genre_dims = len(_genre_names)
+    if genre_dims:
+        genre_matrix = (
+            np.array(
+                [genre_vectors[tid] for tid in track_ids],
+                dtype=float,
+            ).reshape(len(track_ids), genre_dims)
+            * GENRE_CLUSTER_WEIGHT
+        )
+
+    result = compute_track_map(matrix, track_ids, library.memberships, genre_matrix=genre_matrix)
     if result is None:
         return {
             "points": [],

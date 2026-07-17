@@ -118,9 +118,9 @@ def test_precompute_caps_clustered_set(session: Session, user: User, monkeypatch
 
     real = cluster_mod.compute_track_map
 
-    def _spy(matrix, track_ids, memberships):
+    def _spy(matrix, track_ids, memberships, genre_matrix=None):
         captured["n"] = matrix.shape[0]
-        return real(matrix, track_ids, memberships)
+        return real(matrix, track_ids, memberships, genre_matrix=genre_matrix)
 
     monkeypatch.setattr(cluster_mod, "MAX_CLUSTER_SAMPLE", 20)
     monkeypatch.setattr(cluster_mod, "compute_track_map", _spy)

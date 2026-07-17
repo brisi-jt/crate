@@ -7,10 +7,11 @@ everything ORM-shaped stays in here.
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlmodel import Session, col, select
+import numpy as np
+from sqlmodel import Session, col, func, select
 
 from crate.model.enums import FeatureStatus
-from crate.model.orm import Playlist, PlaylistTrack, Track, TrackFeatures
+from crate.model.orm import ArtistGenre, Genre, Playlist, PlaylistTrack, Track, TrackFeatures
 from crate.services.analytics.percentiles import PercentileSpace
 from crate.services.enrichment.calibration import CALIBRATED_FEATURES
 
@@ -126,6 +127,97 @@ def load_track_credits(session: Session, track_ids: list[int]) -> dict[int, list
                 str(credit["name"]) for credit in track.artists if credit.get("name")
             ]
     return credits
+
+
+# How many of the library's most-common ENAO genres form the genre-vector
+# dimensions (G3). A cap keeps the blended matrix small; the long tail of rare
+# genres carries little clustering signal and would only add sparse noise.
+GENRE_VECTOR_DIMS = 24
+
+# G3 — how strongly the (L2-normalized) per-track genre block weighs against the
+# acoustic percentile block in the clustering distance. Each acoustic axis has
+# unit-ish spread in [0,1]; a track's genre vector is a unit vector, so this
+# scale sets genre's pull relative to the ~8 acoustic axes. 2.0 lets genre carve
+# legible ("this is my afrobeats corner") clusters without overwhelming acoustics.
+GENRE_CLUSTER_WEIGHT = 2.0
+
+
+def load_genre_vectors(
+    session: Session, track_ids: list[int], *, dims: int = GENRE_VECTOR_DIMS
+) -> tuple[dict[int, np.ndarray], list[str]]:
+    """Per-track genre vector over the library's top-``dims`` ENAO genres (G3).
+
+    Joins each track's credited artists (casefolded name — the ENAO dump has no
+    Spotify artist ids, so name is the working key, as radio/insights do) to
+    ``ArtistGenre`` weights, sums per genre per track, restricts to the ``dims``
+    genres with the most total library weight, and L2-normalizes each track's
+    vector so genre contributes a bounded, comparable block regardless of how
+    many genres a track's artists span. Tracks with no genre data get a zero
+    vector (they simply don't move in the genre subspace).
+
+    Returns (track id -> vector aligned to ``genres``, the ordered genre names).
+    """
+    if not track_ids:
+        return {}, []
+
+    # track id -> casefolded artist keys
+    track_artist_keys: dict[int, set[str]] = {}
+    all_keys: set[str] = set()
+    ids = sorted(track_ids)
+    for start in range(0, len(ids), _IN_CHUNK):
+        chunk = ids[start : start + _IN_CHUNK]
+        for track in session.exec(select(Track).where(col(Track.id).in_(chunk))).all():
+            assert track.id is not None
+            keys = {
+                str(credit["name"]).casefold() for credit in track.artists if credit.get("name")
+            }
+            track_artist_keys[track.id] = keys
+            all_keys |= keys
+
+    if not all_keys:
+        return {tid: np.zeros(0, dtype=float) for tid in track_ids}, []
+
+    # genre name -> {artist key -> weight}, for artists the library actually holds.
+    genre_by_id = {g.id: g.name for g in session.exec(select(Genre)).all() if g.id is not None}
+    artist_genre_weights: dict[str, list[tuple[str, float]]] = {}
+    genre_total: dict[str, float] = {}
+    ordered_keys = sorted(all_keys)
+    for start in range(0, len(ordered_keys), _IN_CHUNK):
+        chunk = ordered_keys[start : start + _IN_CHUNK]
+        rows = session.exec(
+            select(ArtistGenre.genre_id, ArtistGenre.artist_name, ArtistGenre.weight).where(
+                func.lower(ArtistGenre.artist_name).in_(chunk)
+            )
+        ).all()
+        for genre_id, artist_name, weight in rows:
+            name = genre_by_id.get(genre_id)
+            if name is None:
+                continue
+            key = artist_name.casefold()
+            artist_genre_weights.setdefault(key, []).append((name, float(weight or 0.0)))
+            genre_total[name] = genre_total.get(name, 0.0) + float(weight or 0.0)
+
+    if not genre_total:
+        return {tid: np.zeros(0, dtype=float) for tid in track_ids}, []
+
+    top_genres = [name for name, _ in sorted(genre_total.items(), key=lambda kv: (-kv[1], kv[0]))][
+        :dims
+    ]
+    index = {name: i for i, name in enumerate(top_genres)}
+
+    vectors: dict[int, np.ndarray] = {}
+    for tid in track_ids:
+        vec = np.zeros(len(top_genres), dtype=float)
+        for key in track_artist_keys.get(tid, ()):  # type: ignore[union-attr]
+            for name, weight in artist_genre_weights.get(key, ()):  # type: ignore[union-attr]
+                pos = index.get(name)
+                if pos is not None:
+                    vec[pos] += weight
+        norm = float(np.linalg.norm(vec))
+        if norm > 0:
+            vec = vec / norm
+        vectors[tid] = vec
+    return vectors, top_genres
 
 
 def load_percentile_space(session: Session) -> PercentileSpace:

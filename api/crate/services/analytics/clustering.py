@@ -1,16 +1,42 @@
 """Track map: seeded UMAP 2D projection + HDBSCAN clusters vs playlists.
 
 UMAP runs with a fixed random_state (which forces single-threaded, exactly
-reproducible layouts), so the same library always produces the same map.
-HDBSCAN comes from scikit-learn — no separate hdbscan package.
+reproducible layouts), so the same library always produces the same map. The
+single-threaded cost is why the map is precomputed into an AnalyticsSnapshot
+and never computed in the request path (M1) — the answer to UMAP's cost is
+caching, not parallelism (dropping the seed for `n_jobs>1` would make the
+layout non-reproducible). HDBSCAN comes from scikit-learn — no separate hdbscan
+package.
 
-Loudness is excluded from the clustering distance metric (M3, decorrelation):
-measured on the real owned library, loudness ranks correlate with energy ranks
-at r=0.72 — loudness is very nearly a duplicate energy axis, so including both
-lets "energy" count ~1.7x in the euclidean distance UMAP/HDBSCAN see, lowering
-the effective rank of the space and blurring cluster structure. Loudness is
-still calibrated, stored, and used for display/color; only the clustering
-matrix drops it. See ``clustering_features``.
+**Two embeddings (G2).** The layout you *see* and the geometry we *cluster* are
+different jobs:
+
+* the **display embedding** (min_dist=0.1) spaces points out prettily for the
+  on-screen x/y;
+* the **clustering embedding** (n_neighbors=30, min_dist=0.0 — the standard
+  "UMAP-for-clustering" recipe) packs each dense region tight so HDBSCAN can
+  find density valleys.
+
+HDBSCAN runs on the *clustering* embedding, and its labels are painted onto the
+*display* layout. Clustering the embedding (not the raw 9-D percentile matrix,
+which is a single dense hyperball with no density valleys) is what turns the
+degenerate 2-cluster blob into a usable ~15-30 cluster structure, and it also
+fixes the correctness bug where hulls drawn on the display layout disagreed with
+cluster ids computed in raw space.
+
+**Genre in the distance (G3).** Percentile acoustics alone make clusters that
+are hard to read ("this corner is… mid-energy?"). The caller can pass a
+pre-weighted per-track ``genre_matrix`` (a reduced genre profile from the ENAO
+``ArtistGenre`` join); it is concatenated onto the acoustic block before UMAP so
+genre-distinct groups separate even when their acoustics overlap. Genre is the
+single strongest *semantic* signal we have.
+
+**Loudness excluded (M3, decorrelation).** Measured on the real owned library,
+loudness ranks correlate with energy ranks at r=0.72 — loudness is very nearly a
+duplicate energy axis, so including both lets "energy" count ~1.7x in the
+euclidean distance, lowering the effective rank of the space and blurring
+cluster structure. Loudness is still calibrated, stored, and used for
+display/color; only the clustering matrix drops it. See ``clustering_features``.
 """
 
 import hashlib
@@ -19,11 +45,42 @@ from dataclasses import dataclass
 import numpy as np
 
 UMAP_SEED = 42
-UMAP_MIN_DIST = 0.1
-UMAP_NEIGHBORS = 15
+
+# Display embedding: the on-screen x/y. min_dist spaces points for legibility.
+DISPLAY_MIN_DIST = 0.1
+DISPLAY_NEIGHBORS = 15
+
+# Clustering embedding (G2): the geometry HDBSCAN sees. The standard
+# UMAP-for-clustering recipe — more neighbours for global structure, min_dist=0
+# so each dense region collapses to a point HDBSCAN can find.
+CLUSTER_MIN_DIST = 0.0
+CLUSTER_NEIGHBORS = 30
 
 MIN_TRACKS_FOR_MAP = 10
-MIN_CLUSTER_SIZE = 5
+
+# HDBSCAN min_cluster_size scales with n (G2). The old min(5, n//2) forced
+# speck clusters at library scale (~6k tracks) — a 7-track dust cluster amid a
+# 71% blob. These anchor a linear scale between a small-library floor and a
+# proportional ceiling.
+MIN_CLUSTER_FLOOR = 2
+MIN_CLUSTER_DIVISOR = 200  # ~1 required member per 200 tracks
+MIN_CLUSTER_CEIL_FLOOR = 20  # once past this many tracks, never below 20
+
+
+def scaled_min_cluster_size(n: int) -> int:
+    """HDBSCAN ``min_cluster_size`` for ``n`` tracks (G2).
+
+    Scales with n so clusters are meaningful at library scale without vanishing
+    on a tiny fixture: ``max(n // 200, 20)`` once the library is large, but never
+    above ``n // 2`` and never below 2 for very small inputs.
+    """
+    if n < 2 * MIN_CLUSTER_FLOOR:
+        return MIN_CLUSTER_FLOOR
+    proportional = n // MIN_CLUSTER_DIVISOR
+    scaled = max(proportional, MIN_CLUSTER_CEIL_FLOOR)
+    # Never demand more members than half the population could supply.
+    return max(MIN_CLUSTER_FLOOR, min(scaled, n // 2))
+
 
 # Features dropped from the clustering distance metric (M3). Loudness ~ energy
 # at r=0.72 on the real library, so it double-counts energy; kept for display.
@@ -40,11 +97,43 @@ def clustering_features(features: tuple[str, ...]) -> tuple[str, ...]:
 
 
 # A playlist is a split candidate when >= 2 clusters each hold this share of
-# its clustered tracks (and at least MIN_CLUSTER_SIZE tracks).
+# its clustered tracks (and at least SPLIT_MIN_MEMBERS tracks). This is a small
+# constant floor on evidence, independent of the (n-scaled) HDBSCAN mcs — a
+# playlist that puts 6 tracks each in two clusters is a real split even when the
+# library-wide mcs is 30.
 SPLIT_MIN_SHARE = 0.3
+SPLIT_MIN_MEMBERS = 5
 # Playlists whose dominant cluster holds this share of their clustered tracks
 # are merge candidates when they share that dominant cluster.
 MERGE_DOMINANT_SHARE = 0.6
+
+
+@dataclass(frozen=True)
+class ClusterQuality:
+    """The gate numbers for the clustering rework (target: 15-30 clusters,
+    largest < 25%, noise < 15% on the owned library; baseline was 2/71%/29%)."""
+
+    cluster_count: int
+    largest_share: float
+    noise_share: float
+
+
+def cluster_quality(labels: np.ndarray) -> ClusterQuality:
+    """Quality metrics over HDBSCAN labels (-1 = noise)."""
+    labels = np.asarray(labels)
+    total = int(labels.shape[0]) if labels.size else 0
+    if total == 0:
+        return ClusterQuality(cluster_count=0, largest_share=0.0, noise_share=0.0)
+    noise = int((labels == -1).sum())
+    non_noise = labels[labels != -1]
+    if non_noise.size == 0:
+        return ClusterQuality(cluster_count=0, largest_share=0.0, noise_share=noise / total)
+    _, counts = np.unique(non_noise, return_counts=True)
+    return ClusterQuality(
+        cluster_count=int(counts.shape[0]),
+        largest_share=float(counts.max()) / total,
+        noise_share=noise / total,
+    )
 
 
 @dataclass(frozen=True)
@@ -87,12 +176,20 @@ def compute_track_map(
     matrix: np.ndarray,
     track_ids: list[int],
     memberships: dict[int, set[int]],
+    genre_matrix: np.ndarray | None = None,
 ) -> TrackMapResult | None:
     """Project the library and compare its density structure to the playlists.
 
-    matrix rows are percentile vectors aligned with track_ids; memberships
-    maps playlist id -> track ids. Returns None below MIN_TRACKS_FOR_MAP —
-    a projection of a handful of points is noise wearing axes.
+    ``matrix`` rows are percentile vectors aligned with ``track_ids``;
+    ``memberships`` maps playlist id -> track ids. ``genre_matrix`` (G3), when
+    given, is a pre-weighted per-track genre block (rows aligned with
+    ``track_ids``) concatenated onto the acoustic block before projection so
+    genre-distinct groups separate. Returns None below MIN_TRACKS_FOR_MAP — a
+    projection of a handful of points is noise wearing axes.
+
+    Two embeddings (G2): a display embedding (min_dist=0.1) for the on-screen
+    x/y, and a clustering embedding (nn=30, min_dist=0) that HDBSCAN clusters.
+    The cluster labels are painted onto the display layout.
     """
     n = matrix.shape[0] if matrix.size else 0
     if n < MIN_TRACKS_FOR_MAP:
@@ -104,16 +201,34 @@ def compute_track_map(
     from sklearn.metrics import adjusted_rand_score
     from umap import UMAP
 
+    # G3: blend the pre-weighted genre block onto the acoustic block. Both
+    # embeddings project the same combined feature space.
+    features = matrix
+    if genre_matrix is not None and genre_matrix.size:
+        genre_matrix = np.asarray(genre_matrix, dtype=float)
+        features = np.hstack([matrix, genre_matrix])
+
+    # Display embedding: what the field renders (min_dist spaces points out).
     embedding = UMAP(
         n_components=2,
-        n_neighbors=min(UMAP_NEIGHBORS, n - 1),
-        min_dist=UMAP_MIN_DIST,
+        n_neighbors=min(DISPLAY_NEIGHBORS, n - 1),
+        min_dist=DISPLAY_MIN_DIST,
         random_state=UMAP_SEED,
-    ).fit_transform(matrix)
+    ).fit_transform(features)
     embedding = np.asarray(embedding, dtype=float)
 
-    labels = HDBSCAN(min_cluster_size=min(MIN_CLUSTER_SIZE, max(2, n // 2)), copy=True).fit_predict(
-        matrix
+    # Clustering embedding (G2): tuned for density — HDBSCAN clusters THIS, not
+    # the raw matrix, so hulls match the geography and the blob breaks apart.
+    cluster_embedding = UMAP(
+        n_components=2,
+        n_neighbors=min(CLUSTER_NEIGHBORS, n - 1),
+        min_dist=CLUSTER_MIN_DIST,
+        random_state=UMAP_SEED,
+    ).fit_transform(features)
+    cluster_embedding = np.asarray(cluster_embedding, dtype=float)
+
+    labels = HDBSCAN(min_cluster_size=scaled_min_cluster_size(n), copy=True).fit_predict(
+        cluster_embedding
     )
 
     points = [
@@ -163,7 +278,7 @@ def compute_track_map(
         straddled = sorted(
             (label, share)
             for label, share in shares.items()
-            if share >= SPLIT_MIN_SHARE and counts[label] >= MIN_CLUSTER_SIZE
+            if share >= SPLIT_MIN_SHARE and counts[label] >= SPLIT_MIN_MEMBERS
         )
         if len(straddled) >= 2:
             split_suggestions.append(SplitSuggestion(playlist_id=pid, clusters=straddled))

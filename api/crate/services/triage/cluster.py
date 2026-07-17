@@ -32,7 +32,11 @@ from crate.services.analytics.clustering import (
     clustering_features,
     compute_track_map,
 )
-from crate.services.analytics.loaders import load_percentile_space
+from crate.services.analytics.loaders import (
+    GENRE_CLUSTER_WEIGHT,
+    load_genre_vectors,
+    load_percentile_space,
+)
 from crate.services.analytics.percentiles import PercentileSpace
 from crate.services.enrichment.calibration import CALIBRATED_FEATURES
 from crate.services.triage.queue import QueueSource, load_queue
@@ -148,8 +152,19 @@ def precompute_triage_cluster(session: Session, user: User, source: QueueSource)
         matrix = np.array(
             [[vectors[tid][f] for f in cluster_feats] for tid in aligned], dtype=float
         ).reshape(len(aligned), len(cluster_feats))
+        # G3: blend genre into the queue's cluster distance too, so the
+        # new-category proposal is genre-legible (matches the track map).
+        genre_vectors, genre_names = load_genre_vectors(session, aligned)
+        genre_matrix = None
+        if genre_names:
+            genre_matrix = (
+                np.array([genre_vectors[tid] for tid in aligned], dtype=float).reshape(
+                    len(aligned), len(genre_names)
+                )
+                * GENRE_CLUSTER_WEIGHT
+            )
         # No playlist memberships needed — the queue itself is the population.
-        result = compute_track_map(matrix, aligned, {})
+        result = compute_track_map(matrix, aligned, {}, genre_matrix=genre_matrix)
         proposals = _proposals_from_result(session, result) if result else []
 
     payload = {
