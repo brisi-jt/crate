@@ -1,0 +1,13 @@
+{
+  "playlist_id": 249,
+  "name": "?",
+  "mood": "rising",
+  "suggested_order": [32885, 18086, 32884, 32886, 32841, 32883, 32887],
+  "current_flow": 33.14,
+  "suggested_flow": 47.14,
+  "adjacent_artist_repeats": 0,
+  "_links": {
+    "self": { "href": "/v1/playlists/249/flow/arc" },
+    "apply": { "href": "/v1/playlists/249/flow/arc/apply" }
+  }
+}

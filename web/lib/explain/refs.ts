@@ -130,6 +130,33 @@ export const EXTENDED_INSIGHT_REFS = [
   "era_add_vs_release",
 ] as const;
 
+/**
+ * Competitor-parity surfaces — the listening dashboard, obscurity, taste drift,
+ * flow sequencer, and per-playlist quality. `listening_clock` is intentionally
+ * absent: the dashboard reuses the same clock the extended survey already
+ * explains, resolving to that one entry (listing it twice would trip the
+ * no-duplicate-refs gate).
+ */
+export const COMPETITIVE_REFS = [
+  // listening dashboard (F1)
+  "listening_rhythm",
+  "listening_minutes",
+  "listening_streaks",
+  "listening_clock_peak",
+  // obscurity (F3)
+  "obscurity_library",
+  "obscurity_playlist",
+  // taste drift (F5)
+  "taste_drift",
+  // flow sequencer (F4)
+  "flow_arc",
+  // per-playlist quality (F6) — the four payload-emitted sub-score refs
+  "quality_cohesion",
+  "quality_uniqueness",
+  "quality_freshness",
+  "quality_flow",
+] as const;
+
 /** Data providers — every source string the app never surfaces in-UI today. */
 export const SOURCE_REFS = [
   "source_reccobeats",
@@ -159,6 +186,7 @@ export const REFERENCED_METRICS: readonly string[] = [
   ...STATS_REFS,
   ...TRIAGE_REFS,
   ...EXTENDED_INSIGHT_REFS,
+  ...COMPETITIVE_REFS,
   ...SOURCE_REFS,
 ];
 

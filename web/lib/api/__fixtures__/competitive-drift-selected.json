@@ -1,0 +1,178 @@
+{
+  "timeline": [
+    {
+      "snapshot_id": 18,
+      "kind": "track",
+      "time_range": "long",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 17,
+      "kind": "artist",
+      "time_range": "long",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 16,
+      "kind": "track",
+      "time_range": "medium",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 15,
+      "kind": "artist",
+      "time_range": "medium",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 14,
+      "kind": "track",
+      "time_range": "short",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 13,
+      "kind": "artist",
+      "time_range": "short",
+      "captured_at": "2026-07-16T15:08:39.163863",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 10,
+      "kind": "track",
+      "time_range": "medium",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 12,
+      "kind": "track",
+      "time_range": "long",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 11,
+      "kind": "artist",
+      "time_range": "long",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 9,
+      "kind": "artist",
+      "time_range": "medium",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 8,
+      "kind": "track",
+      "time_range": "short",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 7,
+      "kind": "artist",
+      "time_range": "short",
+      "captured_at": "2026-07-16T14:27:49.585851",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 1,
+      "kind": "artist",
+      "time_range": "short",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 6,
+      "kind": "track",
+      "time_range": "long",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 5,
+      "kind": "artist",
+      "time_range": "long",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 4,
+      "kind": "track",
+      "time_range": "medium",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": true
+    },
+    {
+      "snapshot_id": 3,
+      "kind": "artist",
+      "time_range": "medium",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": false
+    },
+    {
+      "snapshot_id": 2,
+      "kind": "track",
+      "time_range": "short",
+      "captured_at": "2026-07-11T19:56:32.324365",
+      "comparable": true
+    }
+  ],
+  "now_fingerprint": {
+    "energy": 0.5535,
+    "valence": 0.5279,
+    "danceability": 0.4815,
+    "acousticness": 0.4451,
+    "instrumentalness": 0.4407,
+    "liveness": 0.5107,
+    "speechiness": 0.4774,
+    "tempo": 0.5142,
+    "loudness": 0.5411
+  },
+  "selected_snapshot_id": 18,
+  "comparison": {
+    "axes": [
+      { "feature": "energy", "now": 0.5535, "then": 0.4453, "delta": 0.1082 },
+      { "feature": "valence", "now": 0.5279, "then": 0.404, "delta": 0.1239 },
+      {
+        "feature": "danceability",
+        "now": 0.4815,
+        "then": 0.4674,
+        "delta": 0.0141
+      },
+      {
+        "feature": "acousticness",
+        "now": 0.4451,
+        "then": 0.5134,
+        "delta": -0.0683
+      },
+      {
+        "feature": "instrumentalness",
+        "now": 0.4407,
+        "then": 0.5382,
+        "delta": -0.0975
+      },
+      { "feature": "liveness", "now": 0.5107, "then": 0.4669, "delta": 0.0438 },
+      {
+        "feature": "speechiness",
+        "now": 0.4774,
+        "then": 0.4608,
+        "delta": 0.0166
+      },
+      { "feature": "tempo", "now": 0.5142, "then": 0.5273, "delta": -0.0131 },
+      { "feature": "loudness", "now": 0.5411, "then": 0.4276, "delta": 0.1135 }
+    ],
+    "distance": 0.2381,
+    "biggest_mover": { "feature": "valence", "delta": 0.1239 }
+  },
+  "_links": { "self": { "href": "/v1/taste/drift" } }
+}

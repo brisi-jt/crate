@@ -513,6 +513,91 @@ export const GLOSSARY: Record<string, ExplainEntry> = {
     unit: "years",
   },
 
+  // ── Listening dashboard (F1) ───────────────────────────────────────────
+  listening_rhythm: {
+    term: "Listening rhythm",
+    what: "The shape of your listening — how many plays, over how many tracks.",
+    how: "A count of every recorded play and the number of distinct tracks behind them.",
+    source:
+      "Your play history — live captures plus any imported streaming history.",
+  },
+  listening_minutes: {
+    term: "Minutes listened",
+    what: "Roughly how long you've spent listening.",
+    how: "The sum of each play's length. Live plays don't record a length, so those fall back to a typical track length and the figure is marked as an estimate.",
+    source: "Your play history.",
+    unit: "minutes",
+  },
+  listening_streaks: {
+    term: "Listening streak",
+    what: "How many days in a row you kept listening.",
+    how: "The longest run of back-to-back calendar days with at least one play, and the run you're on now.",
+    source: "Your play history.",
+    unit: "days",
+  },
+  listening_clock_peak: {
+    term: "Peak hour",
+    what: "The hour of the day you listen the most.",
+    how: "Plays are bucketed by hour of day; the fullest bucket is your peak.",
+    source: "Your play history.",
+  },
+
+  // ── Obscurity (F3) ─────────────────────────────────────────────────────
+  obscurity_library: {
+    term: "Library obscurity",
+    what: "How niche your whole library leans, from mainstream to deep-cut.",
+    how: "Each track takes the rank of its most well-known genre; zero is mainstream, one is niche. The library score averages them.",
+    source: "Genre ranks from the Every Noise at Once layer.",
+  },
+  obscurity_playlist: {
+    term: "Playlist obscurity",
+    what: "The same niche-versus-mainstream reading, for one playlist.",
+    how: "The average obscurity of the playlist's tracks; a track with no ranked genre counts as fully niche.",
+    source: "Genre ranks from the Every Noise at Once layer.",
+  },
+
+  // ── Taste drift (F5) ───────────────────────────────────────────────────
+  taste_drift: {
+    term: "Taste drift",
+    what: "How far your sound today has moved from a past reading of your top tracks.",
+    how: "Your current library's average sound is compared feature by feature against a past top-tracks reading; the overall distance and the feature that moved most are called out.",
+    source: "Your current library and past recorded top-track readings.",
+  },
+
+  // ── Flow sequencer (F4) ────────────────────────────────────────────────
+  flow_arc: {
+    term: "Flow arc",
+    what: "A suggested running order that smooths the ride between tracks.",
+    how: "Tracks are re-ordered to ease energy, mood, and tempo jumps into a rising, falling, or peaking shape, while keeping the same artist from landing back to back.",
+    source: "Self-derived tempo, energy, and mood, plus each track's artist.",
+  },
+
+  // ── Per-playlist quality (F6) ──────────────────────────────────────────
+  quality_cohesion: {
+    term: "Cohesion",
+    what: "How tightly a playlist's tracks sit together in sound.",
+    how: "The average spread between tracks in sound space, flipped so a tighter cluster scores higher.",
+    source: "Self-derived audio traits.",
+  },
+  quality_uniqueness: {
+    term: "Uniqueness",
+    what: "How free of repeats a playlist is.",
+    how: "One minus the share of duplicated tracks, counting both the same track twice and the same recording under a different id.",
+    source: "Playlist membership and recording ids.",
+  },
+  quality_freshness: {
+    term: "Freshness",
+    what: "How recently the playlist was touched.",
+    how: "A gentle decay on the time since its newest add, so long-dormant playlists score lower.",
+    source: "When tracks were added to the playlist.",
+  },
+  quality_flow: {
+    term: "Flow quality",
+    what: "How smoothly a playlist already runs, front to back.",
+    how: "The existing key and tempo flow reading, scaled to a zero-to-one score.",
+    source: "Self-derived tempo and key.",
+  },
+
   // ── Data providers ──────────────────────────────────────────────────────
   source_reccobeats: {
     term: "ReccoBeats",

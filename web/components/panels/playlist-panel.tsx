@@ -9,6 +9,8 @@ import {
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { NotYetComputed, Readout } from "@/components/panels/right-dock";
+import { FlowTab } from "@/components/playlist/flow-tab";
+import { QualityTab } from "@/components/playlist/quality-tab";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -166,7 +168,14 @@ export function PlaylistPanelContent({
 
       <Tabs defaultValue="tracks" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="w-full justify-start gap-lg rounded-none border-border-subtle border-b bg-transparent p-0">
-          {["tracks", "fingerprint", "overlaps", "outliers"].map((tab) => (
+          {[
+            "tracks",
+            "fingerprint",
+            "flow",
+            "quality",
+            "overlaps",
+            "outliers",
+          ].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}
@@ -337,6 +346,14 @@ export function PlaylistPanelContent({
           ) : (
             <NotYetComputed what="Feature fingerprint" />
           )}
+        </TabsContent>
+
+        <TabsContent value="flow" className="pt-sm">
+          <FlowTab playlistId={playlistId} />
+        </TabsContent>
+
+        <TabsContent value="quality" className="pt-sm">
+          <QualityTab playlistId={playlistId} />
         </TabsContent>
 
         <TabsContent value="overlaps" className="pt-sm">

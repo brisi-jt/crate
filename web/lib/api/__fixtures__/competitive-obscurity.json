@@ -1,0 +1,743 @@
+{
+  "library": { "score": 0.3015, "scored_tracks": 5929 },
+  "playlists": [
+    { "playlist_id": 59, "name": "Presave", "score": 1.0, "scored_tracks": 1 },
+    {
+      "playlist_id": 112,
+      "name": "Spotify wants me to make this",
+      "score": 1.0,
+      "scored_tracks": 8
+    },
+    {
+      "playlist_id": 132,
+      "name": "angsty energy",
+      "score": 1.0,
+      "scored_tracks": 3
+    },
+    { "playlist_id": 171, "name": "work", "score": 1.0, "scored_tracks": 12 },
+    {
+      "playlist_id": 198,
+      "name": "whimsical atmospheric",
+      "score": 1.0,
+      "scored_tracks": 11
+    },
+    { "playlist_id": 216, "name": "lofi", "score": 1.0, "scored_tracks": 3 },
+    {
+      "playlist_id": 226,
+      "name": "Chill filthy",
+      "score": 1.0,
+      "scored_tracks": 1
+    },
+    { "playlist_id": 238, "name": "🎴", "score": 1.0, "scored_tracks": 1 },
+    { "playlist_id": 296, "name": "TOP", "score": 1.0, "scored_tracks": 44 },
+    {
+      "playlist_id": 322,
+      "name": "Cool Kids",
+      "score": 1.0,
+      "scored_tracks": 1
+    },
+    {
+      "playlist_id": 133,
+      "name": "gym - new",
+      "score": 0.8573,
+      "scored_tracks": 7
+    },
+    { "playlist_id": 144, "name": "triap", "score": 0.838, "scored_tracks": 6 },
+    {
+      "playlist_id": 192,
+      "name": "chill",
+      "score": 0.8334,
+      "scored_tracks": 6
+    },
+    {
+      "playlist_id": 152,
+      "name": "foreign rap",
+      "score": 0.8245,
+      "scored_tracks": 33
+    },
+    {
+      "playlist_id": 20,
+      "name": "Ivorian Doll – Popular",
+      "score": 0.8221,
+      "scored_tracks": 61
+    },
+    {
+      "playlist_id": 228,
+      "name": "atmospheric",
+      "score": 0.8078,
+      "scored_tracks": 15
+    },
+    {
+      "playlist_id": 154,
+      "name": "garaahhj ?",
+      "score": 0.7887,
+      "scored_tracks": 27
+    },
+    {
+      "playlist_id": 157,
+      "name": "low key energy",
+      "score": 0.78,
+      "scored_tracks": 17
+    },
+    {
+      "playlist_id": 178,
+      "name": "angry rap",
+      "score": 0.7794,
+      "scored_tracks": 27
+    },
+    {
+      "playlist_id": 28,
+      "name": "Similar Vibe House Discoveries",
+      "score": 0.7435,
+      "scored_tracks": 300
+    },
+    {
+      "playlist_id": 180,
+      "name": "Boomtown: The Gathering of music",
+      "score": 0.7428,
+      "scored_tracks": 168
+    },
+    {
+      "playlist_id": 158,
+      "name": "girl song",
+      "score": 0.7358,
+      "scored_tracks": 78
+    },
+    {
+      "playlist_id": 156,
+      "name": "ENERGY RAP",
+      "score": 0.7338,
+      "scored_tracks": 37
+    },
+    {
+      "playlist_id": 141,
+      "name": "girl rap",
+      "score": 0.6899,
+      "scored_tracks": 32
+    },
+    {
+      "playlist_id": 125,
+      "name": "MARATHON: VIBE",
+      "score": 0.6716,
+      "scored_tracks": 6
+    },
+    {
+      "playlist_id": 119,
+      "name": "housey fancy dancy",
+      "score": 0.621,
+      "scored_tracks": 53
+    },
+    {
+      "playlist_id": 139,
+      "name": "Brazilian Jungle",
+      "score": 0.6052,
+      "scored_tracks": 12
+    },
+    {
+      "playlist_id": 203,
+      "name": "Koopa’s Pet Playlist ",
+      "score": 0.5903,
+      "scored_tracks": 31
+    },
+    {
+      "playlist_id": 148,
+      "name": "vibey chill",
+      "score": 0.5873,
+      "scored_tracks": 48
+    },
+    {
+      "playlist_id": 170,
+      "name": "wisdom",
+      "score": 0.5834,
+      "scored_tracks": 82
+    },
+    {
+      "playlist_id": 137,
+      "name": "edgy rap",
+      "score": 0.5811,
+      "scored_tracks": 30
+    },
+    {
+      "playlist_id": 138,
+      "name": "energetic sounds",
+      "score": 0.5754,
+      "scored_tracks": 7
+    },
+    {
+      "playlist_id": 164,
+      "name": "chillin",
+      "score": 0.5515,
+      "scored_tracks": 130
+    },
+    {
+      "playlist_id": 167,
+      "name": "idk / uncategorised",
+      "score": 0.5495,
+      "scored_tracks": 347
+    },
+    {
+      "playlist_id": 155,
+      "name": "SOLITARY",
+      "score": 0.5384,
+      "scored_tracks": 63
+    },
+    {
+      "playlist_id": 172,
+      "name": "cool rap",
+      "score": 0.5322,
+      "scored_tracks": 65
+    },
+    {
+      "playlist_id": 248,
+      "name": "filth with words",
+      "score": 0.5278,
+      "scored_tracks": 6
+    },
+    {
+      "playlist_id": 23,
+      "name": "Expanded Liked Artists Collection",
+      "score": 0.5243,
+      "scored_tracks": 100
+    },
+    {
+      "playlist_id": 169,
+      "name": "chill minimal distraction",
+      "score": 0.5204,
+      "scored_tracks": 51
+    },
+    {
+      "playlist_id": 127,
+      "name": "sub-jumpup dnb girl vocal",
+      "score": 0.5203,
+      "scored_tracks": 4
+    },
+    {
+      "playlist_id": 176,
+      "name": "chill rap",
+      "score": 0.5185,
+      "scored_tracks": 94
+    },
+    {
+      "playlist_id": 124,
+      "name": "wubs - low bpm",
+      "score": 0.516,
+      "scored_tracks": 12
+    },
+    {
+      "playlist_id": 21,
+      "name": "Liked Foreign Songs",
+      "score": 0.5075,
+      "scored_tracks": 30
+    },
+    {
+      "playlist_id": 22,
+      "name": "Liked Foreign Songs",
+      "score": 0.5075,
+      "scored_tracks": 30
+    },
+    {
+      "playlist_id": 130,
+      "name": "French rap",
+      "score": 0.5006,
+      "scored_tracks": 2
+    },
+    {
+      "playlist_id": 175,
+      "name": "hard skank",
+      "score": 0.4903,
+      "scored_tracks": 118
+    },
+    {
+      "playlist_id": 159,
+      "name": "techno",
+      "score": 0.4797,
+      "scored_tracks": 45
+    },
+    {
+      "playlist_id": 162,
+      "name": "rappin",
+      "score": 0.4727,
+      "scored_tracks": 345
+    },
+    {
+      "playlist_id": 174,
+      "name": "soft skank",
+      "score": 0.4714,
+      "scored_tracks": 75
+    },
+    { "playlist_id": 249, "name": "?", "score": 0.4663, "scored_tracks": 7 },
+    {
+      "playlist_id": 145,
+      "name": "summer energetic",
+      "score": 0.4646,
+      "scored_tracks": 51
+    },
+    { "playlist_id": 122, "name": "5K", "score": 0.4335, "scored_tracks": 7 },
+    {
+      "playlist_id": 131,
+      "name": "Locked in: Edgy",
+      "score": 0.4256,
+      "scored_tracks": 5
+    },
+    {
+      "playlist_id": 147,
+      "name": "gaming",
+      "score": 0.4229,
+      "scored_tracks": 25
+    },
+    {
+      "playlist_id": 250,
+      "name": "filth",
+      "score": 0.4221,
+      "scored_tracks": 28
+    },
+    { "playlist_id": 255, "name": "❄️", "score": 0.4164, "scored_tracks": 82 },
+    {
+      "playlist_id": 161,
+      "name": "post skank soft",
+      "score": 0.4065,
+      "scored_tracks": 24
+    },
+    {
+      "playlist_id": 128,
+      "name": "TODO: spin decks",
+      "score": 0.398,
+      "scored_tracks": 13
+    },
+    {
+      "playlist_id": 160,
+      "name": "non rave energy",
+      "score": 0.3865,
+      "scored_tracks": 196
+    },
+    { "playlist_id": 227, "name": "👅£", "score": 0.3793, "scored_tracks": 6 },
+    {
+      "playlist_id": 230,
+      "name": "idk yet",
+      "score": 0.3729,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 163,
+      "name": "bassy mc/rap",
+      "score": 0.3641,
+      "scored_tracks": 19
+    },
+    {
+      "playlist_id": 149,
+      "name": "light atmospheric",
+      "score": 0.3633,
+      "scored_tracks": 9
+    },
+    { "playlist_id": 246, "name": "🌊", "score": 0.3612, "scored_tracks": 3 },
+    {
+      "playlist_id": 142,
+      "name": "fun upbeat rap",
+      "score": 0.3455,
+      "scored_tracks": 41
+    },
+    {
+      "playlist_id": 327,
+      "name": "Chill",
+      "score": 0.3411,
+      "scored_tracks": 3
+    },
+    {
+      "playlist_id": 150,
+      "name": "dark atmospheric",
+      "score": 0.314,
+      "scored_tracks": 11
+    },
+    {
+      "playlist_id": 177,
+      "name": "sad rap",
+      "score": 0.308,
+      "scored_tracks": 10
+    },
+    {
+      "playlist_id": 123,
+      "name": "bassy covers",
+      "score": 0.3059,
+      "scored_tracks": 4
+    },
+    { "playlist_id": 243, "name": "🌄", "score": 0.2957, "scored_tracks": 25 },
+    {
+      "playlist_id": 272,
+      "name": "d e h y p e",
+      "score": 0.2938,
+      "scored_tracks": 7
+    },
+    {
+      "playlist_id": 166,
+      "name": "My field trip",
+      "score": 0.2676,
+      "scored_tracks": 118
+    },
+    {
+      "playlist_id": 165,
+      "name": "happy",
+      "score": 0.2506,
+      "scored_tracks": 16
+    },
+    {
+      "playlist_id": 244,
+      "name": "slower less fillthy filth",
+      "score": 0.239,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 134,
+      "name": "soundtrack",
+      "score": 0.2382,
+      "scored_tracks": 17
+    },
+    {
+      "playlist_id": 241,
+      "name": "Techno",
+      "score": 0.2287,
+      "scored_tracks": 5
+    },
+    { "playlist_id": 224, "name": "🕶️", "score": 0.2283, "scored_tracks": 9 },
+    {
+      "playlist_id": 121,
+      "name": "CLAUDE-ing",
+      "score": 0.2276,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 321,
+      "name": "summer vibes",
+      "score": 0.2232,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 320,
+      "name": "to listen to",
+      "score": 0.2072,
+      "scored_tracks": 10
+    },
+    {
+      "playlist_id": 263,
+      "name": "Discover",
+      "score": 0.2022,
+      "scored_tracks": 229
+    },
+    {
+      "playlist_id": 247,
+      "name": "less filthy filth",
+      "score": 0.1977,
+      "scored_tracks": 7
+    },
+    {
+      "playlist_id": 146,
+      "name": "classical",
+      "score": 0.178,
+      "scored_tracks": 20
+    },
+    {
+      "playlist_id": 328,
+      "name": "Sleep",
+      "score": 0.1744,
+      "scored_tracks": 46
+    },
+    { "playlist_id": 254, "name": "🌵", "score": 0.157, "scored_tracks": 45 },
+    {
+      "playlist_id": 276,
+      "name": "Paradoxical Flow",
+      "score": 0.1566,
+      "scored_tracks": 128
+    },
+    {
+      "playlist_id": 126,
+      "name": "MARATHON - PEFORM",
+      "score": 0.1555,
+      "scored_tracks": 13
+    },
+    { "playlist_id": 206, "name": "🫔", "score": 0.1476, "scored_tracks": 28 },
+    {
+      "playlist_id": 120,
+      "name": "get up and goat",
+      "score": 0.1449,
+      "scored_tracks": 21
+    },
+    {
+      "playlist_id": 173,
+      "name": "chill rock",
+      "score": 0.143,
+      "scored_tracks": 7
+    },
+    { "playlist_id": 237, "name": "🦁", "score": 0.1404, "scored_tracks": 10 },
+    {
+      "playlist_id": 278,
+      "name": "inno hype",
+      "score": 0.1402,
+      "scored_tracks": 19
+    },
+    { "playlist_id": 305, "name": "yes", "score": 0.14, "scored_tracks": 22 },
+    {
+      "playlist_id": 302,
+      "name": "Chillectronic",
+      "score": 0.1295,
+      "scored_tracks": 107
+    },
+    { "playlist_id": 341, "name": ":)(", "score": 0.1292, "scored_tracks": 91 },
+    {
+      "playlist_id": 318,
+      "name": "Liked from Radio",
+      "score": 0.1107,
+      "scored_tracks": 79
+    },
+    {
+      "playlist_id": 307,
+      "name": "Gogogo",
+      "score": 0.1099,
+      "scored_tracks": 20
+    },
+    {
+      "playlist_id": 153,
+      "name": "nostalja rap",
+      "score": 0.1029,
+      "scored_tracks": 39
+    },
+    { "playlist_id": 129, "name": "Ska", "score": 0.0984, "scored_tracks": 1 },
+    {
+      "playlist_id": 270,
+      "name": "h y p e",
+      "score": 0.093,
+      "scored_tracks": 13
+    },
+    {
+      "playlist_id": 342,
+      "name": "Welbeck B",
+      "score": 0.0889,
+      "scored_tracks": 24
+    },
+    { "playlist_id": 280, "name": "Uh", "score": 0.0855, "scored_tracks": 25 },
+    {
+      "playlist_id": 258,
+      "name": "GUESS THAT TUNE",
+      "score": 0.085,
+      "scored_tracks": 1591
+    },
+    {
+      "playlist_id": 140,
+      "name": "old school style rap",
+      "score": 0.0838,
+      "scored_tracks": 24
+    },
+    {
+      "playlist_id": 118,
+      "name": "PERFORM",
+      "score": 0.0837,
+      "scored_tracks": 12
+    },
+    {
+      "playlist_id": 45,
+      "name": "Irene - 1950s & 1960s",
+      "score": 0.082,
+      "scored_tracks": 50
+    },
+    {
+      "playlist_id": 308,
+      "name": "Chill",
+      "score": 0.0772,
+      "scored_tracks": 13
+    },
+    {
+      "playlist_id": 304,
+      "name": "ElectroGo",
+      "score": 0.0729,
+      "scored_tracks": 31
+    },
+    {
+      "playlist_id": 264,
+      "name": "New Playlist",
+      "score": 0.0639,
+      "scored_tracks": 6
+    },
+    { "playlist_id": 316, "name": "B-)", "score": 0.0619, "scored_tracks": 54 },
+    {
+      "playlist_id": 236,
+      "name": "some new filth",
+      "score": 0.0587,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 329,
+      "name": "Welbeck A",
+      "score": 0.054,
+      "scored_tracks": 309
+    },
+    {
+      "playlist_id": 343,
+      "name": "Gym",
+      "score": 0.0527,
+      "scored_tracks": 115
+    },
+    {
+      "playlist_id": 136,
+      "name": "Hype metal-rock-p'punk",
+      "score": 0.0505,
+      "scored_tracks": 20
+    },
+    {
+      "playlist_id": 333,
+      "name": "Welbeck B",
+      "score": 0.0493,
+      "scored_tracks": 23
+    },
+    {
+      "playlist_id": 290,
+      "name": "shit i like right now",
+      "score": 0.0486,
+      "scored_tracks": 55
+    },
+    {
+      "playlist_id": 260,
+      "name": "19XX",
+      "score": 0.0461,
+      "scored_tracks": 22
+    },
+    {
+      "playlist_id": 330,
+      "name": "Welbeck Run",
+      "score": 0.0437,
+      "scored_tracks": 124
+    },
+    {
+      "playlist_id": 179,
+      "name": "rock",
+      "score": 0.0405,
+      "scored_tracks": 25
+    },
+    {
+      "playlist_id": 221,
+      "name": "reminds me of boomtown",
+      "score": 0.0403,
+      "scored_tracks": 4
+    },
+    {
+      "playlist_id": 229,
+      "name": "lockdown lineup",
+      "score": 0.0178,
+      "scored_tracks": 2
+    },
+    {
+      "playlist_id": 301,
+      "name": "K.Flay",
+      "score": 0.0137,
+      "scored_tracks": 16
+    },
+    { "playlist_id": 218, "name": "rock", "score": 0.0119, "scored_tracks": 3 },
+    {
+      "playlist_id": 339,
+      "name": "Prime Grime Time",
+      "score": 0.0116,
+      "scored_tracks": 19
+    },
+    {
+      "playlist_id": 57,
+      "name": "drown-out beats",
+      "score": 0.0075,
+      "scored_tracks": 2
+    },
+    {
+      "playlist_id": 205,
+      "name": "HYPE. III",
+      "score": 0.0063,
+      "scored_tracks": 3
+    },
+    {
+      "playlist_id": 215,
+      "name": "something happy",
+      "score": 0.0028,
+      "scored_tracks": 7
+    },
+    {
+      "playlist_id": 117,
+      "name": "older je ne sais quoi",
+      "score": 0.0014,
+      "scored_tracks": 3
+    },
+    {
+      "playlist_id": 312,
+      "name": "DVBBS HYPE",
+      "score": 0.0009,
+      "scored_tracks": 10
+    },
+    {
+      "playlist_id": 135,
+      "name": "yung hood times",
+      "score": 0.0006,
+      "scored_tracks": 9
+    },
+    {
+      "playlist_id": 271,
+      "name": "New Playlist",
+      "score": 0.0004,
+      "scored_tracks": 38
+    },
+    { "playlist_id": 306, "name": "X", "score": 0.0004, "scored_tracks": 3 },
+    {
+      "playlist_id": 168,
+      "name": "sort of pop punk",
+      "score": 0.0003,
+      "scored_tracks": 25
+    },
+    { "playlist_id": 294, "name": "tb", "score": 0.0003, "scored_tracks": 31 },
+    { "playlist_id": 309, "name": "rush", "score": 0.0003, "scored_tracks": 8 },
+    {
+      "playlist_id": 143,
+      "name": "nostailgic",
+      "score": 0.0002,
+      "scored_tracks": 1
+    },
+    {
+      "playlist_id": 151,
+      "name": "disturbed slightly",
+      "score": 0.0002,
+      "scored_tracks": 1
+    },
+    {
+      "playlist_id": 293,
+      "name": "kanye",
+      "score": 0.0002,
+      "scored_tracks": 70
+    },
+    {
+      "playlist_id": 319,
+      "name": "Shikizzle my nizzle",
+      "score": 0.0002,
+      "scored_tracks": 24
+    },
+    {
+      "playlist_id": 326,
+      "name": "Pumped",
+      "score": 0.0002,
+      "scored_tracks": 3
+    },
+    {
+      "playlist_id": 19,
+      "name": "crate phase0 scratch 2026-07-11 14:35",
+      "score": null,
+      "scored_tracks": 0
+    },
+    {
+      "playlist_id": 195,
+      "name": "My playlist #76",
+      "score": null,
+      "scored_tracks": 0
+    },
+    { "playlist_id": 323, "name": "Rock", "score": null, "scored_tracks": 0 },
+    {
+      "playlist_id": 324,
+      "name": "Classics",
+      "score": null,
+      "scored_tracks": 0
+    },
+    { "playlist_id": 325, "name": "New", "score": null, "scored_tracks": 0 }
+  ],
+  "source": "enao_rank",
+  "lastfm_pending": true,
+  "_links": { "self": { "href": "/v1/obscurity" } }
+}

@@ -1,0 +1,84 @@
+{
+  "total_plays": 209,
+  "distinct_tracks": 181,
+  "clock": {
+    "hours": [
+      1, 0, 0, 0, 0, 0, 0, 0, 2, 6, 30, 40, 18, 17, 21, 18, 5, 3, 13, 2, 22, 0,
+      5, 6
+    ],
+    "weekdays": [0, 1, 1, 99, 65, 34, 9],
+    "total": 209,
+    "peak_hour": 11
+  },
+  "minutes": { "minutes": 731.5, "estimated": true },
+  "streaks": { "longest": 6, "current": 2 },
+  "top_played": [
+    {
+      "track_id": 260,
+      "plays": 3,
+      "name": "The Kill",
+      "artist": "Thirty Seconds To Mars"
+    },
+    {
+      "track_id": 15171,
+      "plays": 3,
+      "name": "Till I Collapse",
+      "artist": "Eminem"
+    },
+    {
+      "track_id": 40592,
+      "plays": 3,
+      "name": "Take Me to the Hospital",
+      "artist": "The Prodigy"
+    },
+    {
+      "track_id": 6,
+      "plays": 2,
+      "name": "Golden Bloom",
+      "artist": "Peggy Gou"
+    },
+    { "track_id": 7, "plays": 2, "name": "Golden Echo", "artist": "Big Thief" },
+    {
+      "track_id": 8,
+      "plays": 2,
+      "name": "Golden Static",
+      "artist": "Big Thief"
+    },
+    {
+      "track_id": 9,
+      "plays": 2,
+      "name": "Velvet Harbor",
+      "artist": "Nils Frahm"
+    },
+    {
+      "track_id": 3226,
+      "plays": 2,
+      "name": "(Sittin' On) the Dock of the Bay - Mono",
+      "artist": "Otis Redding"
+    },
+    { "track_id": 15050, "plays": 2, "name": "Fat Lip", "artist": "Sum 41" },
+    {
+      "track_id": 15163,
+      "plays": 2,
+      "name": "Psycho Killer",
+      "artist": "Talking Heads"
+    },
+    {
+      "track_id": 15164,
+      "plays": 2,
+      "name": "Breakfast In America - Remastered 2010",
+      "artist": "Supertramp"
+    },
+    {
+      "track_id": 15258,
+      "plays": 2,
+      "name": "Ain't No Sunshine",
+      "artist": "Bill Withers"
+    }
+  ],
+  "range": "all_time",
+  "_links": {
+    "self": { "href": "/v1/listening/dashboard" },
+    "recent": { "href": "/v1/listening/recent" }
+  }
+}

@@ -1,0 +1,1722 @@
+{
+  "playlists": [
+    {
+      "playlist_id": 127,
+      "name": "sub-jumpup dnb girl vocal",
+      "track_count": 4,
+      "score": 0.818,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6325 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.8657 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.7739 }
+      ]
+    },
+    {
+      "playlist_id": 145,
+      "name": "summer energetic",
+      "track_count": 51,
+      "score": 0.7856,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6718 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9922 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4786 }
+      ]
+    },
+    {
+      "playlist_id": 175,
+      "name": "hard skank",
+      "track_count": 118,
+      "score": 0.7812,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6489 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9915 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.8963 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5879 }
+      ]
+    },
+    {
+      "playlist_id": 128,
+      "name": "TODO: spin decks",
+      "track_count": 13,
+      "score": 0.7618,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6367 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9913 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4192 }
+      ]
+    },
+    {
+      "playlist_id": 160,
+      "name": "non rave energy",
+      "track_count": 196,
+      "score": 0.7616,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6538 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9847 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9117 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4963 }
+      ]
+    },
+    {
+      "playlist_id": 119,
+      "name": "housey fancy dancy",
+      "track_count": 53,
+      "score": 0.7588,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.689 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9003 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4457 }
+      ]
+    },
+    {
+      "playlist_id": 134,
+      "name": "soundtrack",
+      "track_count": 17,
+      "score": 0.7558,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6739 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9533 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.396 }
+      ]
+    },
+    {
+      "playlist_id": 170,
+      "name": "wisdom",
+      "track_count": 82,
+      "score": 0.7524,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6583 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.978 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3735 }
+      ]
+    },
+    {
+      "playlist_id": 155,
+      "name": "SOLITARY",
+      "track_count": 63,
+      "score": 0.7491,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6681 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9835 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3448 }
+      ]
+    },
+    {
+      "playlist_id": 146,
+      "name": "classical",
+      "track_count": 20,
+      "score": 0.7483,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7731 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7564 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4639 }
+      ]
+    },
+    {
+      "playlist_id": 167,
+      "name": "idk / uncategorised",
+      "track_count": 347,
+      "score": 0.7466,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6247 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9971 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9923 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3724 }
+      ]
+    },
+    {
+      "playlist_id": 121,
+      "name": "CLAUDE-ing",
+      "track_count": 9,
+      "score": 0.744,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6027 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9921 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3813 }
+      ]
+    },
+    {
+      "playlist_id": 120,
+      "name": "get up and goat",
+      "track_count": 21,
+      "score": 0.7252,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6352 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.8476 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4181 }
+      ]
+    },
+    {
+      "playlist_id": 174,
+      "name": "soft skank",
+      "track_count": 75,
+      "score": 0.721,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6793 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9333 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6398 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6316 }
+      ]
+    },
+    {
+      "playlist_id": 124,
+      "name": "wubs - low bpm",
+      "track_count": 12,
+      "score": 0.7189,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6384 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.8493 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3879 }
+      ]
+    },
+    {
+      "playlist_id": 126,
+      "name": "MARATHON - PEFORM",
+      "track_count": 13,
+      "score": 0.7108,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.639 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7559 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4484 }
+      ]
+    },
+    {
+      "playlist_id": 163,
+      "name": "bassy mc/rap",
+      "track_count": 19,
+      "score": 0.7066,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.649 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7932 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3841 }
+      ]
+    },
+    {
+      "playlist_id": 20,
+      "name": "Ivorian Doll – Popular",
+      "track_count": 61,
+      "score": 0.7063,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6991 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7096 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4165 }
+      ]
+    },
+    {
+      "playlist_id": 180,
+      "name": "Boomtown: The Gathering of music",
+      "track_count": 169,
+      "score": 0.7056,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6864 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9882 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6332 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5147 }
+      ]
+    },
+    {
+      "playlist_id": 123,
+      "name": "bassy covers",
+      "track_count": 4,
+      "score": 0.7018,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.671 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6623 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.474 }
+      ]
+    },
+    {
+      "playlist_id": 156,
+      "name": "ENERGY RAP",
+      "track_count": 37,
+      "score": 0.701,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6774 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7629 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3639 }
+      ]
+    },
+    {
+      "playlist_id": 140,
+      "name": "old school style rap",
+      "track_count": 24,
+      "score": 0.6994,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6583 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.5687 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5707 }
+      ]
+    },
+    {
+      "playlist_id": 154,
+      "name": "garaahhj ?",
+      "track_count": 27,
+      "score": 0.6952,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6679 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.675 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4377 }
+      ]
+    },
+    {
+      "playlist_id": 118,
+      "name": "PERFORM",
+      "track_count": 12,
+      "score": 0.6919,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6727 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7631 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.332 }
+      ]
+    },
+    {
+      "playlist_id": 117,
+      "name": "older je ne sais quoi",
+      "track_count": 3,
+      "score": 0.6852,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6224 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.9531 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.1653 }
+      ]
+    },
+    {
+      "playlist_id": 141,
+      "name": "girl rap",
+      "track_count": 32,
+      "score": 0.6834,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6762 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7415 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3157 }
+      ]
+    },
+    {
+      "playlist_id": 122,
+      "name": "5K",
+      "track_count": 7,
+      "score": 0.6824,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6458 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6338 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4501 }
+      ]
+    },
+    {
+      "playlist_id": 147,
+      "name": "gaming",
+      "track_count": 25,
+      "score": 0.6665,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6412 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6301 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3949 }
+      ]
+    },
+    {
+      "playlist_id": 178,
+      "name": "angry rap",
+      "track_count": 27,
+      "score": 0.6622,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6448 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.7415 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2626 }
+      ]
+    },
+    {
+      "playlist_id": 161,
+      "name": "post skank soft",
+      "track_count": 24,
+      "score": 0.6612,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6662 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6398 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3387 }
+      ]
+    },
+    {
+      "playlist_id": 130,
+      "name": "French rap",
+      "track_count": 2,
+      "score": 0.6574,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7731 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0152 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.8414 }
+      ]
+    },
+    {
+      "playlist_id": 28,
+      "name": "Similar Vibe House Discoveries",
+      "track_count": 300,
+      "score": 0.6561,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6735 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.4711 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4796 }
+      ]
+    },
+    {
+      "playlist_id": 125,
+      "name": "MARATHON: VIBE",
+      "track_count": 6,
+      "score": 0.655,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6281 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.528 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4637 }
+      ]
+    },
+    {
+      "playlist_id": 149,
+      "name": "light atmospheric",
+      "track_count": 9,
+      "score": 0.6502,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6447 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.743 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2132 }
+      ]
+    },
+    {
+      "playlist_id": 132,
+      "name": "angsty energy",
+      "track_count": 3,
+      "score": 0.6495,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6859 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.6301 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2819 }
+      ]
+    },
+    {
+      "playlist_id": 23,
+      "name": "Expanded Liked Artists Collection",
+      "track_count": 100,
+      "score": 0.6464,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6265 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.5338 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4255 }
+      ]
+    },
+    {
+      "playlist_id": 162,
+      "name": "rappin",
+      "track_count": 346,
+      "score": 0.6403,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6674 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9855 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.5687 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3397 }
+      ]
+    },
+    {
+      "playlist_id": 21,
+      "name": "Liked Foreign Songs",
+      "track_count": 30,
+      "score": 0.64,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.627 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.5585 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3744 }
+      ]
+    },
+    {
+      "playlist_id": 22,
+      "name": "Liked Foreign Songs",
+      "track_count": 30,
+      "score": 0.64,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.627 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.5585 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3744 }
+      ]
+    },
+    {
+      "playlist_id": 244,
+      "name": "slower less fillthy filth",
+      "track_count": 9,
+      "score": 0.6372,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7699 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.779 }
+      ]
+    },
+    {
+      "playlist_id": 172,
+      "name": "cool rap",
+      "track_count": 65,
+      "score": 0.6228,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6845 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.4677 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.339 }
+      ]
+    },
+    {
+      "playlist_id": 150,
+      "name": "dark atmospheric",
+      "track_count": 11,
+      "score": 0.6164,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.657 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.4041 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4046 }
+      ]
+    },
+    {
+      "playlist_id": 169,
+      "name": "chill minimal distraction",
+      "track_count": 51,
+      "score": 0.6114,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6682 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.4038 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3735 }
+      ]
+    },
+    {
+      "playlist_id": 137,
+      "name": "edgy rap",
+      "track_count": 30,
+      "score": 0.6112,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6335 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.4677 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3435 }
+      ]
+    },
+    {
+      "playlist_id": 159,
+      "name": "techno",
+      "track_count": 45,
+      "score": 0.6104,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7034 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9778 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.2229 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5374 }
+      ]
+    },
+    {
+      "playlist_id": 148,
+      "name": "vibey chill",
+      "track_count": 48,
+      "score": 0.5996,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6607 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.415 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3226 }
+      ]
+    },
+    {
+      "playlist_id": 306,
+      "name": "X",
+      "track_count": 3,
+      "score": 0.5943,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7492 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6282 }
+      ]
+    },
+    {
+      "playlist_id": 227,
+      "name": "👅£",
+      "track_count": 6,
+      "score": 0.5936,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6519 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.7223 }
+      ]
+    },
+    {
+      "playlist_id": 278,
+      "name": "inno hype",
+      "track_count": 19,
+      "score": 0.5857,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6456 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6973 }
+      ]
+    },
+    {
+      "playlist_id": 241,
+      "name": "Techno",
+      "track_count": 5,
+      "score": 0.5823,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7282 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6009 }
+      ]
+    },
+    {
+      "playlist_id": 312,
+      "name": "DVBBS HYPE",
+      "track_count": 10,
+      "score": 0.5813,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7258 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5993 }
+      ]
+    },
+    {
+      "playlist_id": 246,
+      "name": "🌊",
+      "track_count": 3,
+      "score": 0.5802,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6427 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6782 }
+      ]
+    },
+    {
+      "playlist_id": 205,
+      "name": "HYPE. III",
+      "track_count": 3,
+      "score": 0.5788,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6929 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6222 }
+      ]
+    },
+    {
+      "playlist_id": 250,
+      "name": "filth",
+      "track_count": 28,
+      "score": 0.5773,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.705 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6042 }
+      ]
+    },
+    {
+      "playlist_id": 176,
+      "name": "chill rap",
+      "track_count": 94,
+      "score": 0.5766,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6719 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.2703 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3643 }
+      ]
+    },
+    {
+      "playlist_id": 237,
+      "name": "🦁",
+      "track_count": 10,
+      "score": 0.5723,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6414 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.6477 }
+      ]
+    },
+    {
+      "playlist_id": 158,
+      "name": "girl song",
+      "track_count": 78,
+      "score": 0.5696,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6582 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.2703 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.35 }
+      ]
+    },
+    {
+      "playlist_id": 228,
+      "name": "atmospheric",
+      "track_count": 15,
+      "score": 0.5589,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.667 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5685 }
+      ]
+    },
+    {
+      "playlist_id": 221,
+      "name": "reminds me of boomtown",
+      "track_count": 4,
+      "score": 0.5581,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6588 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5735 }
+      ]
+    },
+    {
+      "playlist_id": 139,
+      "name": "Brazilian Jungle",
+      "track_count": 12,
+      "score": 0.5576,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6668 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0069 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5566 }
+      ]
+    },
+    {
+      "playlist_id": 236,
+      "name": "some new filth",
+      "track_count": 9,
+      "score": 0.5518,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6614 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5458 }
+      ]
+    },
+    {
+      "playlist_id": 307,
+      "name": "Gogogo",
+      "track_count": 20,
+      "score": 0.5467,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6883 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4985 }
+      ]
+    },
+    {
+      "playlist_id": 304,
+      "name": "ElectroGo",
+      "track_count": 31,
+      "score": 0.5454,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6604 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5211 }
+      ]
+    },
+    {
+      "playlist_id": 215,
+      "name": "something happy",
+      "track_count": 7,
+      "score": 0.5428,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7431 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4281 }
+      ]
+    },
+    {
+      "playlist_id": 216,
+      "name": "lofi",
+      "track_count": 3,
+      "score": 0.5426,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6754 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4952 }
+      ]
+    },
+    {
+      "playlist_id": 327,
+      "name": "Chill",
+      "track_count": 3,
+      "score": 0.5422,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7134 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4553 }
+      ]
+    },
+    {
+      "playlist_id": 264,
+      "name": "New Playlist",
+      "track_count": 6,
+      "score": 0.5391,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6067 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.5496 }
+      ]
+    },
+    {
+      "playlist_id": 45,
+      "name": "Irene - 1950s & 1960s",
+      "track_count": 50,
+      "score": 0.5372,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7003 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.1081 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3404 }
+      ]
+    },
+    {
+      "playlist_id": 57,
+      "name": "drown-out beats",
+      "track_count": 2,
+      "score": 0.5329,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6391 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0338 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4587 }
+      ]
+    },
+    {
+      "playlist_id": 138,
+      "name": "energetic sounds",
+      "track_count": 7,
+      "score": 0.5328,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7006 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0314 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.399 }
+      ]
+    },
+    {
+      "playlist_id": 136,
+      "name": "Hype metal-rock-p'punk",
+      "track_count": 20,
+      "score": 0.5327,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7223 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0319 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3766 }
+      ]
+    },
+    {
+      "playlist_id": 192,
+      "name": "chill",
+      "track_count": 6,
+      "score": 0.5316,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7207 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4058 }
+      ]
+    },
+    {
+      "playlist_id": 290,
+      "name": "shit i like right now",
+      "track_count": 55,
+      "score": 0.5316,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6551 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4715 }
+      ]
+    },
+    {
+      "playlist_id": 142,
+      "name": "fun upbeat rap",
+      "track_count": 41,
+      "score": 0.5314,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6844 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0589 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3825 }
+      ]
+    },
+    {
+      "playlist_id": 131,
+      "name": "Locked in: Edgy",
+      "track_count": 5,
+      "score": 0.5301,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.5947 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.1715 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3542 }
+      ]
+    },
+    {
+      "playlist_id": 164,
+      "name": "chillin",
+      "track_count": 130,
+      "score": 0.5297,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6539 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.1138 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3511 }
+      ]
+    },
+    {
+      "playlist_id": 248,
+      "name": "filth with words",
+      "track_count": 6,
+      "score": 0.5287,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6744 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4404 }
+      ]
+    },
+    {
+      "playlist_id": 224,
+      "name": "🕶️",
+      "track_count": 9,
+      "score": 0.5264,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6375 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4682 }
+      ]
+    },
+    {
+      "playlist_id": 152,
+      "name": "foreign rap",
+      "track_count": 33,
+      "score": 0.5252,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6669 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0319 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4018 }
+      ]
+    },
+    {
+      "playlist_id": 198,
+      "name": "whimsical atmospheric",
+      "track_count": 11,
+      "score": 0.5252,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7332 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3678 }
+      ]
+    },
+    {
+      "playlist_id": 144,
+      "name": "triap",
+      "track_count": 6,
+      "score": 0.5251,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6993 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0017 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3994 }
+      ]
+    },
+    {
+      "playlist_id": 308,
+      "name": "Chill",
+      "track_count": 13,
+      "score": 0.5251,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7084 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3919 }
+      ]
+    },
+    {
+      "playlist_id": 168,
+      "name": "sort of pop punk",
+      "track_count": 25,
+      "score": 0.5245,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7145 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0281 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3555 }
+      ]
+    },
+    {
+      "playlist_id": 243,
+      "name": "🌄",
+      "track_count": 25,
+      "score": 0.524,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6877 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4082 }
+      ]
+    },
+    {
+      "playlist_id": 301,
+      "name": "K.Flay",
+      "track_count": 16,
+      "score": 0.5227,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6896 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4012 }
+      ]
+    },
+    {
+      "playlist_id": 319,
+      "name": "Shikizzle my nizzle",
+      "track_count": 24,
+      "score": 0.5219,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6866 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4009 }
+      ]
+    },
+    {
+      "playlist_id": 157,
+      "name": "low key energy",
+      "track_count": 17,
+      "score": 0.5196,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6092 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0003 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4688 }
+      ]
+    },
+    {
+      "playlist_id": 203,
+      "name": "Koopa’s Pet Playlist ",
+      "track_count": 31,
+      "score": 0.5195,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6673 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0002 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4106 }
+      ]
+    },
+    {
+      "playlist_id": 247,
+      "name": "less filthy filth",
+      "track_count": 7,
+      "score": 0.5192,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7015 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3752 }
+      ]
+    },
+    {
+      "playlist_id": 330,
+      "name": "Welbeck Run",
+      "track_count": 124,
+      "score": 0.5179,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6629 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4087 }
+      ]
+    },
+    {
+      "playlist_id": 179,
+      "name": "rock",
+      "track_count": 25,
+      "score": 0.5177,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6509 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0105 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4093 }
+      ]
+    },
+    {
+      "playlist_id": 296,
+      "name": "TOP",
+      "track_count": 44,
+      "score": 0.5157,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6891 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3736 }
+      ]
+    },
+    {
+      "playlist_id": 270,
+      "name": "h y p e",
+      "track_count": 13,
+      "score": 0.5142,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6929 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3638 }
+      ]
+    },
+    {
+      "playlist_id": 112,
+      "name": "Spotify wants me to make this",
+      "track_count": 8,
+      "score": 0.5134,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6856 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0005 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3677 }
+      ]
+    },
+    {
+      "playlist_id": 129,
+      "name": "Ska",
+      "track_count": 1,
+      "score": 0.5129,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0258 }
+      ]
+    },
+    {
+      "playlist_id": 173,
+      "name": "chill rock",
+      "track_count": 7,
+      "score": 0.5126,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7248 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0023 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3234 }
+      ]
+    },
+    {
+      "playlist_id": 343,
+      "name": "Gym",
+      "track_count": 115,
+      "score": 0.5119,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6805 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3669 }
+      ]
+    },
+    {
+      "playlist_id": 153,
+      "name": "nostalja rap",
+      "track_count": 39,
+      "score": 0.5116,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6695 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0196 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3574 }
+      ]
+    },
+    {
+      "playlist_id": 218,
+      "name": "rock",
+      "track_count": 3,
+      "score": 0.5115,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.696 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3502 }
+      ]
+    },
+    {
+      "playlist_id": 333,
+      "name": "Welbeck B",
+      "track_count": 23,
+      "score": 0.5113,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6307 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.4144 }
+      ]
+    },
+    {
+      "playlist_id": 339,
+      "name": "Prime Grime Time",
+      "track_count": 19,
+      "score": 0.5095,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6526 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3855 }
+      ]
+    },
+    {
+      "playlist_id": 206,
+      "name": "🫔",
+      "track_count": 28,
+      "score": 0.5087,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6562 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3786 }
+      ]
+    },
+    {
+      "playlist_id": 276,
+      "name": "Paradoxical Flow",
+      "track_count": 128,
+      "score": 0.508,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6626 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3692 }
+      ]
+    },
+    {
+      "playlist_id": 326,
+      "name": "Pumped",
+      "track_count": 3,
+      "score": 0.5077,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6981 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3325 }
+      ]
+    },
+    {
+      "playlist_id": 316,
+      "name": "B-)",
+      "track_count": 54,
+      "score": 0.5076,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6789 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3515 }
+      ]
+    },
+    {
+      "playlist_id": 320,
+      "name": "to listen to",
+      "track_count": 10,
+      "score": 0.5076,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6597 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3706 }
+      ]
+    },
+    {
+      "playlist_id": 342,
+      "name": "Welbeck B",
+      "track_count": 24,
+      "score": 0.5072,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6323 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3964 }
+      ]
+    },
+    {
+      "playlist_id": 255,
+      "name": "❄️",
+      "track_count": 82,
+      "score": 0.5071,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6806 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.348 }
+      ]
+    },
+    {
+      "playlist_id": 328,
+      "name": "Sleep",
+      "track_count": 46,
+      "score": 0.5055,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.653 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3691 }
+      ]
+    },
+    {
+      "playlist_id": 59,
+      "name": "Presave",
+      "track_count": 1,
+      "score": 0.5051,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0102 }
+      ]
+    },
+    {
+      "playlist_id": 309,
+      "name": "rush",
+      "track_count": 8,
+      "score": 0.5051,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7044 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.316 }
+      ]
+    },
+    {
+      "playlist_id": 341,
+      "name": ":)(",
+      "track_count": 91,
+      "score": 0.5038,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6573 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3578 }
+      ]
+    },
+    {
+      "playlist_id": 230,
+      "name": "idk yet",
+      "track_count": 9,
+      "score": 0.5032,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6174 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3954 }
+      ]
+    },
+    {
+      "playlist_id": 166,
+      "name": "My field trip",
+      "track_count": 119,
+      "score": 0.502,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6312 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9916 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3851 }
+      ]
+    },
+    {
+      "playlist_id": 135,
+      "name": "yung hood times",
+      "track_count": 9,
+      "score": 0.5017,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7099 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0082 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2888 }
+      ]
+    },
+    {
+      "playlist_id": 263,
+      "name": "Discover",
+      "track_count": 229,
+      "score": 0.5016,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6475 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3588 }
+      ]
+    },
+    {
+      "playlist_id": 177,
+      "name": "sad rap",
+      "track_count": 10,
+      "score": 0.5006,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6686 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0004 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3335 }
+      ]
+    },
+    {
+      "playlist_id": 329,
+      "name": "Welbeck A",
+      "track_count": 309,
+      "score": 0.5004,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6429 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9968 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3618 }
+      ]
+    },
+    {
+      "playlist_id": 143,
+      "name": "nostailgic",
+      "track_count": 1,
+      "score": 0.5001,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0002 }
+      ]
+    },
+    {
+      "playlist_id": 302,
+      "name": "Chillectronic",
+      "track_count": 107,
+      "score": 0.5001,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6567 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9907 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.353 }
+      ]
+    },
+    {
+      "playlist_id": 151,
+      "name": "disturbed slightly",
+      "track_count": 1,
+      "score": 0.5,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 226,
+      "name": "Chill filthy",
+      "track_count": 1,
+      "score": 0.5,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 238,
+      "name": "🎴",
+      "track_count": 1,
+      "score": 0.5,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 322,
+      "name": "Cool Kids",
+      "track_count": 1,
+      "score": 0.5,
+      "subscores": [
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 305,
+      "name": "yes",
+      "track_count": 22,
+      "score": 0.4991,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6783 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3181 }
+      ]
+    },
+    {
+      "playlist_id": 258,
+      "name": "GUESS THAT TUNE",
+      "track_count": 1592,
+      "score": 0.4984,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6225 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9943 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3766 }
+      ]
+    },
+    {
+      "playlist_id": 318,
+      "name": "Liked from Radio",
+      "track_count": 84,
+      "score": 0.4949,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6666 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9405 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3723 }
+      ]
+    },
+    {
+      "playlist_id": 171,
+      "name": "work",
+      "track_count": 12,
+      "score": 0.4917,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.7056 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.001 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2603 }
+      ]
+    },
+    {
+      "playlist_id": 165,
+      "name": "happy",
+      "track_count": 16,
+      "score": 0.4914,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6341 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0002 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3311 }
+      ]
+    },
+    {
+      "playlist_id": 294,
+      "name": "tb",
+      "track_count": 31,
+      "score": 0.4883,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6579 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2952 }
+      ]
+    },
+    {
+      "playlist_id": 249,
+      "name": "?",
+      "track_count": 7,
+      "score": 0.4851,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6089 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3314 }
+      ]
+    },
+    {
+      "playlist_id": 254,
+      "name": "🌵",
+      "track_count": 45,
+      "score": 0.4839,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6433 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2921 }
+      ]
+    },
+    {
+      "playlist_id": 280,
+      "name": "Uh",
+      "track_count": 26,
+      "score": 0.4829,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6644 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.9615 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3057 }
+      ]
+    },
+    {
+      "playlist_id": 321,
+      "name": "summer vibes",
+      "track_count": 9,
+      "score": 0.4814,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6831 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2423 }
+      ]
+    },
+    {
+      "playlist_id": 260,
+      "name": "19XX",
+      "track_count": 22,
+      "score": 0.4786,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6467 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2676 }
+      ]
+    },
+    {
+      "playlist_id": 133,
+      "name": "gym - new",
+      "track_count": 7,
+      "score": 0.4753,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6375 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0109 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.2529 }
+      ]
+    },
+    {
+      "playlist_id": 272,
+      "name": "d e h y p e",
+      "track_count": 7,
+      "score": 0.4591,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6717 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.1647 }
+      ]
+    },
+    {
+      "playlist_id": 293,
+      "name": "kanye",
+      "track_count": 70,
+      "score": 0.4551,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.676 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.8286 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3159 }
+      ]
+    },
+    {
+      "playlist_id": 229,
+      "name": "lockdown lineup",
+      "track_count": 2,
+      "score": 0.4406,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.5125 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 1.0 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.25 }
+      ]
+    },
+    {
+      "playlist_id": 271,
+      "name": "New Playlist",
+      "track_count": 54,
+      "score": 0.4244,
+      "subscores": [
+        { "ref": "quality_cohesion", "label": "cohesion", "value": 0.6659 },
+        { "ref": "quality_uniqueness", "label": "uniqueness", "value": 0.7037 },
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 },
+        { "ref": "quality_flow", "label": "flow", "value": 0.3282 }
+      ]
+    },
+    {
+      "playlist_id": 19,
+      "name": "crate phase0 scratch 2026-07-11 14:35",
+      "track_count": 0,
+      "score": 0.0,
+      "subscores": [
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 195,
+      "name": "My playlist #76",
+      "track_count": 0,
+      "score": 0.0,
+      "subscores": [
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 323,
+      "name": "Rock",
+      "track_count": 0,
+      "score": 0.0,
+      "subscores": [
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 324,
+      "name": "Classics",
+      "track_count": 0,
+      "score": 0.0,
+      "subscores": [
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    },
+    {
+      "playlist_id": 325,
+      "name": "New",
+      "track_count": 0,
+      "score": 0.0,
+      "subscores": [
+        { "ref": "quality_freshness", "label": "freshness", "value": 0.0 }
+      ]
+    }
+  ],
+  "subscore_refs": [
+    "quality_cohesion",
+    "quality_uniqueness",
+    "quality_freshness",
+    "quality_flow"
+  ],
+  "_links": { "self": { "href": "/v1/quality/playlists" } }
+}

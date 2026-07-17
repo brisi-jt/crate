@@ -65,4 +65,19 @@ export const queryKeys = {
    * unsaves a track must invalidate it, so it lives here as its own vocabulary.
    */
   saved: ["saved"] as const,
+  // ── competitor-parity surfaces (F-series) ──────────────────────────────────
+  /** The listening-rhythm dashboard, keyed by range. */
+  listeningDashboard: (range: string) =>
+    ["listening-dashboard", range] as const,
+  /** Library + per-playlist obscurity, scoped. */
+  obscurity: (ownedOnly: boolean) => ["obscurity", { ownedOnly }] as const,
+  /** Taste drift; one selection (or none), scoped. */
+  tasteDrift: (snapshotId: number | null, ownedOnly: boolean) =>
+    ["taste-drift", { snapshotId, ownedOnly }] as const,
+  /** Per-playlist quality breakdown, scoped. */
+  qualityPlaylists: (ownedOnly: boolean) =>
+    ["quality-playlists", { ownedOnly }] as const,
+  /** A flow-arc preview for one playlist + mood; invalidate with the prefix. */
+  flowArc: (playlistId: number, mood: string) =>
+    ["flow-arc", playlistId, mood] as const,
 };

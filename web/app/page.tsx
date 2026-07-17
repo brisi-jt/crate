@@ -24,6 +24,7 @@ import {
 import { InsightPinLayer } from "@/components/insights/insight-pin-layer";
 import { ArtistCardPanelContent } from "@/components/panels/artist-card-panel";
 import { BulkOpsPanelContent } from "@/components/panels/bulk-ops-panel";
+import { DashboardPanelContent } from "@/components/panels/dashboard-panel";
 import { FrontierPanelContent } from "@/components/panels/frontier-panel";
 import { InboxPanelContent } from "@/components/panels/inbox-panel";
 import { InsightsPanelContent } from "@/components/panels/insights-panel";
@@ -165,7 +166,8 @@ export default function MapPage() {
       rightPanel.kind === "frontier" ||
       rightPanel.kind === "radio" ||
       rightPanel.kind === "insights" ||
-      rightPanel.kind === "triage"
+      rightPanel.kind === "triage" ||
+      rightPanel.kind === "dashboard"
       ? 640
       : 440
     : 0;
@@ -452,6 +454,15 @@ export default function MapPage() {
         onClose={closeRightPanel}
       >
         {rightPanel?.kind === "triage" && <TriagePanelContent />}
+      </RightDock>
+
+      <RightDock
+        open={rightPanel?.kind === "dashboard"}
+        wide
+        title="Dashboard"
+        onClose={closeRightPanel}
+      >
+        {rightPanel?.kind === "dashboard" && <DashboardPanelContent />}
       </RightDock>
 
       {contextMenu && (

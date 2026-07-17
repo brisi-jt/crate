@@ -32,6 +32,7 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const openRadio = useUiStore((s) => s.openRadio);
   const openInsights = useUiStore((s) => s.openInsights);
   const openTriage = useUiStore((s) => s.openTriage);
+  const openDashboard = useUiStore((s) => s.openDashboard);
   const setMapMode = useUiStore((s) => s.setMapMode);
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
@@ -155,6 +156,13 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
               className="data-[selected=true]:bg-surface-2"
             >
               Open insights
+            </CommandItem>
+            <CommandItem
+              value="dashboard listening obscurity taste drift crate dna share"
+              onSelect={() => openDashboard()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open dashboard
             </CommandItem>
             <CommandItem
               onSelect={() => openStats()}
