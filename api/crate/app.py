@@ -28,6 +28,7 @@ from crate.router import (
     previews,
     radio,
     sync,
+    triage,
 )
 from crate.scheduler import AccountScheduler
 from crate.services import readiness
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     app.include_router(previews.router)
     app.include_router(insights.router)
     app.include_router(me.router)
+    app.include_router(triage.router)
 
     @app.get(
         "/healthz",

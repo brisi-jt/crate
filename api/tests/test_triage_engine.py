@@ -19,6 +19,7 @@ from crate.model.orm import (
     User,
 )
 from crate.services.triage.engine import suggest_destinations
+from crate.services.triage.evidence import DestinationSuggestion, Evidence
 
 pytestmark = pytest.mark.unit
 
@@ -71,7 +72,7 @@ def _seed_calibration_library(session: Session, user: User) -> dict[str, int]:
     return ids
 
 
-def _evidence_by_kind(suggestion) -> dict[EvidenceKind, object]:
+def _evidence_by_kind(suggestion: DestinationSuggestion) -> dict[EvidenceKind, Evidence]:
     return {e.kind: e for e in suggestion.evidence}
 
 

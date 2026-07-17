@@ -376,7 +376,7 @@ class MutationService:
         saved_restore: list[int] = []
         try:
             for playlist in destinations:
-                target = self._local_uris(playlist) + [track_uri(track.spotify_id)]
+                target = [*self._local_uris(playlist), track_uri(track.spotify_id)]
                 await self._file_into(playlist, target)
 
             if new_playlist is not None:

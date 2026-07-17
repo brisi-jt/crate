@@ -21,6 +21,7 @@ from crate.services.previews.wiring import refresh_preview_for_user
 from crate.services.radio.wiring import build_radio_for_user
 from crate.services.spotify.auth import SpotifyAuthGateway
 from crate.services.sync import SyncReport, run_sync_for_user
+from crate.services.triage.queue import QueueSource
 from crate.settings import get_settings
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -166,6 +167,32 @@ def get_map_precomputer() -> MapPrecomputer:
 
 
 MapPrecomputerDep = Annotated[MapPrecomputer, Depends(get_map_precomputer)]
+
+
+# (user_id, source) -> None. Runs the triage queue-cluster UMAP/HDBSCAN OUTSIDE
+# the request path (a BackgroundTask after a pending read), same discipline as
+# the track map. Opens its own session. Tests override with a synchronous one.
+class TriageClusterPrecomputer(Protocol):
+    async def __call__(self, user_id: int, source: "QueueSource") -> None: ...
+
+
+async def _precompute_triage_cluster(user_id: int, source: "QueueSource") -> None:
+    from crate.services.triage.cluster import precompute_triage_cluster
+
+    with Session(get_engine()) as session:
+        user = session.get(User, user_id)
+        if user is None:  # pragma: no cover - defensive
+            return
+        precompute_triage_cluster(session, user, source)
+
+
+def get_triage_cluster_precomputer() -> TriageClusterPrecomputer:
+    return _precompute_triage_cluster
+
+
+TriageClusterPrecomputerDep = Annotated[
+    TriageClusterPrecomputer, Depends(get_triage_cluster_precomputer)
+]
 
 
 def get_auth_gateway() -> SpotifyAuthGateway:
