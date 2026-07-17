@@ -43,6 +43,8 @@ export interface SelectedTrack {
 interface UiState {
   rightPanel: RightPanel | null;
   paletteOpen: boolean;
+  /** Whether the browsable glossary index overlay is open. */
+  glossaryOpen: boolean;
   /**
    * Whether the map and library analytics also cover followed playlists.
    * Off by default: followed playlists outnumber owned ones several times
@@ -83,6 +85,8 @@ interface UiState {
   openOpsLog: () => void;
   closeRightPanel: () => void;
   setPaletteOpen: (open: boolean) => void;
+  openGlossary: () => void;
+  closeGlossary: () => void;
   setIncludeFollowed: (include: boolean) => void;
   toggleTrackSelection: (track: SelectedTrack) => void;
   clearTrackSelection: () => void;
@@ -93,6 +97,7 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   rightPanel: null,
   paletteOpen: false,
+  glossaryOpen: false,
   includeFollowed: false,
   mapMode: "playlists",
   clusterOverlay: false,
@@ -144,6 +149,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   setPaletteOpen: (open) => set({ paletteOpen: open }),
 
+  openGlossary: () => set({ glossaryOpen: true, paletteOpen: false }),
+  closeGlossary: () => set({ glossaryOpen: false }),
+
   setIncludeFollowed: (include) => set({ includeFollowed: include }),
 
   toggleTrackSelection: (track) => {
@@ -159,8 +167,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   clearTrackSelection: () => set({ selectedTracks: [] }),
 
   popLayer: () => {
-    const { paletteOpen, rightPanel } = get();
-    if (paletteOpen) {
+    const { paletteOpen, glossaryOpen, rightPanel } = get();
+    if (glossaryOpen) {
+      set({ glossaryOpen: false });
+    } else if (paletteOpen) {
       set({ paletteOpen: false });
     } else if (rightPanel) {
       set({ rightPanel: null, selectedPlaylistId: null, selectedTracks: [] });

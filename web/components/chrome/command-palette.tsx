@@ -33,6 +33,7 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
   const setMapMode = useUiStore((s) => s.setMapMode);
   const openBulkOps = useUiStore((s) => s.openBulkOps);
   const openOpsLog = useUiStore((s) => s.openOpsLog);
+  const openGlossary = useUiStore((s) => s.openGlossary);
   const closeRightPanel = useUiStore((s) => s.closeRightPanel);
   const rightPanel = useUiStore((s) => s.rightPanel);
   const selectedPlaylistId = useUiStore((s) => s.selectedPlaylistId);
@@ -165,6 +166,13 @@ export function CommandPalette({ nodes }: { nodes: GraphNode[] }) {
             heading="Actions"
             className="[&_[cmdk-group-heading]]:micro-caps [&_[cmdk-group-heading]]:text-text-muted"
           >
+            <CommandItem
+              value="glossary explain what is this"
+              onSelect={() => openGlossary()}
+              className="data-[selected=true]:bg-surface-2"
+            >
+              Open glossary
+            </CommandItem>
             <CommandItem
               onSelect={() => {
                 sync.mutate();
