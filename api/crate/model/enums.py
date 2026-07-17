@@ -272,3 +272,47 @@ class EvidenceKind(StrEnum):
     artist_overlap = "artist_overlap"
     placement_history = "placement_history"
     vibe_match = "vibe_match"
+
+
+class PlayEventSource(StrEnum):
+    """Where a play_events row came from.
+
+    Rows captured from Spotify's recently-played feed carry the ``recent``
+    default; rows ingested from a lifetime GDPR "extended streaming history"
+    export carry ``import``. The distinction lets listening analytics toggle
+    between all-time (both) and since-crate (``recent`` only) ranges without a
+    separate history table.
+    """
+
+    recent = "recent"
+    import_ = "import"
+
+
+class ListeningRange(StrEnum):
+    """Which slice of play history a listening query covers.
+
+    all_time spans everything, including lifetime GDPR history imported into
+    the past; since_crate restricts to plays crate captured live from Spotify's
+    recently-played feed (``PlayEventSource.recent``). The distinction only
+    exists once a history import has run — before that, both are identical.
+    """
+
+    all_time = "all_time"
+    since_crate = "since_crate"
+
+
+class HistoryImportStatus(StrEnum):
+    """Lifecycle of one row in the history-import review table.
+
+    A GDPR export line whose track resolves straight to a catalog row never
+    lands here — it becomes a play_events row directly. Only lines that could
+    not be resolved (no ``spotify_track_uri``, or a uri/isrc with no local
+    match) are parked as ``pending`` for a later resolution attempt; a
+    subsequent pass that matches them flips them to ``resolved`` (and ingests
+    the play), and lines that are genuinely unresolvable (podcast episodes,
+    local files) are ``skipped``.
+    """
+
+    pending = "pending"
+    resolved = "resolved"
+    skipped = "skipped"

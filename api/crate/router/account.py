@@ -10,7 +10,7 @@ from sqlmodel import col, select
 
 from crate.deps import AccountSyncRunner, CurrentUserDep, SessionDep, get_account_sync_runner
 from crate.errors import ProblemDetail
-from crate.model.enums import TopItemKind, TopTimeRange
+from crate.model.enums import ListeningRange, PlayEventSource, TopItemKind, TopTimeRange
 from crate.model.orm import PlayEvent, SavedTrack, TopItemsSnapshot, Track
 from crate.router.playlists import HalLink, TrackResource, _collection_links
 
@@ -152,13 +152,28 @@ def list_saved_tracks(
     )
 
 
+RangeParam = Annotated[
+    ListeningRange,
+    Query(
+        description=(
+            "Which plays to include. 'all_time' (default) spans everything, "
+            "including any lifetime GDPR history imported into the past. "
+            "'since_crate' restricts to plays crate captured live from "
+            "Spotify's recently-played feed, excluding imported history."
+        )
+    ),
+]
+
+
 @router.get(
     "/v1/listening/recent",
     summary="List recent plays",
     description=(
-        "Play history accumulated from Spotify's recently-played feed, "
-        "newest first. Each play carries its context (which playlist, album "
-        "or artist it played from) when Spotify reports one."
+        "Play history, newest first. Each play carries its context (which "
+        "playlist, album or artist it played from) when Spotify reports one. "
+        "By default this spans all-time — including any lifetime history "
+        "imported from a Spotify GDPR export; pass range=since_crate to see "
+        "only what crate captured live."
     ),
 )
 def list_recent_plays(
@@ -166,17 +181,23 @@ def list_recent_plays(
     user: CurrentUserDep,
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
+    range: RangeParam = ListeningRange.all_time,
 ) -> PlayEventCollection:
-    total = session.exec(
-        select(func.count()).select_from(PlayEvent).where(PlayEvent.user_id == user.id)
-    ).one()
+    def scoped(stmt):
+        stmt = stmt.where(PlayEvent.user_id == user.id)
+        if range is ListeningRange.since_crate:
+            stmt = stmt.where(PlayEvent.source == PlayEventSource.recent)
+        return stmt
+
+    total = session.exec(scoped(select(func.count()).select_from(PlayEvent))).one()
     rows = session.exec(
-        select(PlayEvent, Track)
-        .where(PlayEvent.user_id == user.id)
-        .where(PlayEvent.track_id == Track.id)
-        .order_by(col(PlayEvent.played_at).desc())
-        .limit(limit)
-        .offset(offset)
+        scoped(
+            select(PlayEvent, Track)
+            .where(PlayEvent.track_id == Track.id)
+            .order_by(col(PlayEvent.played_at).desc())
+            .limit(limit)
+            .offset(offset)
+        )
     ).all()
 
     items = [

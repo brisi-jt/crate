@@ -20,8 +20,10 @@ from crate.model.enums import (
     FeatureSource,
     FeatureStatus,
     FeedbackAction,
+    HistoryImportStatus,
     MutationOpType,
     MutationStatus,
+    PlayEventSource,
     PlaylistSyncStatus,
     RadioItemFeedback,
     RadioItemKind,
@@ -490,6 +492,47 @@ class PlayEvent(TimestampedModel, table=True):
     # (playlist/album/artist/show) and the context's URI.
     context_type: str | None = Field(default=None, max_length=32)
     context_uri: str | None = Field(default=None, max_length=128)
+    # Provenance: recently-played capture ("recent", the default) or a lifetime
+    # GDPR history import ("import"). Lets listening analytics separate all-time
+    # (both) from since-crate (recent only). Milliseconds listened, when the
+    # source records it (imports carry ms_played; live captures don't).
+    source: PlayEventSource = Field(
+        default=PlayEventSource.recent,
+        sa_column=enum_column(PlayEventSource, nullable=False, index=True),
+    )
+    ms_played: int | None = Field(default=None)
+
+
+class HistoryImportReview(TimestampedModel, table=True):
+    """An unresolved line from a lifetime GDPR history import.
+
+    Every export line whose track resolves to a catalog row is ingested
+    straight into play_events. Lines that do not resolve (no track uri, or a
+    uri/isrc with no local match) are parked here with their raw source payload
+    so a later pass — after new tracks have entered the library — can retry the
+    match. content_key dedupes a row against re-imports of the same export
+    (ts + track uri), so importing twice never doubles the review backlog.
+    """
+
+    __tablename__ = "history_import_reviews"
+    __table_args__ = (
+        UniqueConstraint("user_id", "content_key", name="uq_history_reviews_user_content"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    status: HistoryImportStatus = Field(
+        default=HistoryImportStatus.pending,
+        sa_column=enum_column(HistoryImportStatus, nullable=False, index=True),
+    )
+    # Stable dedupe key for the source line: the play timestamp plus the track
+    # uri (or a hash of the metadata when no uri is present).
+    content_key: str = Field(max_length=128)
+    played_at: datetime = Field()
+    # The verbatim export record, kept for a re-resolution attempt.
+    raw: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # Set when a later pass matches the line to a catalog track.
+    track_id: int | None = Field(default=None, foreign_key="tracks.id", index=True)
 
 
 class TopItemsSnapshot(TimestampedModel, table=True):

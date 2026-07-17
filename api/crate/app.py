@@ -21,6 +21,7 @@ from crate.router import (
     digests,
     discovery,
     enrichment,
+    history,
     insights,
     me,
     mutations,
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(insights.router)
     app.include_router(me.router)
     app.include_router(triage.router)
+    app.include_router(history.router)
 
     @app.get(
         "/healthz",
