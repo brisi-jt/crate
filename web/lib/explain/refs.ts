@@ -90,6 +90,46 @@ export const TRIAGE_REFS = [
   "cluster_proposal",
 ] as const;
 
+/**
+ * Insights page — the extended survey (24 insights over the deep tables).
+ * `calibration_drift` is intentionally absent here: it already lives in
+ * STATS_REFS and resolves to the same glossary entry (the survey renders the
+ * per-feature spread; the stats surface names the drift). Listing it twice
+ * would trip the no-duplicate-refs gate.
+ */
+export const EXTENDED_INSIGHT_REFS = [
+  // play_events (I1–I6)
+  "play_collect_gap",
+  "listening_clock",
+  "rotation_velocity",
+  "context_mix",
+  "play_mood_by_hour",
+  "deep_cuts_vs_hits",
+  // saved_tracks (I7–I10)
+  "liked_vs_playlist",
+  "save_file_latency",
+  "unsave_churn",
+  "orphan_saves",
+  // feedback (I11–I14)
+  "source_efficacy",
+  "taste_of_yes",
+  "per_artist_affinity",
+  "candidate_funnel",
+  // top_items (I15–I17)
+  "top_vs_library",
+  "affinity_churn",
+  "short_vs_long",
+  // radio (I18–I19)
+  "radio_keep_rate",
+  "discovery_conversion",
+  // journal (I20–I21)
+  "curation_intensity",
+  "bulk_algebra",
+  // cross-table (I22, I24 — I23 calibration_drift reuses STATS_REFS)
+  "listened_vs_neglected",
+  "era_add_vs_release",
+] as const;
+
 /** Data providers — every source string the app never surfaces in-UI today. */
 export const SOURCE_REFS = [
   "source_reccobeats",
@@ -118,6 +158,7 @@ export const REFERENCED_METRICS: readonly string[] = [
   ...ARCHAEOLOGY_REFS,
   ...STATS_REFS,
   ...TRIAGE_REFS,
+  ...EXTENDED_INSIGHT_REFS,
   ...SOURCE_REFS,
 ];
 

@@ -350,6 +350,169 @@ export const GLOSSARY: Record<string, ExplainEntry> = {
     source: "Audio traits and genres of the songs in the queue.",
   },
 
+  // ── Extended survey — play history ──────────────────────────────────────
+  play_collect_gap: {
+    term: "Play vs collect gap",
+    what: "Songs you play far more, or far less, than how much you've filed them away.",
+    how: "Your play counts set against how many of your playlists each track sits in, then the biggest mismatches either way.",
+    source: "Your listening history and playlist membership.",
+  },
+  listening_clock: {
+    term: "Listening clock",
+    what: "When you actually listen — across the hours of the day and the days of the week.",
+    how: "Every play is tallied by its hour and weekday, and the busiest hour is marked.",
+    source: "Your listening history.",
+  },
+  rotation_velocity: {
+    term: "Rotation velocity",
+    what: "Whether you mostly replay fresh additions or dig through your deeper catalogue.",
+    how: "The share of plays landing on tracks you added in the last three months.",
+    source: "Your listening history and when tracks were added.",
+    unit: "share",
+  },
+  context_mix: {
+    term: "Play context mix",
+    what: "Where your plays come from — a playlist, an album, an artist page, or a show.",
+    how: "Each play carries what it was started from; those are counted and shown as shares.",
+    source: "Your listening history.",
+  },
+  play_mood_by_hour: {
+    term: "Mood by time of day",
+    what: "How the energy and mood of what you play shift from morning to night.",
+    how: "Plays are grouped into morning, afternoon, evening, and night, and the average energy and brightness of each is taken.",
+    source: "Your listening history and per-track audio traits.",
+  },
+  deep_cuts_vs_hits: {
+    term: "Deep cuts vs hits",
+    what: "Whether your listening leans toward obscure tracks or well-filed favourites.",
+    how: "Plays are split by how widely each track sits across your playlists; the obscure share is reported.",
+    source: "Your listening history and playlist membership.",
+    unit: "share",
+  },
+
+  // ── Extended survey — saved songs ───────────────────────────────────────
+  liked_vs_playlist: {
+    term: "Liked vs playlist sound",
+    what: "How the sound of your Liked Songs differs from the sound of your playlists.",
+    how: "The average of each audio trait across your likes, set against the same average across your playlist tracks, trait by trait.",
+    source:
+      "Your saved tracks and playlist tracks, as your library's percentiles.",
+  },
+  save_file_latency: {
+    term: "Save-to-file time",
+    what: "How long a liked song usually waits before you file it into a playlist.",
+    how: "The median number of days from when a track was saved to when it first landed in a playlist.",
+    source: "Your saved tracks and when tracks were added to playlists.",
+    unit: "days",
+  },
+  unsave_churn: {
+    term: "Unsave churn",
+    what: "How much of what you save you later un-like.",
+    how: "The share of all your saves that were later removed from Liked Songs.",
+    source: "Your saved tracks, including removed ones.",
+    unit: "share",
+  },
+  orphan_saves: {
+    term: "Orphan saves",
+    what: "Liked songs that live in none of your playlists — the inbox you forgot.",
+    how: "Saved tracks that appear in no owned playlist are counted and listed.",
+    source: "Your saved tracks and playlist membership.",
+  },
+
+  // ── Extended survey — suggestion feedback ───────────────────────────────
+  source_efficacy: {
+    term: "Source efficacy",
+    what: "Which suggestion sources you actually accept from most often.",
+    how: "For each source of suggested tracks, the share you accepted versus rejected.",
+    source: "Your accept/reject decisions on suggested candidates.",
+    unit: "accept rate",
+  },
+  taste_of_yes: {
+    term: "The sound of yes",
+    what: "How the songs you accept differ in sound from the ones you turn down.",
+    how: "The average of each audio trait across accepted suggestions, set against the same across rejected ones.",
+    source: "Your accept/reject decisions and per-track audio traits.",
+  },
+  per_artist_affinity: {
+    term: "Per-artist affinity",
+    what: "Artists you keep saying yes to, and ones you keep waving off.",
+    how: "For artists you've judged at least twice, accepts versus rejects, ranked most-loved and most-declined.",
+    source: "Your accept/reject decisions by artist.",
+  },
+  candidate_funnel: {
+    term: "Suggestion funnel",
+    what: "Where suggested songs sit in their journey — waiting, reviewed, accepted, or rejected.",
+    how: "Every suggested candidate is counted by the stage it has reached.",
+    source: "The suggestion queue and your decisions on it.",
+  },
+
+  // ── Extended survey — top items ─────────────────────────────────────────
+  top_vs_library: {
+    term: "Top tracks vs library",
+    what: "How your most-played favourites sound compared with your whole collection.",
+    how: "The average of each audio trait across your recent top tracks, set against the same across the full library.",
+    source: "Your recorded top-tracks and per-track audio traits.",
+  },
+  affinity_churn: {
+    term: "Affinity churn",
+    what: "How much your top artists turn over from one reading to the next.",
+    how: "The overlap between successive top-artist lists — high means steady, low means fast-changing.",
+    source: "Your recorded top-artist readings over time.",
+  },
+  short_vs_long: {
+    term: "Rising vs settled",
+    what: "Which favourites are new obsessions and which are long-settled.",
+    how: "Comparing your recent top artists with your long-run top artists: rising are only in the recent list, fading only in the long one, stable in both.",
+    source: "Your short- and long-window top-artist readings.",
+  },
+
+  // ── Extended survey — radio ─────────────────────────────────────────────
+  radio_keep_rate: {
+    term: "Radio keep rate",
+    what: "How much of what a generated radio session serves you actually keep.",
+    how: "The share of radio tracks kept rather than skipped, overall and by the kind of seed the session grew from.",
+    source: "Your radio sessions and kept/skipped decisions.",
+    unit: "keep rate",
+  },
+  discovery_conversion: {
+    term: "Discovery conversion",
+    what: "How often the unfamiliar tracks slipped into radio actually land with you.",
+    how: "The share of discovery tracks in your radio sessions that you kept.",
+    source: "Your radio sessions and kept/skipped decisions.",
+    unit: "share",
+  },
+
+  // ── Extended survey — curation journal ──────────────────────────────────
+  curation_intensity: {
+    term: "Curation intensity",
+    what: "How busily you edit your library — pace, the mix of edits, and how often you undo.",
+    how: "Edits per week, the split across kinds of edit, and the share of edits later undone.",
+    source: "Your record of library edits.",
+    unit: "edits / week",
+  },
+  bulk_algebra: {
+    term: "Bulk operations",
+    what: "Which whole-set moves you reach for — merging, subtracting, intersecting, and the like.",
+    how: "Each bulk operation you've run is counted by kind.",
+    source: "Your record of library edits.",
+  },
+
+  // ── Extended survey — cross-table ───────────────────────────────────────
+  listened_vs_neglected: {
+    term: "Listened vs neglected",
+    what: "Which quiet playlists you still secretly play, and which are truly forgotten.",
+    how: "Playlists you haven't added to in a while, crossed with whether their tracks still show up in your plays.",
+    source:
+      "Your playlists, when they were last touched, and your listening history.",
+  },
+  era_add_vs_release: {
+    term: "Nostalgia waves",
+    what: "Whether you add fresh releases or dig back into older years.",
+    how: "For each year you were adding tracks, the median gap between a track's release year and when you filed it.",
+    source: "When you added tracks and when those tracks were released.",
+    unit: "years",
+  },
+
   // ── Data providers ──────────────────────────────────────────────────────
   source_reccobeats: {
     term: "ReccoBeats",

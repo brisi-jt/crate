@@ -6,6 +6,7 @@ import { CoreSampleStrip } from "@/components/insights/core-sample-strip";
 import { DormancyList } from "@/components/insights/dormancy-list";
 import { EditionBand } from "@/components/insights/edition-band";
 import { EraSection } from "@/components/insights/era-section";
+import { ExtendedInsights } from "@/components/insights/extended/extended-insights";
 import { ExtremesBoard } from "@/components/insights/extremes-board";
 import { IdentitySection } from "@/components/insights/identity-section";
 import { SonicSection } from "@/components/insights/sonic-section";
@@ -145,6 +146,10 @@ export function InsightsPanelContent() {
           <ExtremesBoard extremes={extremes} />
         </SurveySection>
       </div>
+
+      {/* The deep-table survey: 24 readings from play history, saves, feedback,
+          radio, and the curation journal — each with its own explains. */}
+      <ExtendedInsights />
     </div>
   );
 }

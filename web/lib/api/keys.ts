@@ -43,6 +43,14 @@ export const queryKeys = {
   /** Per-surface insight pins; invalidate with the bare `pins` prefix. */
   insightPins: (surface: string, ownedOnly: boolean) =>
     ["insight-pins", surface, { ownedOnly }] as const,
+  /** The extended survey — 24 insights over the deep tables. */
+  insightsExtended: ["insights-extended"] as const,
+  /** Scope-keyed extended survey; invalidate with the bare prefix. */
+  insightsExtendedScoped: (ownedOnly: boolean) =>
+    ["insights-extended", { ownedOnly }] as const,
+  /** The client-sampled pin candidate pool for a surface. */
+  pinCandidates: (surface: string, ownedOnly: boolean) =>
+    ["pin-candidates", surface, { ownedOnly }] as const,
   me: ["me"] as const,
   /** The account's triage source setting. */
   triageSetting: ["triage", "setting"] as const,
