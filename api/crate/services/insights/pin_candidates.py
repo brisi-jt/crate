@@ -50,6 +50,11 @@ def _pct(value: float | None) -> int:
     return round((value or 0.0) * 100)
 
 
+def _plural(count: int, noun: str) -> str:
+    """`1 playlist` / `3 playlists` — naive -s pluralization for the readable nouns here."""
+    return f"{count} {noun}" if count == 1 else f"{count} {noun}s"
+
+
 def insights_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """A wide, family-tagged candidate pool over the extended-insights payload.
 
@@ -75,7 +80,8 @@ def insights_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "play_collect_gap",
                 f"over_played:{entry['track_id']}",
                 f"You spin {entry['name']} far more than you've filed it "
-                f"({entry['plays']} plays, in {entry['memberships']} playlists).",
+                f"({_plural(entry['plays'], 'play')}, in "
+                f"{_plural(entry['memberships'], 'playlist')}).",
                 salience=min(1.0, entry["plays"] / 25.0),
             )
         )
@@ -85,7 +91,8 @@ def insights_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "play_events",
                 "play_collect_gap",
                 f"over_collected:{entry['track_id']}",
-                f"{entry['name']} is filed in {entry['memberships']} playlists but barely played.",
+                f"{entry['name']} is filed in {_plural(entry['memberships'], 'playlist')} "
+                f"but barely played.",
                 salience=min(1.0, entry["memberships"] / 8.0),
             )
         )
