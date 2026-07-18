@@ -22,6 +22,11 @@ from sqlmodel import Session, col, select
 from crate.model.orm import Playlist, PlaylistTrack, SavedTrack, Track
 
 
+def _primary_artist(track: Track) -> str:
+    names = [str(entry["name"]) for entry in track.artists if entry.get("name")]
+    return names[0] if names else ""
+
+
 @dataclass(frozen=True)
 class QueueSource:
     """Which source the queue draws from.
@@ -40,6 +45,10 @@ class QueueEntry:
     track_id: int
     spotify_id: str
     name: str
+    # Primary (first) artist name; "" when the track has no artists yet.
+    artist: str
+    # Small (~64px) album-art thumb; null until the track's album is imaged.
+    album_image_url: str | None
 
 
 @dataclass
@@ -106,7 +115,13 @@ def _playlist_queue(
     ).all()
     return QueueResult(
         items=[
-            QueueEntry(track_id=track.id, spotify_id=track.spotify_id, name=track.name)
+            QueueEntry(
+                track_id=track.id,
+                spotify_id=track.spotify_id,
+                name=track.name,
+                artist=_primary_artist(track),
+                album_image_url=track.image_url_sm,
+            )
             for _pt, track in rows
             if track.id is not None
         ],
@@ -150,7 +165,13 @@ def _liked_queue(
     ).all()
     return QueueResult(
         items=[
-            QueueEntry(track_id=track.id, spotify_id=track.spotify_id, name=track.name)
+            QueueEntry(
+                track_id=track.id,
+                spotify_id=track.spotify_id,
+                name=track.name,
+                artist=_primary_artist(track),
+                album_image_url=track.image_url_sm,
+            )
             for _saved, track in rows
             if track.id is not None
         ],

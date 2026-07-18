@@ -19,8 +19,18 @@ pytestmark = pytest.mark.unit
 BASE = datetime(2026, 1, 1)
 
 
-def _track(session: Session, sid: str) -> int:
-    row = Track(spotify_id=sid, name=f"Track {sid}", artists=[])
+def _track(
+    session: Session,
+    sid: str,
+    artists: list[dict] | None = None,
+    image_url_sm: str | None = None,
+) -> int:
+    row = Track(
+        spotify_id=sid,
+        name=f"Track {sid}",
+        artists=[] if artists is None else artists,
+        image_url_sm=image_url_sm,
+    )
     session.add(row)
     session.flush()
     assert row.id is not None
@@ -76,6 +86,55 @@ def test_playlist_mode_pagination(session: Session, user: User) -> None:
     page = load_queue(session, user.id, QueueSource(playlist_id=pl), limit=2, offset=2)
     assert page.total == 5
     assert [e.track_id for e in page.items] == [tids[2], tids[3]]
+
+
+# -- identity: artist + album art carried on each entry ------------------------
+
+
+def test_playlist_mode_entry_carries_artist_and_album_art(session: Session, user: User) -> None:
+    """Each queue entry carries the primary artist name and the small album thumb."""
+    pl = _playlist(session, user, "Triage")
+    tid = _track(
+        session,
+        "locust",
+        artists=[{"spotify_id": "a1", "name": "Locust"}, {"spotify_id": "a2", "name": "Second"}],
+        image_url_sm="https://img/locust-sm.jpg",
+    )
+    _add(session, user, pl, tid, 0, BASE)
+    session.commit()
+
+    result = load_queue(session, user.id, QueueSource(playlist_id=pl), limit=10, offset=0)
+    assert result.items[0].artist == "Locust"  # primary (first) artist
+    assert result.items[0].album_image_url == "https://img/locust-sm.jpg"
+
+
+def test_liked_mode_entry_carries_artist_and_album_art(session: Session, user: User) -> None:
+    tid = _track(
+        session,
+        "orphan",
+        artists=[{"spotify_id": "a1", "name": "Grimes"}],
+        image_url_sm="https://img/orphan-sm.jpg",
+    )
+    _save(session, user, tid)
+    session.commit()
+
+    result = load_queue(
+        session, user.id, QueueSource(liked=True, max_playlists=0), limit=10, offset=0
+    )
+    assert result.items[0].artist == "Grimes"
+    assert result.items[0].album_image_url == "https://img/orphan-sm.jpg"
+
+
+def test_entry_artist_empty_and_art_null_when_absent(session: Session, user: User) -> None:
+    """No artists and no imaged album → empty artist, null art (never a crash)."""
+    pl = _playlist(session, user, "Triage")
+    tid = _track(session, "bare")  # artists=[], image_url_sm=None
+    _add(session, user, pl, tid, 0, BASE)
+    session.commit()
+
+    result = load_queue(session, user.id, QueueSource(playlist_id=pl), limit=10, offset=0)
+    assert result.items[0].artist == ""
+    assert result.items[0].album_image_url is None
 
 
 # -- liked mode: the ≤N filter (P0-4) ------------------------------------------

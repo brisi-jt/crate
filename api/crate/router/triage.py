@@ -320,6 +320,10 @@ class QueueTrackResource(BaseModel):
     track_id: int
     spotify_id: str
     name: str
+    artist: str = Field(description="Primary artist name; empty when the track has no artists.")
+    album_image_url: str | None = Field(
+        default=None, description="Small album-art thumb; null until the album is imaged."
+    )
 
 
 class QueueCollection(BaseModel):
@@ -354,7 +358,13 @@ def get_triage_queue(
     result = load_queue(session, user.id, source, limit=limit, offset=offset)
     return QueueCollection(
         items=[
-            QueueTrackResource(track_id=e.track_id, spotify_id=e.spotify_id, name=e.name)
+            QueueTrackResource(
+                track_id=e.track_id,
+                spotify_id=e.spotify_id,
+                name=e.name,
+                artist=e.artist,
+                album_image_url=e.album_image_url,
+            )
             for e in result.items
         ],
         total=result.total,

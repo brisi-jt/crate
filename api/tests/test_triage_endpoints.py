@@ -55,9 +55,18 @@ def client(session: Session, user: User, fake: FakeSpotify) -> TestClient:
     return TestClient(app)
 
 
-def _track(session: Session, sid: str, artist: str = "A", feats: dict | None = None) -> int:
+def _track(
+    session: Session,
+    sid: str,
+    artist: str = "A",
+    feats: dict | None = None,
+    image_url_sm: str | None = None,
+) -> int:
     row = Track(
-        spotify_id=sid, name=f"Track {sid}", artists=[{"spotify_id": f"a-{sid}", "name": artist}]
+        spotify_id=sid,
+        name=f"Track {sid}",
+        artists=[{"spotify_id": f"a-{sid}", "name": artist}],
+        image_url_sm=image_url_sm,
     )
     session.add(row)
     session.flush()
@@ -144,6 +153,25 @@ def test_queue_playlist_mode(client: TestClient, session: Session, user: User) -
     assert body["total"] == 3
     assert len(body["items"]) == 3
     assert body["source"] == "playlist"
+
+
+def test_queue_items_carry_artist_and_album_art(
+    client: TestClient, session: Session, user: User
+) -> None:
+    """The queue item payload carries the artist name and small album thumb."""
+    pl = _playlist(session, user, "Triage")
+    session.flush()
+    tid = _track(session, "locust", artist="Locust", image_url_sm="https://img/locust-sm.jpg")
+    session.add(PlaylistTrack(user_id=user.id, playlist_id=pl.id, track_id=tid, position=0))
+    user.triage_playlist_id = pl.id
+    session.add(user)
+    session.commit()
+
+    r = client.get("/v1/triage/queue")
+    assert r.status_code == 200
+    item = r.json()["items"][0]
+    assert item["artist"] == "Locust"
+    assert item["album_image_url"] == "https://img/locust-sm.jpg"
 
 
 def test_queue_liked_mode_slider(client: TestClient, session: Session, user: User) -> None:
