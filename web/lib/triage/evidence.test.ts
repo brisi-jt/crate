@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DestinationSuggestion } from "@/lib/api/schemas";
-import { EVIDENCE_LABELS, evidenceRows } from "./evidence";
+import { EVIDENCE_LABELS, evidenceDigest, evidenceRows } from "./evidence";
 
 const suggestion = (
   evidence: DestinationSuggestion["evidence"],
@@ -73,5 +73,79 @@ describe("evidence view-model", () => {
       ]),
     );
     expect(rows[0].strength).toBe(0.42);
+  });
+});
+
+describe("evidence digest (one-line inline summary)", () => {
+  it("summarises the two STRONGEST signals, strongest first", () => {
+    const parts = evidenceDigest(
+      suggestion([
+        {
+          kind: "sonic_fit",
+          score: 0.92,
+          summary: "similar energy+acousticness",
+          detail: {},
+        },
+        {
+          kind: "artist_overlap",
+          score: 0.6,
+          summary: "4 tracks by this artist here",
+          detail: {},
+        },
+        {
+          kind: "placement_history",
+          score: 0.1,
+          summary: "rarely filed here",
+          detail: {},
+        },
+        {
+          kind: "vibe_match",
+          score: 0.05,
+          summary: "weak name match",
+          detail: {},
+        },
+      ]),
+    );
+    // Two rows: sonic_fit (0.92) then artist_overlap (0.6) — the two strongest.
+    expect(parts).toHaveLength(2);
+    expect(parts[0].label).toBe(EVIDENCE_LABELS.sonic_fit);
+    expect(parts[0].summary).toBe("similar energy+acousticness");
+    expect(parts[0].score).toBe(92); // rounded 0..100 for the "·92" readout
+    expect(parts[1].label).toBe(EVIDENCE_LABELS.artist_overlap);
+  });
+
+  it("returns fewer parts when fewer signals exist — never a bare row", () => {
+    const parts = evidenceDigest(
+      suggestion([
+        { kind: "sonic_fit", score: 0.5, summary: "some fit", detail: {} },
+      ]),
+    );
+    expect(parts).toHaveLength(1);
+    expect(parts[0].label).toBe(EVIDENCE_LABELS.sonic_fit);
+  });
+
+  it("is empty when a suggestion carries no known signals", () => {
+    expect(evidenceDigest(suggestion([]))).toEqual([]);
+  });
+
+  it("drops unknown kinds before picking the strongest two", () => {
+    const parts = evidenceDigest(
+      suggestion([
+        {
+          kind: "mystery" as unknown as "sonic_fit",
+          score: 0.99,
+          summary: "?",
+          detail: {},
+        },
+        { kind: "artist_overlap", score: 0.4, summary: "2 here", detail: {} },
+        { kind: "vibe_match", score: 0.3, summary: "name", detail: {} },
+      ]),
+    );
+    // The 0.99 mystery kind is not a labeled signal — excluded; the two real
+    // signals (0.4, 0.3) form the digest.
+    expect(parts.map((p) => p.label)).toEqual([
+      EVIDENCE_LABELS.artist_overlap,
+      EVIDENCE_LABELS.vibe_match,
+    ]);
   });
 });

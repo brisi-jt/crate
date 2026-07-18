@@ -789,11 +789,15 @@ export const triageSettingSchema = z.object({
   _links: halLinksSchema,
 });
 
-/** One song in the triage queue — the payload carries no artwork. */
+/** One song in the triage queue: name plus the identity fields for the card. */
 export const queueTrackSchema = z.object({
   track_id: z.number(),
   spotify_id: z.string(),
   name: z.string(),
+  /** Primary artist name; empty string when the track has no artists yet. */
+  artist: z.string(),
+  /** Small (~64px) album-art thumb; null until the album is imaged. */
+  album_image_url: z.string().nullable().optional(),
 });
 
 export const queueCollectionSchema = z.object({

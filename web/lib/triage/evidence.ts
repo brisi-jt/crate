@@ -54,3 +54,35 @@ export function evidenceRows(suggestion: DestinationSuggestion): EvidenceRow[] {
       detail: e.detail ?? {},
     }));
 }
+
+/** One part of the inline digest: a labeled signal with a 0..100 readout. */
+export interface EvidenceDigestPart {
+  kind: EvidenceKind;
+  label: string;
+  summary: string;
+  /** Per-signal strength rounded to 0..100 for the "·92" readout. */
+  score: number;
+}
+
+/**
+ * The inline one-line digest: the two STRONGEST named signals for a suggestion,
+ * strongest first, so a collapsed row still reads as reasoning rather than a
+ * bare checkbox. Unknown kinds are dropped first. Fewer than two signals yields
+ * fewer parts (never a padded/blank row).
+ */
+export function evidenceDigest(
+  suggestion: DestinationSuggestion,
+): EvidenceDigestPart[] {
+  const known = new Set<EvidenceKind>(ORDER);
+  return suggestion.evidence
+    .filter((e: Evidence) => known.has(e.kind))
+    .slice()
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 2)
+    .map((e) => ({
+      kind: e.kind,
+      label: EVIDENCE_LABELS[e.kind],
+      summary: e.summary,
+      score: Math.round(e.score * 100),
+    }));
+}
