@@ -2,6 +2,7 @@
 
 import {
   Check,
+  ChevronDown,
   Heart,
   ListPlus,
   Music4,
@@ -41,7 +42,8 @@ import type {
 } from "@/lib/api/schemas";
 import { refreshPreviewUrl } from "@/lib/playback/preview-refresh";
 import { usePlayerStore } from "@/lib/store/player";
-import { evidenceRows } from "@/lib/triage/evidence";
+import { emptyCatalog, lookupTrack, reduceCatalog } from "@/lib/triage/catalog";
+import { evidenceDigest, evidenceRows } from "@/lib/triage/evidence";
 import {
   currentTrackId,
   initialTriageState,
@@ -95,6 +97,7 @@ function TriageBody({
   const [maxPlaylists, setMaxPlaylists] = useState(0);
   const [offset, setOffset] = useState(0);
   const [managing, setManaging] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
   const [triage, dispatch] = useReducer(reduceTriage, initialTriageState);
 
   const queue = useTriageQueue({ source, maxPlaylists, offset });
@@ -112,10 +115,25 @@ function TriageBody({
     }
   }, [loadedKey]);
 
+  // The track catalog accumulates identity (name/artist/art) across every page
+  // seen for this source/filter key, resetting only when the key changes. A
+  // per-page map would drop the current track the instant a prefetch advanced
+  // to a later page, so the card fell back to "Track NNNNN".
+  const [catalog, dispatchCatalog] = useReducer(
+    reduceCatalog,
+    loadedKey,
+    emptyCatalog,
+  );
+
   useEffect(() => {
     if (!queue.data) return;
     const ids = queue.data.items.map((t) => t.track_id);
     const marker = `${loadedKey}:${queue.data.offset}`;
+    dispatchCatalog({
+      type: "PAGE",
+      key: loadedKey,
+      items: queue.data.items,
+    });
     if (queue.data.offset === 0) {
       dispatch({ type: "LOADED", queue: ids });
       seenOffsetRef.current = new Set([marker]);
@@ -129,13 +147,6 @@ function TriageBody({
   const total = queue.data?.total ?? 0;
   const loaded = triage.queue.length;
 
-  // The full track catalog for the loaded pages (name lookup for the card).
-  const trackById = useMemo(() => {
-    const map = new Map<number, QueueTrack>();
-    for (const item of queue.data?.items ?? []) map.set(item.track_id, item);
-    return map;
-  }, [queue.data]);
-
   // Pull the next page when the machine nears the tail of what it has.
   useEffect(() => {
     if (!queue.data) return;
@@ -147,6 +158,11 @@ function TriageBody({
       );
     }
   }, [triage.index, loaded, total, queue.data, queue.isFetching]);
+
+  const hasQueue = total > 0 || loaded > 0;
+  // First-run (no queue yet) opens with the full config; a loaded queue folds
+  // it into a one-row summary so the song + intelligence sit above the fold.
+  const showFullConfig = !hasQueue || configOpen;
 
   const queueBody = queue.isPending ? (
     <QueueSkeleton />
@@ -169,7 +185,7 @@ function TriageBody({
       source={source}
       sourcePlaylistId={setting.playlist_id}
       trackId={trackId}
-      track={trackById.get(trackId) ?? null}
+      track={lookupTrack(catalog, trackId)}
       maxPlaylists={maxPlaylists}
       total={total}
       position={triage.index}
@@ -180,13 +196,26 @@ function TriageBody({
 
   return (
     <>
-      <SourceControls
-        source={source}
-        setting={setting}
-        maxPlaylists={maxPlaylists}
-        onMaxPlaylists={setMaxPlaylists}
-        onManageDestinations={() => setManaging(true)}
-      />
+      {showFullConfig ? (
+        <SourceControls
+          source={source}
+          setting={setting}
+          maxPlaylists={maxPlaylists}
+          onMaxPlaylists={setMaxPlaylists}
+          onManageDestinations={() => setManaging(true)}
+          collapsible={hasQueue}
+          onCollapse={() => setConfigOpen(false)}
+        />
+      ) : (
+        <SourceSummaryBar
+          source={source}
+          setting={setting}
+          maxPlaylists={maxPlaylists}
+          total={total}
+          onExpand={() => setConfigOpen(true)}
+          onManageDestinations={() => setManaging(true)}
+        />
+      )}
 
       <Separator />
 
@@ -194,13 +223,72 @@ function TriageBody({
         <TriageDestinationsView onDone={() => setManaging(false)} />
       ) : (
         <>
-          {source === "liked" && setting.playlist_id === null && (
-            <OnboardingBanner />
-          )}
+          {source === "liked" &&
+            setting.playlist_id === null &&
+            showFullConfig && <OnboardingBanner />}
           {queueBody}
         </>
       )}
     </>
+  );
+}
+
+// -------------------------------------------------------- source summary bar
+
+/**
+ * The compact source bar shown once a queue is loaded: one row summarising the
+ * active source (♥ Liked · N=0 · 755 in queue) with a settings affordance that
+ * expands the full config, sharing the row with Destinations.
+ */
+function SourceSummaryBar({
+  source,
+  setting,
+  maxPlaylists,
+  total,
+  onExpand,
+  onManageDestinations,
+}: {
+  source: "liked" | "playlist";
+  setting: { playlist_id: number | null; playlist_name?: string | null };
+  maxPlaylists: number;
+  total: number;
+  onExpand: () => void;
+  onManageDestinations: () => void;
+}) {
+  const label =
+    source === "liked"
+      ? setting.playlist_name
+        ? setting.playlist_name
+        : "Liked Songs"
+      : (setting.playlist_name ?? "Triage playlist");
+  return (
+    <section className="flex items-center justify-between gap-sm">
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-label="Change triage source"
+        className="flex min-w-0 cursor-pointer items-center gap-2xs rounded-sm border border-border-subtle bg-surface-2 px-sm py-2xs text-micro text-text-secondary hover:text-text-primary"
+      >
+        {source === "liked" ? (
+          <Heart className="size-[13px] shrink-0 text-amber" />
+        ) : (
+          <ListPlus className="size-[13px] shrink-0 rotate-180 text-amber" />
+        )}
+        <span className="truncate font-medium text-text-primary">{label}</span>
+        <span className="data-readout shrink-0 text-text-muted">
+          {source === "liked" ? `· N=${maxPlaylists}` : ""} · {total} in queue
+        </span>
+        <ChevronDown className="size-[13px] shrink-0 text-text-muted" />
+      </button>
+      <button
+        type="button"
+        onClick={onManageDestinations}
+        aria-label="Manage filing destinations"
+        className="flex shrink-0 cursor-pointer items-center gap-2xs rounded-sm border border-border-subtle px-sm py-2xs text-micro text-text-muted hover:text-text-primary"
+      >
+        <Settings2 className="size-[13px]" /> Destinations
+      </button>
+    </section>
   );
 }
 
@@ -212,12 +300,16 @@ function SourceControls({
   maxPlaylists,
   onMaxPlaylists,
   onManageDestinations,
+  collapsible,
+  onCollapse,
 }: {
   source: "liked" | "playlist";
   setting: { playlist_id: number | null; playlist_name?: string | null };
   maxPlaylists: number;
   onMaxPlaylists: (n: number) => void;
   onManageDestinations: () => void;
+  collapsible?: boolean;
+  onCollapse?: () => void;
 }) {
   const owned = useOwnedPlaylists();
   const destinations = useTriageDestinations();
@@ -246,14 +338,26 @@ function SourceControls({
         <Explain metric="triage_source">
           <span className="micro-caps text-text-muted">Triage source</span>
         </Explain>
-        <button
-          type="button"
-          onClick={onManageDestinations}
-          aria-label="Manage filing destinations"
-          className="flex cursor-pointer items-center gap-2xs rounded-sm border border-border-subtle px-sm py-2xs text-micro text-text-muted hover:text-text-primary"
-        >
-          <Settings2 className="size-[13px]" /> Destinations
-        </button>
+        <div className="flex items-center gap-2xs">
+          <button
+            type="button"
+            onClick={onManageDestinations}
+            aria-label="Manage filing destinations"
+            className="flex cursor-pointer items-center gap-2xs rounded-sm border border-border-subtle px-sm py-2xs text-micro text-text-muted hover:text-text-primary"
+          >
+            <Settings2 className="size-[13px]" /> Destinations
+          </button>
+          {collapsible && onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Collapse triage source settings"
+              className="flex cursor-pointer items-center rounded-sm border border-border-subtle px-sm py-2xs text-micro text-text-muted hover:text-text-primary"
+            >
+              <ChevronDown className="size-[13px] rotate-180" />
+            </button>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-2xs rounded-md border border-border-subtle bg-surface-2 p-2xs">
         <SegmentButton
@@ -443,11 +547,19 @@ function SongStage({
   return (
     <>
       <div className="flex items-start justify-between gap-md">
-        <div className="flex min-w-0 flex-col gap-2xs">
-          <span className="micro-caps text-text-muted">Now triaging</span>
-          <h3 className="truncate font-medium text-lg text-text-primary">
-            {track?.name ?? `Track ${trackId}`}
-          </h3>
+        <div className="flex min-w-0 items-center gap-sm">
+          <AlbumArt url={track?.album_image_url ?? null} />
+          <div className="flex min-w-0 flex-col gap-2xs">
+            <span className="micro-caps text-text-muted">Now triaging</span>
+            <h3 className="truncate font-medium text-lg text-text-primary">
+              {track?.name ?? `Track ${trackId}`}
+            </h3>
+            {track?.artist ? (
+              <span className="truncate text-sm text-text-secondary">
+                {track.artist}
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-sm">
           <button
@@ -539,6 +651,26 @@ function SongStage({
   );
 }
 
+/** 64px album thumb for the song card; a Music4 placeholder until imaged. */
+function AlbumArt({ url }: { url: string | null }) {
+  return (
+    <div className="flex size-[64px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-subtle bg-surface-2">
+      {url ? (
+        // biome-ignore lint/performance/noImgElement: small album thumb, not a page image
+        <img
+          src={url}
+          alt=""
+          width={64}
+          height={64}
+          className="size-full object-cover"
+        />
+      ) : (
+        <Music4 className="size-[22px] text-text-muted" />
+      )}
+    </div>
+  );
+}
+
 function hasStrongFit(suggestions: DestinationSuggestion[]): boolean {
   // Strong existing fit = a top suggestion the song is not already in with a
   // clearly-leading rank; keeps the new-category card quiet in that case.
@@ -594,6 +726,9 @@ function SuggestionsPanel({
   onToggle: (id: number) => void;
 }) {
   const top = suggestions.slice(0, 8);
+  // Expand the top not-already-in suggestion by default so the panel opens
+  // with named evidence visible rather than a column of bare checkboxes.
+  const defaultOpenId = top.find((s) => !s.already_in)?.playlist_id;
   return (
     <section className="flex flex-col gap-sm">
       <div className="flex items-center gap-sm">
@@ -615,6 +750,7 @@ function SuggestionsPanel({
               key={s.playlist_id}
               suggestion={s}
               selected={selectedIds.includes(s.playlist_id)}
+              defaultExpanded={s.playlist_id === defaultOpenId}
               onToggle={() => onToggle(s.playlist_id)}
             />
           ))}
@@ -627,14 +763,17 @@ function SuggestionsPanel({
 function SuggestionRow({
   suggestion,
   selected,
+  defaultExpanded,
   onToggle,
 }: {
   suggestion: DestinationSuggestion;
   selected: boolean;
+  defaultExpanded?: boolean;
   onToggle: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const rows = evidenceRows(suggestion);
+  const digest = evidenceDigest(suggestion);
 
   return (
     <div
@@ -680,6 +819,21 @@ function SuggestionRow({
           </span>
         </button>
       </div>
+
+      {/* Inline one-line digest of the two strongest signals — a collapsed row
+          still reads as reasoning, never a bare checkbox. */}
+      {!expanded && digest.length > 0 && (
+        <div className="mt-2xs flex flex-wrap items-baseline gap-x-sm gap-y-2xs pl-[26px] text-micro text-text-muted">
+          {digest.map((d, i) => (
+            <span key={d.kind} className="min-w-0">
+              {i > 0 && <span className="mr-sm text-border-strong">·</span>}
+              <span className="text-text-secondary">{d.label}</span>{" "}
+              <span className="data-readout text-text-muted">·{d.score}</span>{" "}
+              <span>{d.summary}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {expanded && (
