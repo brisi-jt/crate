@@ -60,6 +60,8 @@ export const queryKeys = {
   /** Per-track filing intelligence; invalidate one track or the `triage` prefix. */
   triageIntelligence: (trackId: number, maxPlaylists: number) =>
     ["triage", "intelligence", trackId, { maxPlaylists }] as const,
+  /** The owned-playlist destination pool with per-playlist exclusion flags. */
+  triageDestinations: ["triage", "destinations"] as const,
   /**
    * Liked Songs roster. No `saved` key existed before triage — filing that
    * unsaves a track must invalidate it, so it lives here as its own vocabulary.

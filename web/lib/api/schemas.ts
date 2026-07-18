@@ -837,6 +837,8 @@ export const triageMembershipSchema = z.object({
   count: z.number(),
   playlist_ids: z.array(z.number()),
   playlist_names: z.array(z.string()),
+  /** Per membership: whether that playlist is held out of triage (badge it). */
+  excluded: z.array(z.boolean()),
 });
 
 /** A cluster-grounded new-playlist proposal (founding members listed). */
@@ -873,6 +875,23 @@ export const triageCleanupResultSchema = z.object({
   journal_id: z.number(),
   status: z.string(),
   removed: z.number(),
+  _links: halLinksSchema,
+});
+
+/** One owned live playlist in the destinations-management view. */
+export const triageDestinationSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  image_url: z.string().nullable().optional(),
+  track_count: z.number(),
+  /** True when held out of triage — not a filing destination. */
+  triage_excluded: z.boolean(),
+});
+
+export const triageDestinationCollectionSchema = z.object({
+  items: z.array(triageDestinationSchema),
+  total: z.number(),
+  excluded_count: z.number(),
   _links: halLinksSchema,
 });
 
@@ -967,3 +986,7 @@ export type NewCategory = z.infer<typeof newCategorySchema>;
 export type TriageIntelligence = z.infer<typeof triageIntelligenceSchema>;
 export type TriageApplyResult = z.infer<typeof triageApplyResultSchema>;
 export type TriageCleanupResult = z.infer<typeof triageCleanupResultSchema>;
+export type TriageDestination = z.infer<typeof triageDestinationSchema>;
+export type TriageDestinationCollection = z.infer<
+  typeof triageDestinationCollectionSchema
+>;

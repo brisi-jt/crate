@@ -13,14 +13,15 @@ import {
 /**
  * Searchable owned-playlist picker for setting the triage source. Unlike the
  * bulk-ops TargetPicker (a plain list), this filters as you type — JT owns
- * hundreds of playlists, so search is the point.
+ * hundreds of playlists, so search is the point. Every owned playlist is
+ * pickable as a source, including ones held out of triage (those are badged).
  */
 export function TriageSourcePicker({
   options,
   value,
   onPick,
 }: {
-  options: Array<{ id: number; name: string }>;
+  options: Array<{ id: number; name: string; excluded?: boolean }>;
   value: number | null;
   onPick: (id: number) => void;
 }) {
@@ -73,6 +74,11 @@ export function TriageSourcePicker({
                     <span className="truncate text-text-secondary">
                       {option.name || "Untitled"}
                     </span>
+                    {option.excluded && (
+                      <span className="ml-auto shrink-0 text-micro text-text-muted">
+                        excluded
+                      </span>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

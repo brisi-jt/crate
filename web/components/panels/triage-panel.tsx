@@ -6,6 +6,7 @@ import {
   ListPlus,
   Music4,
   Plus,
+  Settings2,
   SkipForward,
   Sparkles,
 } from "lucide-react";
@@ -14,6 +15,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Explain } from "@/components/explain/explain";
 import { Readout } from "@/components/panels/right-dock";
+import { TriageDestinationsView } from "@/components/panels/triage-destinations-view";
 import { TriageRemovalPopup } from "@/components/panels/triage-removal-popup";
 import { SourcePicker } from "@/components/panels/triage-source-picker";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,7 @@ import {
   useOwnedPlaylists,
   useSetTriageSource,
   useTriageApply,
+  useTriageDestinations,
   useTriageIntelligence,
   useTriageQueue,
   useTriageSetting,
@@ -91,6 +94,7 @@ function TriageBody({
 }) {
   const [maxPlaylists, setMaxPlaylists] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [managing, setManaging] = useState(false);
   const [triage, dispatch] = useReducer(reduceTriage, initialTriageState);
 
   const queue = useTriageQueue({ source, maxPlaylists, offset });
@@ -144,6 +148,36 @@ function TriageBody({
     }
   }, [triage.index, loaded, total, queue.data, queue.isFetching]);
 
+  const queueBody = queue.isPending ? (
+    <QueueSkeleton />
+  ) : queue.isError ? (
+    <PanelError
+      message={
+        queue.error instanceof Error
+          ? queue.error.message
+          : "Couldn't load the queue."
+      }
+      onRetry={() => queue.refetch()}
+    />
+  ) : triage.drained || (total === 0 && loaded === 0) ? (
+    <QueueDrained source={source} filtered={source === "liked"} />
+  ) : trackId === null ? (
+    <QueueSkeleton />
+  ) : (
+    <SongStage
+      key={trackId}
+      source={source}
+      sourcePlaylistId={setting.playlist_id}
+      trackId={trackId}
+      track={trackById.get(trackId) ?? null}
+      maxPlaylists={maxPlaylists}
+      total={total}
+      position={triage.index}
+      onSkip={() => dispatch({ type: "SKIP" })}
+      onApplied={() => dispatch({ type: "APPLIED", trackId })}
+    />
+  );
+
   return (
     <>
       <SourceControls
@@ -151,42 +185,20 @@ function TriageBody({
         setting={setting}
         maxPlaylists={maxPlaylists}
         onMaxPlaylists={setMaxPlaylists}
+        onManageDestinations={() => setManaging(true)}
       />
 
       <Separator />
 
-      {source === "liked" && setting.playlist_id === null && (
-        <OnboardingBanner />
-      )}
-
-      {queue.isPending ? (
-        <QueueSkeleton />
-      ) : queue.isError ? (
-        <PanelError
-          message={
-            queue.error instanceof Error
-              ? queue.error.message
-              : "Couldn't load the queue."
-          }
-          onRetry={() => queue.refetch()}
-        />
-      ) : triage.drained || (total === 0 && loaded === 0) ? (
-        <QueueDrained source={source} filtered={source === "liked"} />
-      ) : trackId === null ? (
-        <QueueSkeleton />
+      {managing ? (
+        <TriageDestinationsView onDone={() => setManaging(false)} />
       ) : (
-        <SongStage
-          key={trackId}
-          source={source}
-          sourcePlaylistId={setting.playlist_id}
-          trackId={trackId}
-          track={trackById.get(trackId) ?? null}
-          maxPlaylists={maxPlaylists}
-          total={total}
-          position={triage.index}
-          onSkip={() => dispatch({ type: "SKIP" })}
-          onApplied={() => dispatch({ type: "APPLIED", trackId })}
-        />
+        <>
+          {source === "liked" && setting.playlist_id === null && (
+            <OnboardingBanner />
+          )}
+          {queueBody}
+        </>
       )}
     </>
   );
@@ -199,26 +211,50 @@ function SourceControls({
   setting,
   maxPlaylists,
   onMaxPlaylists,
+  onManageDestinations,
 }: {
   source: "liked" | "playlist";
   setting: { playlist_id: number | null; playlist_name?: string | null };
   maxPlaylists: number;
   onMaxPlaylists: (n: number) => void;
+  onManageDestinations: () => void;
 }) {
   const owned = useOwnedPlaylists();
+  const destinations = useTriageDestinations();
   const setSource = useSetTriageSource();
+
+  const excludedById = useMemo(() => {
+    const map = new Map<number, boolean>();
+    for (const d of destinations.data?.items ?? [])
+      map.set(d.id, d.triage_excluded);
+    return map;
+  }, [destinations.data]);
 
   const options = useMemo(
     () =>
-      owned.data?.map((p) => ({ id: p.id, name: p.name || "Untitled" })) ?? [],
-    [owned.data],
+      owned.data?.map((p) => ({
+        id: p.id,
+        name: p.name || "Untitled",
+        excluded: excludedById.get(p.id) ?? false,
+      })) ?? [],
+    [owned.data, excludedById],
   );
 
   return (
     <section className="flex flex-col gap-md">
-      <Explain metric="triage_source">
-        <span className="micro-caps text-text-muted">Triage source</span>
-      </Explain>
+      <div className="flex items-center justify-between">
+        <Explain metric="triage_source">
+          <span className="micro-caps text-text-muted">Triage source</span>
+        </Explain>
+        <button
+          type="button"
+          onClick={onManageDestinations}
+          aria-label="Manage filing destinations"
+          className="flex cursor-pointer items-center gap-2xs rounded-sm border border-border-subtle px-sm py-2xs text-micro text-text-muted hover:text-text-primary"
+        >
+          <Settings2 className="size-[13px]" /> Destinations
+        </button>
+      </div>
       <div className="flex items-center gap-2xs rounded-md border border-border-subtle bg-surface-2 p-2xs">
         <SegmentButton
           active={source === "liked"}
@@ -527,15 +563,21 @@ function MembershipsPanel({ memberships }: { memberships: TriageMembership }) {
         </span>
       ) : (
         <div className="flex flex-wrap gap-2xs">
-          {memberships.playlist_names.map((name, i) => (
-            <Badge
-              key={memberships.playlist_ids[i] ?? name}
-              variant="secondary"
-              className="rounded-sm"
-            >
-              {name || "Untitled"}
-            </Badge>
-          ))}
+          {memberships.playlist_names.map((name, i) => {
+            const excluded = memberships.excluded[i] ?? false;
+            return (
+              <Badge
+                key={memberships.playlist_ids[i] ?? name}
+                variant={excluded ? "outline" : "secondary"}
+                className={`rounded-sm ${excluded ? "text-text-muted" : ""}`}
+              >
+                {name || "Untitled"}
+                {excluded && (
+                  <span className="ml-2xs text-text-muted">· excluded</span>
+                )}
+              </Badge>
+            );
+          })}
         </div>
       )}
     </section>

@@ -16,10 +16,12 @@ import {
   queueCollectionSchema,
   type TriageApplyResult,
   type TriageCleanupResult,
+  type TriageDestinationCollection,
   type TriageIntelligence,
   type TriageSetting,
   triageApplyResultSchema,
   triageCleanupResultSchema,
+  triageDestinationCollectionSchema,
   triageIntelligenceSchema,
   triageSettingSchema,
 } from "@/lib/api/schemas";
@@ -95,6 +97,49 @@ export function useSetTriageSource() {
       queryClient.setQueryData(queryKeys.triageSetting, setting);
       // The queue is source-scoped — drop every cached page on a switch.
       queryClient.invalidateQueries({ queryKey: ["triage", "queue"] });
+    },
+  });
+}
+
+// -------------------------------------------------------------- destinations
+
+/**
+ * The owned-playlist destination pool, each flagged with whether it's held out
+ * of triage. Spotify's API can't see playlist folders, so this drives the
+ * crate-native destination scoping.
+ */
+export function useTriageDestinations() {
+  return useQuery({
+    queryKey: queryKeys.triageDestinations,
+    staleTime: 60_000,
+    queryFn: async (): Promise<TriageDestinationCollection> =>
+      triageDestinationCollectionSchema.parse(
+        await request<unknown>("GET", "/v1/triage/destinations"),
+      ),
+  });
+}
+
+/**
+ * Bulk-replace the exclusion set. Changing which playlists are eligible moves
+ * the liked-mode queue membership counts and the suggestion set, so this
+ * invalidates the queue, per-track intelligence, and the destinations list.
+ */
+export function useSetTriageDestinations() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      excludedPlaylistIds: number[],
+    ): Promise<TriageDestinationCollection> =>
+      triageDestinationCollectionSchema.parse(
+        await request<unknown>("PUT", "/v1/triage/destinations", {
+          body: { excluded_playlist_ids: excludedPlaylistIds },
+        }),
+      ),
+    onSuccess: (collection) => {
+      queryClient.setQueryData(queryKeys.triageDestinations, collection);
+      // The exclusion set shifts orphan counts + suggestions — drop both.
+      queryClient.invalidateQueries({ queryKey: ["triage", "queue"] });
+      queryClient.invalidateQueries({ queryKey: ["triage", "intelligence"] });
     },
   });
 }
