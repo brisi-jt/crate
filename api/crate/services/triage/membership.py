@@ -45,3 +45,18 @@ def playlist_names(session: Session, user_id: int) -> dict[int, str]:
         .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
     ).all()
     return {pid: name for pid, name in rows if pid is not None}
+
+
+def playlist_exclusions(session: Session, user_id: int) -> dict[int, bool]:
+    """Live playlist id -> whether it's held out of triage.
+
+    The membership panel shows every live membership as a fact — including
+    excluded playlists — so the UI can badge the excluded ones rather than hide
+    them.
+    """
+    rows = session.exec(
+        select(Playlist.id, Playlist.triage_excluded)
+        .where(Playlist.user_id == user_id)
+        .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
+    ).all()
+    return {pid: bool(excluded) for pid, excluded in rows if pid is not None}

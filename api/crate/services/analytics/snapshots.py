@@ -25,6 +25,14 @@ MEMBERSHIP_MUTATION_KINDS: tuple[SnapshotKind, ...] = tuple(
     kind for kind in SnapshotKind if kind not in MEMBERSHIP_INDEPENDENT_KINDS
 )
 
+# The kinds a triage exclusion-set change evicts. Changing which playlists are
+# held out of triage moves the liked-mode queue population, so the queue's
+# cluster proposal must recompute; nothing else (graph, track_map, stats) reads
+# the exclusion set, so they're left alone. The cluster snapshot also carries a
+# content hash, but evicting it here keeps a stale "ready" proposal from being
+# served before the next background pass.
+EXCLUSION_DEPENDENT_KINDS: tuple[SnapshotKind, ...] = (SnapshotKind.triage_cluster,)
+
 
 def get_or_compute(
     session: Session,

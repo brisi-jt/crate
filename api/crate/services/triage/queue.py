@@ -7,10 +7,11 @@ Two sources:
 - **Playlist**: the source playlist's tracks, ``added_at`` ascending —
   oldest-waiting first, a true inbox.
 - **Liked Songs**: saved (not-removed) tracks filtered to those appearing in
-  ``<= max_playlists`` live owned playlists (the ≤N slider; default 0 =
-  orphans). The ≤N filter is pushed into SQL via a per-track live
-  membership count, so ``total`` and page boundaries are correct at every N —
-  never applied in Python after pagination.
+  ``<= max_playlists`` eligible playlists (the ≤N slider; default 0 =
+  orphans). Eligible = live, owned, and not held out of triage — a track whose
+  only homes are excluded playlists reads as an orphan. The ≤N filter is pushed
+  into SQL via a per-track membership count, so ``total`` and page boundaries
+  are correct at every N — never applied in Python after pagination.
 """
 
 from dataclasses import dataclass, field
@@ -50,7 +51,12 @@ class QueueResult:
 
 
 def _live_membership_count_subquery(user_id: int):
-    """Per-track count of LIVE owned-playlist memberships (soft-deleted excluded)."""
+    """Per-track count of eligible-playlist memberships.
+
+    Soft-deleted and triage-excluded playlists don't count: a saved track whose
+    only homes are excluded playlists reads as 0 memberships, so it enters the
+    orphan queue at N=0.
+    """
     return (
         select(
             col(PlaylistTrack.track_id).label("track_id"),
@@ -59,6 +65,7 @@ def _live_membership_count_subquery(user_id: int):
         .join(Playlist, Playlist.id == PlaylistTrack.playlist_id)  # type: ignore[arg-type]
         .where(PlaylistTrack.user_id == user_id)
         .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
+        .where(Playlist.triage_excluded == False)  # noqa: E712 — held out of triage
         .group_by(col(PlaylistTrack.track_id))
         .subquery()
     )

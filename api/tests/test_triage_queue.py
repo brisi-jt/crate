@@ -165,3 +165,49 @@ def test_liked_mode_pagination_stable_across_n(session: Session, user: User) -> 
     assert page1.total == page2.total == page3.total == 5  # filed excluded
     seen = [e.track_id for e in page1.items + page2.items + page3.items]
     assert sorted(seen) == sorted(orphans)  # every orphan, no overlap, no `filed`
+
+
+# -- liked-mode ≤N filter counts only eligible playlists -----------------------
+
+
+def test_track_only_in_excluded_playlist_is_an_orphan(session: Session, user: User) -> None:
+    """A saved track living solely in an excluded playlist counts as 0 -> orphan."""
+    excluded = _playlist(session, user, "Excluded")
+    ex_row = session.get(Playlist, excluded)
+    assert ex_row is not None
+    ex_row.triage_excluded = True
+    session.add(ex_row)
+
+    orphan = _track(session, "orphan")  # in the excluded playlist only
+    _add(session, user, excluded, orphan, 0, BASE)
+    _save(session, user, orphan)
+    session.commit()
+
+    # N=0 (orphans): the track qualifies because its only membership is excluded.
+    result = load_queue(
+        session, user.id, QueueSource(liked=True, max_playlists=0), limit=10, offset=0
+    )
+    assert orphan in [e.track_id for e in result.items]
+    assert result.total == 1
+
+
+def test_eligible_membership_still_counts(session: Session, user: User) -> None:
+    """A track in one eligible playlist is not an orphan at N=0, but is at N=1."""
+    eligible = _playlist(session, user, "Eligible")
+    excluded = _playlist(session, user, "Excluded")
+    ex_row = session.get(Playlist, excluded)
+    assert ex_row is not None
+    ex_row.triage_excluded = True
+    session.add(ex_row)
+
+    t = _track(session, "t")
+    _add(session, user, eligible, t, 0, BASE)  # one eligible membership
+    _add(session, user, excluded, t, 0, BASE)  # plus an excluded one (ignored)
+    _save(session, user, t)
+    session.commit()
+
+    # count = 1 (eligible only), so absent at N=0, present at N=1.
+    at0 = load_queue(session, user.id, QueueSource(liked=True, max_playlists=0), limit=10, offset=0)
+    assert t not in [e.track_id for e in at0.items]
+    at1 = load_queue(session, user.id, QueueSource(liked=True, max_playlists=1), limit=10, offset=0)
+    assert t in [e.track_id for e in at1.items]

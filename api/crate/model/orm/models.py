@@ -92,6 +92,12 @@ class Playlist(TimestampedModel, table=True):
     # Set when a sync pass no longer sees the playlist on Spotify. The row and
     # its membership stay for event history.
     is_deleted: bool = Field(default=False)
+    # Held out of triage: excluded from suggestion scoring, from the liked-mode
+    # ≤N membership count, and from the new-category population. Spotify's API
+    # can't see playlist folders, so this is the crate-native way to say "these
+    # playlists aren't filing destinations". New playlists are eligible; a sync
+    # pass never resets this.
+    triage_excluded: bool = Field(default=False)
     status: PlaylistSyncStatus = Field(
         default=PlaylistSyncStatus.pending,
         sa_column=enum_column(PlaylistSyncStatus, nullable=False),

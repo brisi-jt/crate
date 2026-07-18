@@ -8,7 +8,10 @@ import pytest
 from sqlmodel import Session
 
 from crate.model.orm import Playlist, PlaylistTrack, Track, User
-from crate.services.triage.membership import find_playlists_for_tracks
+from crate.services.triage.membership import (
+    find_playlists_for_tracks,
+    playlist_exclusions,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -60,3 +63,32 @@ def test_find_playlists_excludes_soft_deleted(session: Session, user: User) -> N
 def test_find_playlists_empty_input(session: Session, user: User) -> None:
     _seed(session, user)
     assert find_playlists_for_tracks(session, user.id, []) == {}
+
+
+def test_membership_still_includes_excluded_playlists(session: Session, user: User) -> None:
+    """An excluded playlist is still a live membership — a fact the panel shows."""
+    ids = _seed(session, user)
+    gym = session.get(Playlist, ids["Gym"])
+    assert gym is not None
+    gym.triage_excluded = True
+    session.add(gym)
+    session.commit()
+
+    result = find_playlists_for_tracks(session, user.id, [ids["t1"]])
+    # Excluded from suggestions/queue, but still reported as a current membership.
+    assert ids["Gym"] in result[ids["t1"]]
+
+
+def test_playlist_exclusions_flags_excluded(session: Session, user: User) -> None:
+    ids = _seed(session, user)
+    gym = session.get(Playlist, ids["Gym"])
+    assert gym is not None
+    gym.triage_excluded = True
+    session.add(gym)
+    session.commit()
+
+    flags = playlist_exclusions(session, user.id)
+    assert flags[ids["Gym"]] is True
+    assert flags[ids["Pool"]] is False
+    # Soft-deleted playlists are not live -> absent from the map.
+    assert ids["Dead"] not in flags

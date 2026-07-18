@@ -118,6 +118,7 @@ def suggest_destinations(
         .where(Playlist.user_id == user.id)
         .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
         .where(Playlist.is_owned == True)  # noqa: E712 — SQL expression
+        .where(Playlist.triage_excluded == False)  # noqa: E712 — held out of triage
     ).all()
 
     suggestions: list[DestinationSuggestion] = []
@@ -228,6 +229,7 @@ def _placement_history_counts(
         .join(Playlist, Playlist.id == PlaylistTrack.playlist_id)  # type: ignore[arg-type]
         .where(PlaylistTrack.user_id == user.id)
         .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
+        .where(Playlist.triage_excluded == False)  # noqa: E712 — held out of triage
         .where(col(PlaylistTrack.track_id).in_(neighbour_ids))
     ).all()
     counts.update(rows)

@@ -16,6 +16,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Query
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from crate.deps import (
@@ -27,11 +28,19 @@ from crate.deps import (
 from crate.errors import AppError, ProblemDetail
 from crate.model.orm import Playlist, PlaylistTrack, User
 from crate.router.playlists import HalLink, _collection_links
+from crate.services.analytics.snapshots import (
+    EXCLUSION_DEPENDENT_KINDS,
+    invalidate_snapshots,
+)
 from crate.services.mutations.service import MutationService
 from crate.services.triage.cluster import read_cluster_proposal
 from crate.services.triage.engine import suggest_destinations
 from crate.services.triage.evidence import DestinationSuggestion
-from crate.services.triage.membership import find_playlists_for_tracks, playlist_names
+from crate.services.triage.membership import (
+    find_playlists_for_tracks,
+    playlist_exclusions,
+    playlist_names,
+)
 from crate.services.triage.queue import QueueSource, load_queue
 
 router = APIRouter(tags=["triage"])
@@ -160,6 +169,136 @@ def put_triage_setting(
     return _setting_resource(session, user)
 
 
+# ------------------------------------------------------------------ destinations
+
+
+class DestinationResource(BaseModel):
+    """An owned live playlist the account can file into (or hold out of triage)."""
+
+    id: int
+    name: str
+    image_url: str | None = Field(
+        default=None, description="Spotify playlist cover, when it has one."
+    )
+    track_count: int = Field(description="Tracks currently in the playlist.")
+    triage_excluded: bool = Field(description="True when held out of triage.")
+
+
+class DestinationCollection(BaseModel):
+    items: list[DestinationResource]
+    total: int = Field(description="Total owned live playlists.")
+    excluded_count: int = Field(description="How many are currently held out of triage.")
+    links: dict[str, HalLink] = Field(serialization_alias="_links")
+
+
+class DestinationsUpdate(BaseModel):
+    """Bulk-replace the exclusion set: these become excluded, all others eligible."""
+
+    excluded_playlist_ids: list[int] = Field(
+        default_factory=list,
+        description="The owned live playlists to hold out of triage. Every other "
+        "owned live playlist becomes eligible. An empty list clears all exclusions.",
+    )
+
+
+def _owned_live_playlists(session: Session, user: User) -> list[Playlist]:
+    return list(
+        session.exec(
+            select(Playlist)
+            .where(Playlist.user_id == user.id)
+            .where(Playlist.is_deleted == False)  # noqa: E712 — SQL expression
+            .where(Playlist.is_owned == True)  # noqa: E712 — SQL expression
+            .order_by(Playlist.name)
+        ).all()
+    )
+
+
+def _destination_collection(session: Session, user: User) -> DestinationCollection:
+    rows = _owned_live_playlists(session, user)
+    counts: dict[int | None, int] = dict(
+        session.exec(
+            select(PlaylistTrack.playlist_id, func.count())
+            .where(PlaylistTrack.user_id == user.id)
+            .group_by(PlaylistTrack.playlist_id)
+        ).all()
+    )
+    items = [
+        DestinationResource(
+            id=row.id,
+            name=row.name,
+            image_url=row.image_url,
+            track_count=counts.get(row.id, 0),
+            triage_excluded=row.triage_excluded,
+        )
+        for row in rows
+        if row.id is not None
+    ]
+    return DestinationCollection(
+        items=items,
+        total=len(items),
+        excluded_count=sum(1 for i in items if i.triage_excluded),
+        links={
+            "self": HalLink(href="/v1/triage/destinations"),
+            "queue": HalLink(href="/v1/triage/queue"),
+        },
+    )
+
+
+@router.get(
+    "/v1/triage/destinations",
+    summary="List filing destinations",
+    description=(
+        "The account's owned live playlists — the pool of filing destinations — "
+        "each flagged with whether it's held out of triage. Spotify's API can't "
+        "see playlist folders, so this is where destinations are scoped."
+    ),
+)
+def list_destinations(session: SessionDep, user: CurrentUserDep) -> DestinationCollection:
+    return _destination_collection(session, user)
+
+
+@router.put(
+    "/v1/triage/destinations",
+    summary="Set which playlists are held out of triage",
+    description=(
+        "Bulk-replace the exclusion set. The given playlists become held out of "
+        "triage — dropped from suggestion scoring, from the liked-mode ≤N "
+        "membership count, and from the new-category population — and every other "
+        "owned live playlist becomes eligible. Idempotent; an empty list clears "
+        "all exclusions. Every id must be an owned live playlist (422 otherwise)."
+    ),
+    responses={422: {"model": ProblemDetail, "description": "An id isn't an owned live playlist."}},
+)
+def put_destinations(
+    update: DestinationsUpdate, session: SessionDep, user: CurrentUserDep
+) -> DestinationCollection:
+    owned = _owned_live_playlists(session, user)
+    owned_ids = {p.id for p in owned}
+    requested = set(update.excluded_playlist_ids)
+    unknown = requested - owned_ids
+    if unknown:
+        raise AppError(
+            422,
+            "Invalid triage playlist",
+            detail=f"Not owned live playlists: {sorted(unknown)}.",
+            error_code="INVALID_TRIAGE_PLAYLIST",
+        )
+    # Bulk replace: only touch rows whose flag actually changes, and invalidate
+    # the caches whose output depends on the exclusion set when it did change.
+    changed = False
+    for playlist in owned:
+        target = playlist.id in requested
+        if playlist.triage_excluded != target:
+            playlist.triage_excluded = target
+            session.add(playlist)
+            changed = True
+    if changed:
+        assert user.id is not None
+        invalidate_snapshots(session, user.id, kinds=EXCLUSION_DEPENDENT_KINDS)
+    session.commit()
+    return _destination_collection(session, user)
+
+
 # ------------------------------------------------------------------ source
 
 
@@ -234,6 +373,10 @@ class MembershipResource(BaseModel):
     count: int
     playlist_ids: list[int]
     playlist_names: list[str]
+    excluded: list[bool] = Field(
+        default_factory=list,
+        description="Per membership: whether that playlist is held out of triage.",
+    )
 
 
 class ClusterProposalResource(BaseModel):
@@ -293,10 +436,12 @@ def get_intelligence(
     membership_map = find_playlists_for_tracks(session, user.id, [track_id])
     member_ids = membership_map.get(track_id, [])
     names = playlist_names(session, user.id)
+    exclusions = playlist_exclusions(session, user.id)
     memberships = MembershipResource(
         count=len(member_ids),
         playlist_ids=member_ids,
         playlist_names=[names.get(pid, "") for pid in member_ids],
+        excluded=[exclusions.get(pid, False) for pid in member_ids],
     )
 
     source = _current_source(session, user, max_playlists)

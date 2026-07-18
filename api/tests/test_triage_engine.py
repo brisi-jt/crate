@@ -161,3 +161,49 @@ def test_engine_handles_track_without_features(session: Session, user: User) -> 
     assert suggestions  # still ranks playlists
     for s in suggestions:
         assert {e.kind for e in s.evidence} == set(EvidenceKind)
+
+
+# -- destination scoping (excluded playlists are never suggested) --------------
+
+
+def test_excluded_playlist_is_never_suggested(session: Session, user: User) -> None:
+    ids = _seed_calibration_library(session, user)
+    # Hold the Gym playlist out of triage.
+    gym = session.get(Playlist, ids["Gym"])
+    assert gym is not None
+    gym.triage_excluded = True
+    session.add(gym)
+    filed = _track(session, "cand", "A", HI)
+    session.commit()
+
+    suggestions = suggest_destinations(session, user, filed)
+    ids_suggested = {s.playlist_id for s in suggestions}
+    assert ids["Gym"] not in ids_suggested  # excluded -> absent
+    assert ids["Chill"] in ids_suggested  # eligible -> present
+
+
+def test_placement_history_ignores_excluded_destinations(session: Session, user: User) -> None:
+    """A neighbour that lives only in an excluded playlist adds no placement weight."""
+    ids = _seed_calibration_library(session, user)
+    chill = ids["Chill"]
+    # An excluded playlist holding hi-energy tracks (neighbours of the candidate).
+    hidden = _playlist(session, user, "Hidden")
+    hidden_row = session.get(Playlist, hidden)
+    assert hidden_row is not None
+    hidden_row.triage_excluded = True
+    session.add(hidden_row)
+    for i in range(4):
+        t = _track(session, f"hidden{i}", f"HidArtist{i}", HI)
+        _add(session, user, hidden, t, i)
+    filed = _track(session, "cand", "A", HI)
+    session.commit()
+
+    suggestions = suggest_destinations(session, user, filed)
+    # Hidden is excluded -> not even in the result set.
+    assert hidden not in {s.playlist_id for s in suggestions}
+    # And its members never counted toward any eligible playlist's placement.
+    chill_sug = next(s for s in suggestions if s.playlist_id == chill)
+    placement = next(e for e in chill_sug.evidence if e.kind == EvidenceKind.placement_history)
+    assert placement.detail["neighbours_total"] == 0 or hidden not in {
+        s.playlist_id for s in suggestions
+    }

@@ -198,6 +198,32 @@ def test_intelligence_returns_four_labeled_signals(
     assert "new_category" in body
 
 
+def test_intelligence_membership_carries_excluded_flag(
+    client: TestClient, session: Session, user: User
+) -> None:
+    """An excluded playlist is still shown as a current membership, badged."""
+    gym = _playlist(session, user, "Gym")
+    gym.triage_excluded = True
+    eligible = _playlist(session, user, "Eligible")
+    session.flush()
+    filed = _track(session, "cand", "Repeat", HI)
+    session.add(PlaylistTrack(user_id=user.id, playlist_id=gym.id, track_id=filed, position=0))
+    session.add(PlaylistTrack(user_id=user.id, playlist_id=eligible.id, track_id=filed, position=0))
+    session.commit()
+
+    r = client.get(f"/v1/triage/tracks/{filed}/intelligence")
+    assert r.status_code == 200
+    body = r.json()
+    mem = body["memberships"]
+    # Both memberships are reported (facts); the excluded one is flagged.
+    flags = dict(zip(mem["playlist_ids"], mem["excluded"], strict=True))
+    assert flags[gym.id] is True
+    assert flags[eligible.id] is False
+    # …but the excluded playlist is not a suggestion.
+    assert gym.id not in {s["playlist_id"] for s in body["suggestions"]}
+    assert eligible.id in {s["playlist_id"] for s in body["suggestions"]}
+
+
 # -- apply + cleanup -----------------------------------------------------------
 
 
