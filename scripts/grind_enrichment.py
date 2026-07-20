@@ -43,6 +43,11 @@ def pass_did_work(body: dict) -> bool:
     none (their tracks carry no MusicBrainz-matchable ISRC) still did work and
     the next pass should run. Keying only off ``artists_mbid_resolved`` made
     the driver stop after one pass while thousands of artists still had no MBID.
+
+    ``artists_genre_examined`` is the same signal for the genre-write pass: an
+    MBID'd artist MusicBrainz has no genres for is still examined-and-marked, so
+    the pass did work even when no ArtistGenre rows landed. Without it the
+    driver would stop while MBID'd artists still had un-fetched genres.
     """
     return bool(
         body.get("tracks_processed", 0)
@@ -50,6 +55,7 @@ def pass_did_work(body: dict) -> bool:
         or body.get("artists_processed", 0)
         or body.get("artists_identity_examined", 0)
         or body.get("artists_mbid_resolved", 0)
+        or body.get("artists_genre_examined", 0)
     )
 
 
@@ -63,6 +69,9 @@ def summarize(body: dict) -> str:
         f"missing={body.get('features_missing', 0)}",
         f"artists={body.get('artists_identity_examined', 0)}",
         f"mbid={body.get('artists_mbid_resolved', 0)}",
+        f"namembid={body.get('artists_mbid_from_name_search', 0)}",
+        f"genreex={body.get('artists_genre_examined', 0)}",
+        f"genrerows={body.get('artist_genre_rows_written', 0)}",
     ]
     if body.get("budget_exhausted"):
         parts.append("BUDGET_EXHAUSTED")
@@ -75,6 +84,30 @@ def summarize(body: dict) -> str:
     if errors:
         parts.append(f"errors={len(errors)}")
     return " ".join(parts)
+
+
+def _recompute_on_drain(
+    client: httpx.Client, recompute_url: str, genre_rows_written: int, args
+) -> None:
+    """Warm the clustering cache once the grind drains, if genres changed.
+
+    Every genre-writing pass already invalidates the analytics snapshots, so a
+    later read recomputes with the new coverage. This fires one recompute at the
+    end so the improved clustering is warm before anyone opens the map — but only
+    when this grind actually wrote genre rows, so a no-op drain stays a no-op.
+    """
+    if args.no_recompute_on_drain or genre_rows_written <= 0:
+        return
+    print(f"grind wrote {genre_rows_written} genre rows; recomputing analytics", flush=True)
+    try:
+        response = client.post(recompute_url)
+    except httpx.RequestError as exc:
+        print(f"recompute request failed: {exc!r} (invalidated snapshots recompute on next read)")
+        return
+    if response.status_code == 200:
+        print("analytics recomputed; clustering reflects the new genre coverage", flush=True)
+    else:
+        print(f"recompute returned {response.status_code}: {response.text[:200]}", flush=True)
 
 
 def main() -> int:
@@ -101,11 +134,20 @@ def main() -> int:
         default=10.0,
         help="Seconds to wait before retrying after a 409 ENRICHMENT_PASS_ACTIVE.",
     )
-    parser.add_argument("--max-passes", type=int, default=0, help="Stop after N passes (0 = until drained).")
+    parser.add_argument(
+        "--max-passes", type=int, default=0, help="Stop after N passes (0 = until drained)."
+    )
+    parser.add_argument(
+        "--no-recompute-on-drain",
+        action="store_true",
+        help="Skip the one analytics recompute fired when the grind drains "
+        "(the default warms the clustering cache so new genre coverage lands).",
+    )
     args = parser.parse_args()
 
     base_url = args.base_url.rstrip("/")
     url = f"{base_url}/v1/enrichment/run"
+    recompute_url = f"{base_url}/v1/analytics/recompute"
     params = {
         "stage": args.stage,
         "batch_size": args.batch_size,
@@ -117,6 +159,7 @@ def main() -> int:
 
     passes = 0
     consecutive_5xx = 0
+    genre_rows_written = 0
     print(f"grinding stage={args.stage} against {url}", flush=True)
     with httpx.Client(timeout=timeout) as client:
         while True:
@@ -136,7 +179,9 @@ def main() -> int:
                 # grind; only a persistent streak means something is truly wrong.
                 consecutive_5xx += 1
                 if consecutive_5xx >= 20:
-                    print(f"giving up after {consecutive_5xx} consecutive 5xx responses", flush=True)
+                    print(
+                        f"giving up after {consecutive_5xx} consecutive 5xx responses", flush=True
+                    )
                     return 1
                 wait = min(args.active_wait * consecutive_5xx, 120.0)
                 print(
@@ -153,10 +198,12 @@ def main() -> int:
             consecutive_5xx = 0
             body = response.json()
             passes += 1
+            genre_rows_written += int(body.get("artist_genre_rows_written", 0))
             print(f"pass {passes}: {summarize(body)}", flush=True)
 
             if not pass_did_work(body):
                 print(f"drained after {passes} pass(es).", flush=True)
+                _recompute_on_drain(client, recompute_url, genre_rows_written, args)
                 return 0
             if args.max_passes and passes >= args.max_passes:
                 print(f"stopping after {passes} pass(es) (--max-passes).", flush=True)

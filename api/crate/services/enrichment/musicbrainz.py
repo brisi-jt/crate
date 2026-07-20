@@ -9,7 +9,7 @@ import asyncio
 import httpx
 
 from crate.services.enrichment.cache import ResponseCache
-from crate.services.enrichment.models import IsrcRecording
+from crate.services.enrichment.models import ArtistSearchResult, IsrcRecording
 from crate.services.enrichment.throttle import RateLimiter, Sleep, request_with_backoff
 
 BASE_URL = "https://musicbrainz.org/ws/2"
@@ -83,3 +83,62 @@ class MusicBrainzClient:
             if credit.get("artist", {}).get("id")
         ]
         return IsrcRecording(recording_mbid=recording["id"], artist_credits=credits)
+
+    async def search_artist(self, name: str) -> list[ArtistSearchResult]:
+        """Search MusicBrainz for artists by name, scored 0-100.
+
+        The MBID fallback for artists whose tracks carry no MusicBrainz-matchable
+        ISRC. The name is sent as a phrase-quoted Lucene term so a multi-word or
+        punctuated credit stays one query rather than fanning into loose token
+        matches. Any 4xx is an empty result, never an error for the caller — a
+        bad name must not abort an enrichment pass. Results are cached (keyed by
+        the raw name) so a re-run doesn't re-query.
+        """
+        cache_key = f"artist-search:{name.casefold()}"
+        cached = self._cache.get(cache_key)
+        if cached is None:
+            response = await request_with_backoff(
+                self._http,
+                "GET",
+                f"{self._base_url}/artist",
+                params={"query": f'artist:"{name}"', "fmt": "json"},
+                limiter=self._limiter,
+                sleep=self._sleep,
+            )
+            if 400 <= response.status_code < 500:
+                self._cache.put(cache_key, {"artists": []})
+                return []
+            response.raise_for_status()
+            cached = response.json()
+            self._cache.put(cache_key, cached)
+        return [ArtistSearchResult.model_validate(entry) for entry in cached.get("artists", [])]
+
+    async def get_artist_genres(self, mbid: str) -> list[tuple[str, float]]:
+        """(genre name, vote count) for an artist MBID, MusicBrainz's own genres.
+
+        These are name-standardized and vote-backed, so they join cleanly onto
+        the ENAO ``ArtistGenre`` space keyed by artist name. Any 4xx is an empty
+        result (the MBID has no genre data), cached so it isn't re-queried.
+        """
+        cache_key = f"artist-genres:{mbid}"
+        cached = self._cache.get(cache_key)
+        if cached is None:
+            response = await request_with_backoff(
+                self._http,
+                "GET",
+                f"{self._base_url}/artist/{mbid}",
+                params={"fmt": "json", "inc": "genres"},
+                limiter=self._limiter,
+                sleep=self._sleep,
+            )
+            if 400 <= response.status_code < 500:
+                self._cache.put(cache_key, {"genres": []})
+                return []
+            response.raise_for_status()
+            cached = response.json()
+            self._cache.put(cache_key, cached)
+        return [
+            (str(entry["name"]), float(entry.get("count", 0)))
+            for entry in cached.get("genres", [])
+            if entry.get("name")
+        ]

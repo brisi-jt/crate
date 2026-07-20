@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "id": "fd95384f-943b-49c1-b427-791e78242714",
+  "name": "Kota the Friend",
+  "genres": [
+    {"id": "aaaa1111-0000-0000-0000-000000000001", "name": "hip hop", "count": 5, "disambiguation": ""},
+    {"id": "aaaa1111-0000-0000-0000-000000000002", "name": "conscious hip hop", "count": 3, "disambiguation": ""},
+    {"id": "aaaa1111-0000-0000-0000-000000000003", "name": "jazz rap", "count": 1, "disambiguation": ""}
+  ]
+}

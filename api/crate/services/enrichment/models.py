@@ -94,3 +94,14 @@ class IsrcRecording(BaseModel):
     recording_mbid: str
     # (artist name, artist mbid) pairs in credit order.
     artist_credits: list[tuple[str, str]] = Field(default_factory=list)
+
+
+class ArtistSearchResult(BaseModel):
+    """One candidate from a MusicBrainz artist name search."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    mbid: str = Field(alias="id")
+    name: str
+    # MusicBrainz relevance score, 0-100 (100 = exact).
+    score: int = 0

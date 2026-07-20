@@ -1,0 +1,15 @@
+{
+  "synthetic": true,
+  "query": "artist:\"Kota the Friend\"",
+  "count": 1,
+  "artists": [
+    {
+      "id": "fd95384f-943b-49c1-b427-791e78242714",
+      "score": 100,
+      "name": "Kota the Friend",
+      "sort-name": "Kota the Friend",
+      "type": "Person",
+      "disambiguation": ""
+    }
+  ]
+}

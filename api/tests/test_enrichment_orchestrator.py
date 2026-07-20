@@ -7,16 +7,19 @@ from sqlmodel import Session, select
 from crate.model.enums import FeatureSource, FeatureStatus, SimilaritySource, TagSource
 from crate.model.orm import (
     Artist,
+    ArtistGenre,
     ArtistSimilarity,
     ArtistTag,
     FeatureCalibration,
     FreqBlogBudget,
+    Genre,
     LocalDspCalibration,
     Track,
     TrackFeatures,
 )
 from crate.services.enrichment.localdsp import LocalAnalysis
 from crate.services.enrichment.models import (
+    ArtistSearchResult,
     ArtistTagView,
     AudioFeatures,
     IsrcRecording,
@@ -94,11 +97,17 @@ class FakeMusicBrainz:
         by_isrc: dict[str, IsrcRecording] | None = None,
         explode_on: set[str] | None = None,
         status_error_on: set[str] | None = None,
+        search_by_name: dict[str, list[ArtistSearchResult]] | None = None,
+        genres_by_mbid: dict[str, list[tuple[str, float]]] | None = None,
     ) -> None:
         self.by_isrc = by_isrc or {}
         self.explode_on = explode_on or set()
         self.status_error_on = status_error_on or set()
+        self.search_by_name = search_by_name or {}
+        self.genres_by_mbid = genres_by_mbid or {}
         self.calls: list[str] = []
+        self.search_calls: list[str] = []
+        self.genre_calls: list[str] = []
 
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None:
         self.calls.append(isrc)
@@ -111,6 +120,14 @@ class FakeMusicBrainz:
                 "503 Service Unavailable", request=request, response=response
             )
         return self.by_isrc.get(isrc)
+
+    async def search_artist(self, name: str) -> list[ArtistSearchResult]:
+        self.search_calls.append(name)
+        return self.search_by_name.get(name, [])
+
+    async def get_artist_genres(self, mbid: str) -> list[tuple[str, float]]:
+        self.genre_calls.append(mbid)
+        return self.genres_by_mbid.get(mbid, [])
 
 
 class FakeClock:
@@ -603,6 +620,164 @@ class TestArtistEnrichment:
         # Second pass finds no un-MBID'd candidate.
         second = await svc.run(session, batch_size=10, stage="identity")
         assert second.artists_identity_examined == 0
+
+
+class TestNameSearchMbidFallback:
+    """Artists with no MB-matchable ISRC fall back to a conservative name search."""
+
+    async def test_name_search_resolves_when_isrc_path_finds_nothing(
+        self, session: Session
+    ) -> None:
+        # No ISRC-bearing track for this artist → the ISRC ladder resolves
+        # nothing → name search is tried and its exact, high-score, unambiguous
+        # result is accepted.
+        artist = add_artist(session, "a1", "Kota the Friend")
+        mb = FakeMusicBrainz(
+            search_by_name={
+                "Kota the Friend": [
+                    ArtistSearchResult(id="mbid-kota", name="Kota the Friend", score=100)
+                ]
+            }
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(artist)
+        assert artist.mbid == "mbid-kota"
+        assert artist.mbid_source == "name_search"
+        assert report.artists_mbid_resolved == 1
+        assert report.artists_mbid_from_name_search == 1
+        assert mb.search_calls == ["Kota the Friend"]
+
+    async def test_isrc_match_records_isrc_provenance_and_skips_search(
+        self, session: Session
+    ) -> None:
+        artist = add_artist(session, "a1", "Post Malone")
+        add_track(session, "t1", isrc="US1", artists=[{"spotify_id": "a1", "name": "Post Malone"}])
+        mb = FakeMusicBrainz(
+            by_isrc={
+                "US1": IsrcRecording(recording_mbid="r", artist_credits=[("Post Malone", "m")])
+            }
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(artist)
+        assert artist.mbid == "m"
+        assert artist.mbid_source == "isrc"
+        assert report.artists_mbid_from_name_search == 0
+        assert mb.search_calls == []  # ISRC resolved it; name search not needed
+
+    async def test_ambiguous_name_search_is_not_accepted(self, session: Session) -> None:
+        artist = add_artist(session, "a1", "Halo")
+        mb = FakeMusicBrainz(
+            search_by_name={
+                "Halo": [
+                    ArtistSearchResult(id="mbid-1", name="Halo", score=100),
+                    ArtistSearchResult(id="mbid-2", name="Halo", score=100),
+                ]
+            }
+        )
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        session.refresh(artist)
+        assert artist.mbid is None
+        assert artist.mbid_checked_at is not None  # examined, marked, not re-tried
+        assert report.artists_mbid_resolved == 0
+
+
+class TestArtistGenreWrite:
+    """MBID'd artists borrow MusicBrainz genres into the ENAO ArtistGenre space."""
+
+    async def test_genres_written_keyed_by_artist_name(self, session: Session) -> None:
+        artist = add_artist(session, "a1", "Kota the Friend", mbid="mbid-kota")
+        mb = FakeMusicBrainz(genres_by_mbid={"mbid-kota": [("hip hop", 5.0), ("jazz rap", 1.0)]})
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        rows = session.exec(select(ArtistGenre)).all()
+        genre_names = {g.id: g.name for g in session.exec(select(Genre)).all()}
+        by_genre = {
+            genre_names[row.genre_id]: (row.artist_name, row.weight, row.artist_id) for row in rows
+        }
+        assert by_genre["hip hop"] == ("Kota the Friend", 5.0, artist.id)
+        assert by_genre["jazz rap"] == ("Kota the Friend", 1.0, artist.id)
+        assert report.artist_genre_rows_written == 2
+        assert report.artists_genre_examined == 1
+
+    async def test_new_genre_names_upsert_a_genre_row(self, session: Session) -> None:
+        add_artist(session, "a1", "Kota the Friend", mbid="mbid-kota")
+        mb = FakeMusicBrainz(genres_by_mbid={"mbid-kota": [("bedroom pop", 2.0)]})
+        svc = service(musicbrainz=mb)
+
+        await svc.run(session, batch_size=10, stage="identity")
+
+        genres = session.exec(select(Genre).where(Genre.name == "bedroom pop")).all()
+        assert len(genres) == 1
+        assert genres[0].enao_rank is None  # from MB, not the ENAO popularity list
+
+    async def test_existing_membership_is_not_duplicated(self, session: Session) -> None:
+        # An artist name that already carries an ENAO row for a genre keeps it;
+        # MB does not overwrite or duplicate the (genre, name) membership.
+        artist = add_artist(session, "a1", "Kota the Friend", mbid="mbid-kota")
+        genre = Genre(name="hip hop", enao_rank=3)
+        session.add(genre)
+        session.commit()
+        session.refresh(genre)
+        session.add(ArtistGenre(genre_id=genre.id, artist_name="kota the friend", weight=99.0))
+        session.commit()
+        mb = FakeMusicBrainz(genres_by_mbid={"mbid-kota": [("hip hop", 5.0)]})
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        rows = session.exec(select(ArtistGenre).where(ArtistGenre.genre_id == genre.id)).all()
+        assert len(rows) == 1
+        assert rows[0].weight == 99.0  # existing weight untouched
+        assert report.artist_genre_rows_written == 0
+        _ = artist
+
+    async def test_genre_checked_artists_not_requeried(self, session: Session) -> None:
+        add_artist(session, "a1", "Kota the Friend", mbid="mbid-kota")
+        mb = FakeMusicBrainz(genres_by_mbid={"mbid-kota": []})  # MB has no genres
+        svc = service(musicbrainz=mb)
+
+        first = await svc.run(session, batch_size=10, stage="identity")
+        assert first.artists_genre_examined == 1
+        assert mb.genre_calls == ["mbid-kota"]
+
+        second = await svc.run(session, batch_size=10, stage="identity")
+        assert second.artists_genre_examined == 0  # marked checked, not re-queried
+        assert mb.genre_calls == ["mbid-kota"]
+
+    async def test_genre_write_invalidates_snapshots(self, session: Session) -> None:
+        # New genre rows change the clustering distance, so cached analytics
+        # must be invalidated even when no feature work happened this pass.
+        from crate.model.enums import SnapshotKind
+        from crate.model.orm import AnalyticsSnapshot, User
+
+        user = User(spotify_user_id="u1")
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        session.add(
+            AnalyticsSnapshot(user_id=user.id, kind=SnapshotKind.track_map, payload={"stale": True})
+        )
+        session.commit()
+
+        add_artist(session, "a1", "Kota the Friend", mbid="mbid-kota")
+        mb = FakeMusicBrainz(genres_by_mbid={"mbid-kota": [("hip hop", 5.0)]})
+        svc = service(musicbrainz=mb)
+
+        report = await svc.run(session, batch_size=10, stage="identity")
+
+        assert report.artist_genre_rows_written == 1
+        assert session.exec(select(AnalyticsSnapshot)).all() == []  # cache dropped
 
 
 class TestStageSelection:

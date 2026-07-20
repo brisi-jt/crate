@@ -6,19 +6,23 @@ analysis of the track's preview → marked missing), persists results, and
 refreshes the feature calibration percentiles.
 """
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 import httpx
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from crate.model.enums import FeatureSource, FeatureStatus, SimilaritySource, TagSource
 from crate.model.orm import (
     Artist,
+    ArtistGenre,
     ArtistSimilarity,
     ArtistTag,
+    Genre,
     LocalDspCalibration,
     Track,
     TrackFeatures,
@@ -36,6 +40,7 @@ from crate.services.enrichment.localdsp import (
     fit_quantile_map,
 )
 from crate.services.enrichment.models import (
+    ArtistSearchResult,
     ArtistTagView,
     AudioFeatures,
     IsrcRecording,
@@ -45,6 +50,48 @@ from crate.services.enrichment.models import (
 # ISRC lookups attempted per artist when resolving an MBID; each costs a
 # paced MusicBrainz request, so the ladder stays short.
 MAX_MBID_LOOKUPS_PER_ARTIST = 2
+
+# Minimum MusicBrainz relevance score for a name-search candidate to be even
+# considered. A wrong-artist match silently poisons genres, so the score bar is
+# high and pairs with exact normalized-name equality — score alone is not
+# enough (MB returns 100 for near-names too).
+MIN_SEARCH_SCORE = 95
+
+# How the artist's MBID was resolved, recorded on the row so a name-search match
+# (looser than an ISRC match) is auditable and reversible in bulk if a threshold
+# proves too generous.
+MbidProvenance = Literal["isrc", "name_search"]
+
+_WHITESPACE = re.compile(r"\s+")
+
+
+def normalize_artist_name(name: str) -> str:
+    """Trim, casefold, and collapse internal whitespace.
+
+    Deliberately keeps punctuation: ``P!nk`` and ``Michael Franti & Spearhead``
+    are distinct real artists, so ``!`` and ``&`` are meaningful, not noise.
+    Casefold (not ``.lower()``) so non-ASCII names fold correctly.
+    """
+    return _WHITESPACE.sub(" ", name.strip()).casefold()
+
+
+def accept_name_search_mbid(artist_name: str, candidates: list[ArtistSearchResult]) -> str | None:
+    """Return an accepted MBID, or None if no candidate clears every bar.
+
+    Conservative by construction: a candidate must score at least
+    ``MIN_SEARCH_SCORE`` AND have a name that normalizes equal to ours. If more
+    than one candidate clears both bars the result is ambiguous (two same-named
+    artists) and we accept neither — a wrong genre attribution is worse than a
+    missing one.
+    """
+    wanted = normalize_artist_name(artist_name)
+    passing = [
+        c.mbid
+        for c in candidates
+        if c.score >= MIN_SEARCH_SCORE and normalize_artist_name(c.name) == wanted
+    ]
+    return passing[0] if len(passing) == 1 else None
+
 
 # Which slice of the pipeline one pass runs. "feature" is the map's blocker and
 # the default — it must never wait behind 1 req/s MusicBrainz lookups, so MBID
@@ -136,6 +183,10 @@ class ArtistInfoSource(Protocol):
 class MbidSource(Protocol):
     async def lookup_isrc(self, isrc: str) -> IsrcRecording | None: ...
 
+    async def search_artist(self, name: str) -> list[ArtistSearchResult]: ...
+
+    async def get_artist_genres(self, mbid: str) -> list[tuple[str, float]]: ...
+
 
 class LocalDspSource(Protocol):
     async def analyze(self, title: str, artist: str) -> LocalAnalysis | None: ...
@@ -161,6 +212,15 @@ class EnrichmentReport:
     # mistaken for a drained stage.
     artists_identity_examined: int = 0
     artists_mbid_resolved: int = 0
+    # Of artists_mbid_resolved, how many came from the name-search fallback
+    # rather than an ISRC match — the looser, conservatively-gated path.
+    artists_mbid_from_name_search: int = 0
+    # Artists the genre-write pass looked at (had an MBID, no ENAO genre rows),
+    # whether or not MusicBrainz had genres for them. Key-independent progress
+    # signal, like artists_identity_examined.
+    artists_genre_examined: int = 0
+    # ArtistGenre rows written from MusicBrainz genres this pass.
+    artist_genre_rows_written: int = 0
     similarity_edges_added: int = 0
     tags_added: int = 0
     # True when no Last.fm API key is configured — artist similarity/tag
@@ -241,6 +301,11 @@ class EnrichmentService:
                 if self._localdsp is not None:
                     await self._analyze_missing_locally(session, batch_size, report, deadline)
             if run_identity:
+                # Genre-write first: it is the genre-coverage lever (clustering
+                # reads ArtistGenre) and turns each already-resolved MBID into
+                # genre rows in one paced request, so it must not be starved
+                # behind the slower, lower-yield name-search MBID resolution.
+                await self._write_artist_genres(session, batch_size, report, deadline)
                 await self._resolve_artist_mbids(session, batch_size, report, deadline)
                 if self._lastfm is not None:
                     await self._enrich_artists_from_lastfm(session, batch_size, report, deadline)
@@ -250,9 +315,14 @@ class EnrichmentService:
 
         report.stage_seconds = dict(deadline.stage_seconds)
         recompute_calibration(session)
-        # New feature values shift the percentile space itself, so cached
-        # analytics for every user are stale, not just one library's.
-        if report.tracks_processed or report.features_from_localdsp:
+        # New feature values shift the percentile space itself, and new genre
+        # rows change the clustering distance, so cached analytics for every
+        # user are stale, not just one library's.
+        if (
+            report.tracks_processed
+            or report.features_from_localdsp
+            or report.artist_genre_rows_written
+        ):
             invalidate_snapshots(session)
             session.commit()
         return report
@@ -521,9 +591,106 @@ class EnrichmentService:
             mbid = self._match_credit(artist.name, recording)
             if mbid is not None:
                 artist.mbid = mbid
+                artist.mbid_source = "isrc"
                 session.add(artist)
                 report.artists_mbid_resolved += 1
-                break
+                return
+
+        # No MB-matchable ISRC resolved this artist — try the conservative
+        # name-search fallback (the 42% ISRC ceiling leaves most artists here).
+        candidates = await deadline.timed(
+            "musicbrainz", self._musicbrainz.search_artist(artist.name)
+        )
+        mbid = accept_name_search_mbid(artist.name, candidates)
+        if mbid is not None:
+            artist.mbid = mbid
+            artist.mbid_source = "name_search"
+            session.add(artist)
+            report.artists_mbid_resolved += 1
+            report.artists_mbid_from_name_search += 1
+
+    # -- artist genres from MusicBrainz --------------------------------------
+
+    async def _write_artist_genres(
+        self,
+        session: Session,
+        batch_size: int,
+        report: EnrichmentReport,
+        deadline: _Deadline,
+    ) -> None:
+        """Fetch MusicBrainz genres for MBID'd artists and write ArtistGenre rows.
+
+        This is the coverage lever: ``ArtistGenre`` is joined by artist name in
+        the clustering genre vector, and ~66% of the library's artists have no
+        ENAO name match. An artist we've resolved an MBID for (ISRC or
+        name-search) can borrow MusicBrainz's own vote-backed genres, keyed by
+        our artist name so the existing name join picks them up with no schema
+        change. Artists MB has no genres for are marked checked so they aren't
+        re-queried.
+        """
+        candidates = session.exec(
+            select(Artist)
+            .where(Artist.mbid != None)  # noqa: E711
+            .where(Artist.genres_checked_at == None)  # noqa: E711 — don't re-query the genre-less
+            .limit(batch_size)
+        ).all()
+        if not candidates:
+            return
+
+        for artist in candidates:
+            deadline.check()  # honour the budget between per-artist units
+            report.artists_genre_examined += 1
+            assert artist.mbid is not None
+            try:
+                genres = await deadline.timed(
+                    "musicbrainz", self._musicbrainz.get_artist_genres(artist.mbid)
+                )
+            except _TRANSIENT_ERRORS as exc:  # one bad read never voids the pass
+                report.errors.append(f"musicbrainz genres {artist.name}: {exc!r}")
+                continue
+            for name, weight in genres:
+                if self._add_artist_genre(session, artist, name, weight):
+                    report.artist_genre_rows_written += 1
+            # Mark the attempt (with or without genres) so the genre-less long
+            # tail is not re-selected next pass.
+            artist.genres_checked_at = utcnow()
+            session.add(artist)
+        session.commit()
+
+    def _add_artist_genre(
+        self, session: Session, artist: Artist, genre_name: str, weight: float
+    ) -> bool:
+        """Upsert the Genre and write one ArtistGenre membership. True if written.
+
+        The membership is keyed by the artist's name (casefolded to match the
+        clustering join) so a name that already carries ENAO rows just gains the
+        MusicBrainz genres alongside them. An existing (genre, name) membership
+        is left untouched — ENAO/earlier weights win over a re-derived one.
+        """
+        genre = session.exec(select(Genre).where(Genre.name == genre_name)).first()
+        if genre is None:
+            genre = Genre(name=genre_name, enao_rank=None)
+            session.add(genre)
+            session.flush()  # need genre.id for the membership
+        assert genre.id is not None
+
+        artist_key = artist.name.casefold()
+        exists = session.exec(
+            select(ArtistGenre)
+            .where(ArtistGenre.genre_id == genre.id)
+            .where(func.lower(ArtistGenre.artist_name) == artist_key)
+        ).first()
+        if exists is not None:
+            return False
+        session.add(
+            ArtistGenre(
+                genre_id=genre.id,
+                artist_name=artist.name,
+                artist_id=artist.id,
+                weight=weight,
+            )
+        )
+        return True
 
     @staticmethod
     def _isrcs_by_artist_spotify_id(session: Session) -> dict[str, list[str]]:

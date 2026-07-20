@@ -145,6 +145,11 @@ class Artist(TimestampedModel, table=True):
     spotify_id: str = Field(unique=True, max_length=64)
     name: str = Field(max_length=512)
     mbid: str | None = Field(default=None, max_length=64)
+    # How mbid was resolved: "isrc" (a track's ISRC matched a MusicBrainz
+    # recording whose credit is this artist) or "name_search" (a conservative
+    # name-search fallback for artists with no MB-matchable ISRC). Null when no
+    # mbid. Recorded so the looser name-search matches are auditable.
+    mbid_source: str | None = Field(default=None, max_length=16)
     # Artist photo. image_url is the large image; image_url_sm a ~64px thumb
     # for the galaxy hover card. Spotify only ships these on /v1/artists (not
     # on the track's artist refs), so they arrive via the backfill, not sync.
@@ -156,6 +161,11 @@ class Artist(TimestampedModel, table=True):
     # after new ISRC-bearing tracks arrive. Mirrors TrackFeatures.preview_resolved's
     # "don't retry the hopeless" semantics.
     mbid_checked_at: datetime | None = Field(default=None)
+    # When the genre-write pass last fetched MusicBrainz genres for this
+    # artist's MBID (even when MB had none), so an artist without MB genres is
+    # not re-queried every pass. Null = never fetched. Mirrors mbid_checked_at's
+    # "don't retry the hopeless" semantics; clear it to re-attempt.
+    genres_checked_at: datetime | None = Field(default=None)
 
 
 class PlaylistTrack(TimestampedModel, table=True):

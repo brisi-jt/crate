@@ -94,6 +94,23 @@ class EnrichmentRunResult(BaseModel):
     artists_mbid_resolved: int = Field(
         description="Artists newly linked to a MusicBrainz identifier."
     )
+    artists_mbid_from_name_search: int = Field(
+        default=0,
+        description="Of artists_mbid_resolved, how many came from the "
+        "conservative name-search fallback rather than an ISRC match.",
+    )
+    artists_genre_examined: int = Field(
+        default=0,
+        description="MBID'd artists the genre-write pass looked at for "
+        "MusicBrainz genres this pass, whether or not any were found. A grinder "
+        "keys 'more work remains' off this so the genre stage is not mistaken "
+        "for drained when a pass finds no genres.",
+    )
+    artist_genre_rows_written: int = Field(
+        default=0,
+        description="ArtistGenre membership rows written from MusicBrainz "
+        "genres this pass — the genre-coverage lever for clustering.",
+    )
     similarity_edges_added: int = Field(description="New artist-similarity edges stored.")
     tags_added: int = Field(description="New artist tags stored.")
     lastfm_skipped: bool = Field(
@@ -265,6 +282,9 @@ async def trigger_enrichment(
         artists_processed=report.artists_processed,
         artists_identity_examined=report.artists_identity_examined,
         artists_mbid_resolved=report.artists_mbid_resolved,
+        artists_mbid_from_name_search=report.artists_mbid_from_name_search,
+        artists_genre_examined=report.artists_genre_examined,
+        artist_genre_rows_written=report.artist_genre_rows_written,
         similarity_edges_added=report.similarity_edges_added,
         tags_added=report.tags_added,
         lastfm_skipped=report.lastfm_skipped,
