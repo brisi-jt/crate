@@ -23,4 +23,3 @@ jobs:
         if: failure()
         run: |
           echo "::warning::External API contract drift detected — read the probe output above."
-          tail -50 thoughts/shared/research/2026-07-phase0-spotify-smoke.md

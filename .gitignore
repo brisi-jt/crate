@@ -32,3 +32,14 @@ backups/
 
 # Spilled Spotify refresh tokens (encrypted, but never commit secrets)
 api/data/token_spill/
+
+# Internal working notes & AI-harness tooling (kept local, not part of the public repo)
+thoughts/
+.claude/
+CLAUDE.md
+web/CLAUDE.md
+web/AGENTS.md
+.impeccable.md
+
+# Generated smoke-probe artifacts (regenerable; not shipped)
+scripts/phase0_artifacts/

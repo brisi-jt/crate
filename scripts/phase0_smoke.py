@@ -8,8 +8,8 @@
 Exercises every endpoint the MVP plan relies on against a live dev-mode Client ID,
 plus the two no-auth fallback providers (ReccoBeats audio features, Deezer previews).
 Each probe is independent — failures are recorded, never fatal — and results are
-written into the RESULTS section of thoughts/shared/research/2026-07-phase0-spotify-smoke.md.
-Successful response bodies are saved to thoughts/shared/research/phase0-fixtures/
+written into the RESULTS section of scripts/phase0_artifacts/spotify-smoke-results.md.
+Successful response bodies are saved to scripts/phase0_artifacts/fixtures/
 for later use as contract-test fixtures.
 
 Usage:
@@ -47,8 +47,8 @@ from pathlib import Path
 import httpx
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FINDINGS_PATH = REPO_ROOT / "thoughts/shared/research/2026-07-phase0-spotify-smoke.md"
-FIXTURES_DIR = REPO_ROOT / "thoughts/shared/research/phase0-fixtures"
+FINDINGS_PATH = REPO_ROOT / "scripts/phase0_artifacts/spotify-smoke-results.md"
+FIXTURES_DIR = REPO_ROOT / "scripts/phase0_artifacts/fixtures"
 
 CALLBACK_HOST = "127.0.0.1"
 CALLBACK_PORT = 8200
@@ -628,6 +628,7 @@ def update_findings(section: str, table: str) -> None:
             text = text.rstrip() + f"\n\n{block}\n"
     else:
         text = f"# Phase 0 smoke results\n\n{block}\n"
+    FINDINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
     FINDINGS_PATH.write_text(text)
     print(f"Wrote {section} block to {FINDINGS_PATH}")
 
