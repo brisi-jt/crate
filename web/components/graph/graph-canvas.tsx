@@ -245,7 +245,7 @@ export default function GraphCanvas({
       fg.zoomToFit(0, 100);
       // Zoom in past the whole-graph fit so the dense mass of playlists fills
       // the frame at a glance, rather than framing every sparse outlier.
-      fg.zoom(Math.min(fg.zoom() * 2, 3.5), 0);
+      fg.zoom(Math.min(fg.zoom() * 2.4, 3.5), 0);
       didFit.current = true;
     }, 1100);
     return () => clearTimeout(timer);
