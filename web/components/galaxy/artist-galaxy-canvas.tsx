@@ -208,11 +208,20 @@ export default function ArtistGalaxyCanvas({
       const fg = fgRef.current;
       if (!fg) return;
       fg.zoomToFit(0, 80);
-      if (fg.zoom() > 1.3) fg.zoom(1.3, 0);
+      // Re-centre on the artist centroid, then zoom in past the whole-galaxy
+      // fit so the dense mass fills the frame (sparse outliers, which skew the
+      // fit's bounding-box centre, crop out and can be reached by panning).
+      const gn = graphData.nodes as ReadonlyArray<{ x?: number; y?: number }>;
+      if (gn.length > 0) {
+        const cx = gn.reduce((sum, n) => sum + (n.x ?? 0), 0) / gn.length;
+        const cy = gn.reduce((sum, n) => sum + (n.y ?? 0), 0) / gn.length;
+        fg.centerAt(cx, cy, 0);
+      }
+      fg.zoom(Math.min(fg.zoom() * 2, 3.5), 0);
       didFit.current = true;
     }, 1100);
     return () => clearTimeout(timer);
-  }, [graphMounted]);
+  }, [graphMounted, graphData.nodes]);
 
   // Fly-to (search-to-focus): glide to the searched artist, once per nonce.
   const lastFlyNonce = useRef(0);

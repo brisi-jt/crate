@@ -156,18 +156,25 @@ export default function TrackFieldCanvas({
 
   const graphMounted = tokens !== null && size.width > 0;
 
-  // One initial fit: the whole field framed, gently inset.
+  // One initial fit: frame the dense bulk of the field, not its full extent.
+  // zoomToFit frames every point, so a handful of sparse outliers leave the
+  // main mass small; we then re-centre on the point centroid and zoom in past
+  // the fit so the bulk of the library fills the frame at a glance (the sparse
+  // outliers crop out of view, and can be reached by panning).
   useEffect(() => {
     if (didFit.current || !graphMounted || points.length === 0) return;
     const timer = setTimeout(() => {
       const fg = fgRef.current;
       if (!fg) return;
       fg.zoomToFit(0, 60);
-      if (fg.zoom() > 2) fg.zoom(2, 0);
+      const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+      const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+      fg.centerAt(cx, cy, 0);
+      fg.zoom(Math.min(fg.zoom() * 2, 3.5), 0);
       didFit.current = true;
     }, 60);
     return () => clearTimeout(timer);
-  }, [graphMounted, points.length]);
+  }, [graphMounted, points]);
 
   // Right dock opening/closing shifts the camera (docked-panel rule 5).
   const prevInset = useRef(0);

@@ -271,8 +271,11 @@ export default function MapPage() {
           <MapNotComputed />
         )}
 
-        {/* Chrome woven onto the canvas margin — no bar, no card */}
-        <div className="pointer-events-none absolute top-md left-lg z-10 flex max-w-[calc(100%-320px)] flex-wrap items-center gap-md">
+        {/* Chrome woven onto the canvas margin — no bar, no card.
+            Reserve the width of the right-anchored nav cluster (PINS · INBOX ·
+            INSIGHTS · TRIAGE · DASHBOARD · PALETTE) so this left group wraps
+            rather than growing under it. */}
+        <div className="pointer-events-none absolute top-md left-lg z-10 flex max-w-[calc(100%-560px)] flex-wrap items-center gap-md">
           <SyncReadout graph={graph.data ?? null} />
           {graph.data && <MapModeSwitch />}
         </div>
