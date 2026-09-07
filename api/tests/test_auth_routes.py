@@ -68,11 +68,12 @@ def test_callback_stores_encrypted_credential(
     state = parse_qs(urlparse(connect.headers["location"]).query)["state"][0]
 
     response = client.get(
-        "/v1/auth/spotify/callback", params={"code": "auth-code-1", "state": state}
+        "/v1/auth/spotify/callback",
+        params={"code": "auth-code-1", "state": state},
+        follow_redirects=False,
     )
-    assert response.status_code == 200
-    assert response.json()["status"] == "connected"
-    assert response.json()["spotify_user_id"] == "spotify-jt-new"
+    assert response.status_code == 303
+    assert "crate_spotify_auth" not in response.cookies  # auth cookie cleared
 
     assert gateway.exchanged and gateway.exchanged[0][0] == "auth-code-1"
 
@@ -106,9 +107,11 @@ def test_callback_reconnect_replaces_credential_and_clears_reauth(
     connect = client.get("/v1/auth/spotify/connect", follow_redirects=False)
     state = parse_qs(urlparse(connect.headers["location"]).query)["state"][0]
     response = client.get(
-        "/v1/auth/spotify/callback", params={"code": "auth-code-2", "state": state}
+        "/v1/auth/spotify/callback",
+        params={"code": "auth-code-2", "state": state},
+        follow_redirects=False,
     )
-    assert response.status_code == 200
+    assert response.status_code == 303
 
     credential = session.exec(
         select(SpotifyCredential).where(SpotifyCredential.user_id == user.id)

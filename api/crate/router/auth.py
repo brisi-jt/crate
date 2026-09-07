@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlmodel import select
 
 from crate.deps import CurrentUserDep, SessionDep, get_auth_gateway
@@ -84,7 +84,7 @@ async def spotify_callback(
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
-) -> JSONResponse:
+) -> RedirectResponse:
     if error:
         raise AppError(
             400,
@@ -133,16 +133,7 @@ async def spotify_callback(
     session.add(credential)
     session.commit()
 
-    response = JSONResponse(
-        {
-            "status": "connected",
-            "spotify_user_id": profile.id,
-            "_links": {
-                "sync": {"href": "/v1/sync"},
-                "sync_status": {"href": "/v1/sync/status"},
-            },
-        }
-    )
+    response = RedirectResponse(get_settings().web_app_url, status_code=303)
     response.delete_cookie(AUTH_COOKIE)
     return response
 

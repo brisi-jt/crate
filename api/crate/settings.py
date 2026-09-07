@@ -24,10 +24,14 @@ class Settings(BaseSettings):
     # on host port 3308.
     database_url: str = "mysql+pymysql://crate:crate@127.0.0.1:3308/crate"
 
-    # Origins allowed to call the API from a browser. The two vercel.app
-    # entries are placeholders until the real project domains exist.
+    # Origins allowed to call the API from a browser. Both loopback spellings
+    # are listed because the Spotify OAuth flow pins the app to 127.0.0.1
+    # (its redirect URI), so the browser fetches the API from a 127.0.0.1
+    # page; localhost is kept for convenience. The two vercel.app entries are
+    # placeholders until the real project domains exist.
     cors_origins: list[str] = [
         "http://localhost:3200",
+        "http://127.0.0.1:3200",
         "https://crate.vercel.app",
         "https://crate-web.vercel.app",
     ]
@@ -45,6 +49,8 @@ class Settings(BaseSettings):
     # the user with this clerk_user_id (created on first use). Unset in
     # deployed environments; Clerk JWT verification replaces the bypass.
     dev_user: str | None = Field(default=None, validation_alias="CRATE_DEV_USER")
+
+    web_app_url: str = "http://127.0.0.1:3200"
 
     spotify_client_id: str = ""
     spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
