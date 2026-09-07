@@ -37,6 +37,8 @@ The interesting engineering, written up in **[docs/architecture.md](docs/archite
 
 ## Quickstart
 
+Full setup — including the Spotify developer-app configuration — is in **[INSTALL.md](./INSTALL.md)**.
+
 ```bash
 # database
 docker compose up -d db
