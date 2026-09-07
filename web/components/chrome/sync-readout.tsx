@@ -4,8 +4,12 @@ import { useSyncStatus, useTriggerSync } from "@/hooks/api/use-sync";
 import type { GraphResponse } from "@/lib/api/schemas";
 import { useUiStore } from "@/lib/store/ui";
 
+// Must share an origin with the API's spotify_redirect_uri (127.0.0.1:8200):
+// the OAuth flow sets an httponly state cookie at /connect that /callback reads
+// back, and localhost vs 127.0.0.1 are distinct cookie origins — a mismatch
+// silently drops the cookie and fails re-auth with a state error.
 const API_BASE =
-  process.env.NEXT_PUBLIC_CRATE_API_URL ?? "http://localhost:8200";
+  process.env.NEXT_PUBLIC_CRATE_API_URL ?? "http://127.0.0.1:8200";
 
 function formatTime(iso: string | null): string {
   if (!iso) return "NEVER";
