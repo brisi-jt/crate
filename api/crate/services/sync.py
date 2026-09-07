@@ -6,6 +6,7 @@ history the analytics layer replays.
 """
 
 import contextlib
+import logging
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,6 +45,8 @@ from crate.services.spotify.problems import reauth_conflict
 from crate.services.storage import ping_engine
 from crate.services.text import clean_name, clean_optional_name
 from crate.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class SpotifyReader(Protocol):
@@ -264,6 +267,21 @@ class SyncService:
                 continue  # removed-from-catalog ghosts and local files
             new_entries.append((self._upsert_track(track), _naive_utc(item.added_at)))
         new_order = [track.spotify_id for track, _ in new_entries]
+
+        # Guard: if Spotify returned nothing but we already have membership rows,
+        # treat the empty response as a transient fetch failure and bail out early.
+        # Wiping all PlaylistTrack rows on an empty fetch would destroy accumulated
+        # history that cannot be recovered — a genuinely empty playlist is rare and
+        # is handled naturally on any subsequent successful fetch.
+        if not new_entries and old_rows:
+            logger.warning(
+                "Spotify returned 0 tracks for playlist %s (%s) but %d membership "
+                "rows already exist — skipping delete/reinsert to protect history.",
+                playlist.spotify_id,
+                playlist.name,
+                len(old_rows),
+            )
+            return
 
         if emit_events:
             self._emit_membership_events(playlist, old_order, new_order, report)

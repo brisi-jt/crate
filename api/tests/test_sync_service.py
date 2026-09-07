@@ -329,3 +329,37 @@ async def test_null_and_local_tracks_are_skipped(session: Session, user: User) -
 
     playlist = session.exec(select(Playlist)).one()
     assert membership(session, playlist) == [("t-a", 0)]
+
+
+# --- empty-fetch guard: protect existing membership on transient Spotify failure ---
+
+
+async def test_empty_spotify_response_preserves_existing_membership(
+    session: Session, user: User
+) -> None:
+    """Regression: if Spotify returns 0 tracks for an established playlist,
+    _refresh_membership must bail out early rather than deleting all rows.
+
+    This guards against transient throttling or network errors that return an
+    empty iterator — a scenario that previously wiped the PlaylistTrack history
+    without raising an exception (so no rollback ever fired).
+    """
+    # Establish baseline with 3 tracks.
+    await establish_baseline(session, user)
+    playlist = session.exec(select(Playlist)).one()
+    assert len(membership(session, playlist)) == 3
+
+    # Second sync: Spotify returns a new snapshot but zero tracks — simulates a
+    # transient throttle / empty-response error right after re-auth.
+    fake = FakeSpotify(
+        [remote_playlist("pl-1", "night drives", "snap-2", total=3)],
+        {"pl-1": []},  # empty — Spotify returned nothing
+    )
+    await run_sync(session, user, fake)
+
+    # The guard must have fired: all 3 existing rows survive.
+    session.expire_all()
+    assert membership(session, playlist) == [("t-a", 0), ("t-b", 1), ("t-c", 2)]
+    # No membership-change events should have been emitted.
+    assert events(session, SyncEventType.added) == []
+    assert events(session, SyncEventType.removed) == []
