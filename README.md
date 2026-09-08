@@ -4,6 +4,8 @@
 
 Inspired by [Every Noise at Once](https://everynoise.com).
 
+![crate — the track field: your library laid out as an interactive, genre-coloured map of sound-space](docs/screenshots/track-field.png)
+
 ## What it is
 
 - **A map of your taste.** Every track is embedded and laid out in 2-D, coloured by genre and clustered into the neighbourhoods your library actually forms — pan, zoom, and follow the structure.
@@ -17,6 +19,15 @@ Inspired by [Every Noise at Once](https://everynoise.com).
 In 2026 Spotify withdrew the audio-features, recommendations, and related-artists endpoints for new apps and capped development-mode apps at five users. Rather than build on an API that can be revoked, crate derives all of its intelligence from open music data — **MusicBrainz, Last.fm, ReccoBeats, FreqBlog, Deezer previews, and Every Noise at Once** — and computes its own feature space from your library's own distribution. The constraint became the design: the engine is platform-independent and owns its data.
 
 See the full attribution in [NOTICE.md](./NOTICE.md).
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Playlist graph](docs/screenshots/playlist-graph.png) | ![Artist galaxy](docs/screenshots/artist-galaxy.png) |
+| **Playlist graph** — playlists as a force-directed network; edges are shared tracks, size is track count. | **Artist galaxy** — artists linked by co-appearance across your playlists. |
+| ![Insights](docs/screenshots/insights.png) | ![Triage](docs/screenshots/triage.png) |
+| **Insights** — computed structure, tempo, energy, era, and mood over the whole library. | **Triage** — per-track filing suggestions with named, typed evidence. |
 
 ## Architecture
 
