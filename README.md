@@ -82,3 +82,7 @@ CI runs the same gates (`lint.yml`, `test.yml`, `test-integration.yml`) plus a m
 ## License
 
 [MIT](./LICENSE) © 2026 James Towns. Third-party attribution in [NOTICE.md](./NOTICE.md).
+
+## Support
+
+If crate is useful or interesting to you, you can [buy me a coffee ☕](https://buymeacoffee.com/brisi).
