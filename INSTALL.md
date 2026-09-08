@@ -64,7 +64,7 @@ NEXT_PUBLIC_CRATE_AUTH=dev bun dev
 
 `NEXT_PUBLIC_CRATE_AUTH=dev` runs the frontend against the dev-user auth provider, pairing with the API's `CRATE_DEV_USER` bypass so you can run locally without configuring Clerk. **This is required for local use unless you've set up Clerk** — otherwise the app defaults to Clerk mode (whenever a Clerk publishable key is present), which gates all data behind a Clerk session that a local run doesn't have.
 
-Open **http://127.0.0.1:3200** (use `127.0.0.1`, matching the Spotify redirect origin).
+Open **http://localhost:3200**. (The Spotify redirect URI stays on `127.0.0.1:8200` per Spotify's loopback rule — the OAuth round-trip runs against the API origin and is independent of the web page's origin.)
 
 ## 4. Connect Spotify and run the first sync
 
@@ -74,7 +74,7 @@ Open **http://127.0.0.1:3200** (use `127.0.0.1`, matching the Spotify redirect o
 ## Troubleshooting
 
 - **"client_id: Not present" when connecting** — `SPOTIFY_CLIENT_ID` isn't set in the API's environment. Confirm it's in `api/.env` (or pass it inline) and restart the API.
-- **Reconnect fails with a state error / never returns** — you're mixing `localhost` and `127.0.0.1`. Access the app at `http://127.0.0.1:3200` and keep the redirect URI on `127.0.0.1:8200`; the OAuth state cookie is origin-scoped and won't survive a `localhost` ↔ `127.0.0.1` switch.
+- **Reconnect fails with a state error / never returns** — the OAuth state cookie is origin-scoped, so the Spotify connect *and* callback must share one origin. Keep the redirect URI on `127.0.0.1:8200` (Spotify's loopback requirement); the app already starts the connect flow on that same `127.0.0.1:8200` API origin, so it round-trips cleanly regardless of whether you open the web app at `localhost` or `127.0.0.1`.
 - **App stuck on "SYNC PASS RUNNING · PLAYLISTS INBOUND" with no data** — the frontend is in Clerk mode without a session (a Clerk key is present, or you're on an origin Clerk isn't configured for — e.g. `127.0.0.1` when Clerk allows only `localhost`), so every data query is gated off and nothing loads. Run the frontend with `NEXT_PUBLIC_CRATE_AUTH=dev` (see step 3) for local use.
 - **Database won't start / port clash** — `:3308` is in use; stop the conflicting MySQL or change the compose port mapping.
 - **Reset the database** — `docker compose down` keeps your data (the named volume survives). Never use `docker compose down -v` — that deletes the volume and your library with it.

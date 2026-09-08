@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # deployed environments; Clerk JWT verification replaces the bypass.
     dev_user: str | None = Field(default=None, validation_alias="CRATE_DEV_USER")
 
-    web_app_url: str = "http://127.0.0.1:3200"
+    web_app_url: str = "http://localhost:3200"
 
     spotify_client_id: str = ""
     spotify_redirect_uri: str = "http://127.0.0.1:8200/v1/auth/spotify/callback"
