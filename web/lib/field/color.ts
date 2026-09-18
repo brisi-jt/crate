@@ -4,7 +4,7 @@
  *
  * 1. Per-track feature percentiles, when the map payload ships them.
  * 2. Otherwise the mean centroid of the playlists holding the track — the
- *    Phase 9 "playlist-colored" scatter. Single-membership tracks land on
+ *    "playlist-colored" scatter. Single-membership tracks land on
  *    exactly their playlist's color; multi-membership tracks blend in
  *    centroid space (never in color space) before mapping.
  * 3. No membership or no enriched owner → the grey out-of-gamut state.

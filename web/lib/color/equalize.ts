@@ -12,8 +12,6 @@
  * preserved — a track redder than another stays redder, colour is still
  * evidence, just equalized. Cyan (100–260) stays empty; every legibility clamp
  * still holds because equalizedColor routes through acousticColor unchanged.
- *
- * Research: thoughts/shared/research/2026-07-17-graph-improvements-research.md §3.
  */
 
 import type { AcousticCentroid, Oklch } from "./acoustic";

@@ -3,7 +3,6 @@
  *
  * This is the checklist side of the explain system: every jargon term and data
  * source called out in the per-surface inventory
- * (thoughts/shared/research/2026-07-17-ux-explainability-insights-research.md §1)
  * lives here as a stable key. The glossary (glossary.ts) must resolve every one
  * of these, and must not carry orphan entries that nothing references.
  *

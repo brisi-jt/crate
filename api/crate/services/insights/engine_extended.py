@@ -379,7 +379,7 @@ def _cross_table_section(
     # I23 calibration drift: FeatureCalibration stores one current row per
     # feature (no time series exists), so this renders the current p10-p90
     # spread as a single point per feature; spread_delta stays null until a
-    # calibration-history table lands. See handoff (documented deviation).
+    # calibration-history table lands (documented deviation).
     calib_rows = session.exec(select(FeatureCalibration)).all()
     series = [
         {

@@ -9,7 +9,7 @@ import { z } from "zod";
  * /v1/sync, /v1/sync/status.
  *
  * Analytics endpoints (graph, playlist analytics, library stats) are the
- * Phase 4 contract — the shapes below are what the web builds against, and
+ * the analytics contract — the shapes below are what the web builds against, and
  * the graph fixture parses through the same schema.
  */
 
@@ -261,7 +261,7 @@ export const trackMapResponseSchema = z.object({
   _links: halLinksSchema,
 });
 
-// ------------------------------------- playlist analytics (Phase 4 contract)
+// ------------------------------------------------- playlist analytics
 
 export const playlistAnalyticsSchema = z.object({
   /** Mean pairwise feature distance in percentile space; null until computed. */
@@ -293,7 +293,7 @@ export const playlistAnalyticsSchema = z.object({
   _links: halLinksSchema,
 });
 
-// ------------------------------------------ library stats (Phase 4 contract)
+// ------------------------------------------------------- library stats
 
 export const libraryStatsSchema = z.object({
   /** Quarterly add-centroid drift, oldest first. */
@@ -326,7 +326,7 @@ export const libraryStatsSchema = z.object({
   _links: halLinksSchema,
 });
 
-// -------------------------------------------------- writes (Phase 7 live)
+// ------------------------------------------------------------- writes
 
 /** Result of a single journaled write (add/remove/rename/reorder). */
 export const mutationResultSchema = z.object({
@@ -414,7 +414,7 @@ export const undoResultSchema = z.object({
   _links: halLinksSchema,
 });
 
-// ------------------------------------------------- discovery (Phase 8 live)
+// -------------------------------------------------------- discovery
 
 /** How a suggestion's fit score decomposes — the deck's readout. */
 export const fitBreakdownSchema = z.object({

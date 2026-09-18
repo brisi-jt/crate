@@ -5,7 +5,6 @@
  * color: hue tracks organic↔electronic, chroma tracks energy, lightness
  * tracks valence. Similar sound ⇒ similar color, consistently.
  *
- * Formula source (binding): thoughts/shared/mockups/2026-07-11-design-tokens.md §2.
  * Inputs are LIBRARY PERCENTILES (0–1), never raw feature values.
  */
 

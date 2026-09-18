@@ -52,7 +52,7 @@ class HalLink(BaseModel):
 
 
 # The survey payload is a nested, section-shaped body; the web consumes it as a
-# whole, so it's typed loosely here and documented by the handoff rather than
+# whole, so it's typed loosely here rather than
 # split into a hundred sub-models. The individual sections carry their own
 # coverage so pending states render without guessing.
 class InsightsResponse(BaseModel):

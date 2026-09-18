@@ -4,8 +4,7 @@
 /*
  * crate design tokens — observatory night.
  * Single dark theme, derived not defaulted: every neutral is tinted toward
- * the indigo canvas hue (265). Source of truth for values:
- * thoughts/shared/mockups/2026-07-11-design-tokens.md
+ * the indigo canvas hue (265).
  */
 :root {
   /* Surfaces — depth is lightness, not shadow */
